@@ -4478,7 +4478,7 @@ dependencies = [
 [[package]]
 name = "openvm-stark-backend"
 version = "1.0.0-rc.0"
-source = "git+https://github.com/openvm-org/stark-backend.git?tag=v1.0.0-rc.0#18cf1c084ebeb3ca1163e55b87893f1d1fd7fc1f"
+source = "git+https://github.com/powdr-labs/stark-backend.git?branch=powdr#18cf1c084ebeb3ca1163e55b87893f1d1fd7fc1f"
 dependencies = [
  "async-trait",
  "cfg-if",
@@ -4506,7 +4506,7 @@ dependencies = [
 [[package]]
 name = "openvm-stark-sdk"
 version = "1.0.0-rc.0"
-source = "git+https://github.com/openvm-org/stark-backend.git?tag=v1.0.0-rc.0#18cf1c084ebeb3ca1163e55b87893f1d1fd7fc1f"
+source = "git+https://github.com/powdr-labs/stark-backend.git?branch=powdr#18cf1c084ebeb3ca1163e55b87893f1d1fd7fc1f"
 dependencies = [
  "derivative",
  "derive_more 0.99.18",
