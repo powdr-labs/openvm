@@ -4907,8 +4907,13 @@ dependencies = [
 
 [[package]]
 name = "openvm-stark-backend"
+<<<<<<< HEAD
 version = "1.0.0"
 source = "git+https://github.com/openvm-org/stark-backend.git?tag=v1.0.0#884f8e6aabf72bde00dc51f1f1121277bff73b1e"
+=======
+version = "1.0.0-rc.0"
+source = "git+https://github.com/powdr-labs/stark-backend.git?branch=powdr#18cf1c084ebeb3ca1163e55b87893f1d1fd7fc1f"
+>>>>>>> 3d179c111 (point to powdr fork of stark-backend to align everything)
 dependencies = [
  "bitcode",
  "cfg-if",
@@ -4935,8 +4940,13 @@ dependencies = [
 
 [[package]]
 name = "openvm-stark-sdk"
+<<<<<<< HEAD
 version = "1.0.0"
 source = "git+https://github.com/openvm-org/stark-backend.git?tag=v1.0.0#884f8e6aabf72bde00dc51f1f1121277bff73b1e"
+=======
+version = "1.0.0-rc.0"
+source = "git+https://github.com/powdr-labs/stark-backend.git?branch=powdr#18cf1c084ebeb3ca1163e55b87893f1d1fd7fc1f"
+>>>>>>> 3d179c111 (point to powdr fork of stark-backend to align everything)
 dependencies = [
  "derivative",
  "derive_more 0.99.19",
