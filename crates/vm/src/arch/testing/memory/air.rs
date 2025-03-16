@@ -25,7 +25,11 @@ pub struct MemoryDummyAir<const BLOCK_SIZE: usize> {
     pub bus: MemoryBus,
 }
 
-impl<const BLOCK_SIZE: usize, F> BaseAirWithPublicValues<F> for MemoryDummyAir<BLOCK_SIZE> {}
+impl<const BLOCK_SIZE: usize, F> BaseAirWithPublicValues<F> for MemoryDummyAir<BLOCK_SIZE> {
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
+}
 impl<const BLOCK_SIZE: usize, F> PartitionedBaseAir<F> for MemoryDummyAir<BLOCK_SIZE> {}
 impl<const BLOCK_SIZE: usize, F> BaseAir<F> for MemoryDummyAir<BLOCK_SIZE> {
     fn width(&self) -> usize {

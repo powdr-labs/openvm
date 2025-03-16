@@ -19,7 +19,11 @@ impl TestSendAir {
     }
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for TestSendAir {}
+impl<F: Field> BaseAirWithPublicValues<F> for TestSendAir {
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
+}
 impl<F: Field> PartitionedBaseAir<F> for TestSendAir {}
 impl<F: Field> BaseAir<F> for TestSendAir {
     fn width(&self) -> usize {
@@ -52,7 +56,11 @@ impl TestRangeCheckAir {
     }
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for TestRangeCheckAir {}
+impl<F: Field> BaseAirWithPublicValues<F> for TestRangeCheckAir {
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
+}
 impl<F: Field> PartitionedBaseAir<F> for TestRangeCheckAir {}
 impl<F: Field> BaseAir<F> for TestRangeCheckAir {
     fn width(&self) -> usize {

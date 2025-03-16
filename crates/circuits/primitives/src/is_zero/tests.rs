@@ -30,7 +30,11 @@ pub struct IsZeroCols<T> {
 #[derive(Copy, Clone)]
 pub struct IsZeroTestAir(IsZeroSubAir);
 
-impl<F: Field> BaseAirWithPublicValues<F> for IsZeroTestAir {}
+impl<F: Field> BaseAirWithPublicValues<F> for IsZeroTestAir {
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
+}
 impl<F: Field> PartitionedBaseAir<F> for IsZeroTestAir {}
 impl<F: Field> BaseAir<F> for IsZeroTestAir {
     fn width(&self) -> usize {

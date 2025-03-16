@@ -40,7 +40,11 @@ pub struct AssertLessThanCols<T, const AUX_LEN: usize> {
 #[derive(Clone, Copy)]
 pub struct AssertLtTestAir<const AUX_LEN: usize>(pub AssertLtSubAir);
 
-impl<F: Field, const AUX_LEN: usize> BaseAirWithPublicValues<F> for AssertLtTestAir<AUX_LEN> {}
+impl<F: Field, const AUX_LEN: usize> BaseAirWithPublicValues<F> for AssertLtTestAir<AUX_LEN> {
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
+}
 impl<F: Field, const AUX_LEN: usize> PartitionedBaseAir<F> for AssertLtTestAir<AUX_LEN> {}
 impl<F: Field, const AUX_LEN: usize> BaseAir<F> for AssertLtTestAir<AUX_LEN> {
     fn width(&self) -> usize {

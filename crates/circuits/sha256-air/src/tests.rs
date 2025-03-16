@@ -30,7 +30,11 @@ pub struct Sha256TestAir {
     pub sub_air: Sha256Air,
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for Sha256TestAir {}
+impl<F: Field> BaseAirWithPublicValues<F> for Sha256TestAir {
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
+}
 impl<F: Field> PartitionedBaseAir<F> for Sha256TestAir {}
 impl<F: Field> BaseAir<F> for Sha256TestAir {
     fn width(&self) -> usize {

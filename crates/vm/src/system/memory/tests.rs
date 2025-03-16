@@ -72,7 +72,11 @@ struct MemoryRequesterAir {
     memory_bridge: MemoryBridge,
 }
 
-impl<T> BaseAirWithPublicValues<T> for MemoryRequesterAir {}
+impl<T> BaseAirWithPublicValues<T> for MemoryRequesterAir {
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
+}
 impl<T> PartitionedBaseAir<T> for MemoryRequesterAir {}
 impl<T> BaseAir<T> for MemoryRequesterAir {
     fn width(&self) -> usize {

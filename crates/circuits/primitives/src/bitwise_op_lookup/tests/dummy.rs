@@ -18,7 +18,11 @@ impl DummyAir {
     }
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for DummyAir {}
+impl<F: Field> BaseAirWithPublicValues<F> for DummyAir {
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
+}
 impl<F: Field> PartitionedBaseAir<F> for DummyAir {}
 impl<F: Field> BaseAir<F> for DummyAir {
     fn width(&self) -> usize {

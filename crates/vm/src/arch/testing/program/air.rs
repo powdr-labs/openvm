@@ -14,7 +14,11 @@ pub struct ProgramDummyAir {
     pub bus: ProgramBus,
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for ProgramDummyAir {}
+impl<F: Field> BaseAirWithPublicValues<F> for ProgramDummyAir {
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
+}
 impl<F: Field> PartitionedBaseAir<F> for ProgramDummyAir {}
 impl<F: Field> BaseAir<F> for ProgramDummyAir {
     fn width(&self) -> usize {

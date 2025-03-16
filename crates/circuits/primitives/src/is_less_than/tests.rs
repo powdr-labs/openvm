@@ -38,7 +38,11 @@ pub struct IsLessThanCols<T> {
 #[derive(Clone, Copy)]
 pub struct IsLtTestAir(pub IsLtSubAir);
 
-impl<F: Field> BaseAirWithPublicValues<F> for IsLtTestAir {}
+impl<F: Field> BaseAirWithPublicValues<F> for IsLtTestAir {
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
+}
 impl<F: Field> PartitionedBaseAir<F> for IsLtTestAir {}
 impl<F: Field> BaseAir<F> for IsLtTestAir {
     fn width(&self) -> usize {

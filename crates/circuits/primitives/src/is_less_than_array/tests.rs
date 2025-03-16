@@ -34,6 +34,9 @@ pub struct IsLtArrayTestAir<const NUM: usize, const AUX_LEN: usize>(IsLtArraySub
 impl<F: Field, const NUM: usize, const AUX_LEN: usize> BaseAirWithPublicValues<F>
     for IsLtArrayTestAir<NUM, AUX_LEN>
 {
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
 }
 impl<F: Field, const NUM: usize, const AUX_LEN: usize> BaseAir<F>
     for IsLtArrayTestAir<NUM, AUX_LEN>

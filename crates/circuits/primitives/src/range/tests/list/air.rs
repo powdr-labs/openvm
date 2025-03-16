@@ -17,7 +17,11 @@ pub struct ListAir {
     pub bus: RangeCheckBus,
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for ListAir {}
+impl<F: Field> BaseAirWithPublicValues<F> for ListAir {
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
+}
 impl<F: Field> PartitionedBaseAir<F> for ListAir {}
 impl<F: Field> BaseAir<F> for ListAir {
     fn width(&self) -> usize {

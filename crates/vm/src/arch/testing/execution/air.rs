@@ -25,7 +25,11 @@ pub struct ExecutionDummyAir {
     pub bus: ExecutionBus,
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for ExecutionDummyAir {}
+impl<F: Field> BaseAirWithPublicValues<F> for ExecutionDummyAir {
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
+}
 impl<F: Field> PartitionedBaseAir<F> for ExecutionDummyAir {}
 impl<F: Field> BaseAir<F> for ExecutionDummyAir {
     fn width(&self) -> usize {

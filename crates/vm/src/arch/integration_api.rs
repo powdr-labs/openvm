@@ -372,11 +372,7 @@ where
     }
 
     fn columns(&self) -> Vec<String> {
-        self.adapter
-            .columns::<F>()
-            .into_iter()
-            .chain(self.core.columns::<F>())
-            .collect()
+        self.core.columns()
     }
 }
 

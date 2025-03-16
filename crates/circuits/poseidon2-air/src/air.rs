@@ -53,9 +53,11 @@ impl<F: Field, const SBOX_REGISTERS: usize> BaseAirWithPublicValues<F>
     for Poseidon2SubAir<F, SBOX_REGISTERS>
 {
     fn columns(&self) -> Vec<String> {
-        match self {
-            Self::BabyBearMds(air) => air.columns(),
-        }
+        // TODO: fix this
+        unimplemented!()
+        //match self {
+        //    Self::BabyBearMds(air) => air.columns(),
+        //}
     }
 }
 impl<F: Field, const SBOX_REGISTERS: usize> PartitionedBaseAir<F>

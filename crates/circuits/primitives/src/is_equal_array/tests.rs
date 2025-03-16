@@ -35,7 +35,11 @@ pub struct IsEqArrayCols<T, const N: usize> {
 #[derive(Clone, Copy)]
 pub struct IsEqArrayTestAir<const N: usize>(IsEqArraySubAir<N>);
 
-impl<F: Field, const N: usize> BaseAirWithPublicValues<F> for IsEqArrayTestAir<N> {}
+impl<F: Field, const N: usize> BaseAirWithPublicValues<F> for IsEqArrayTestAir<N> {
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
+}
 impl<F: Field, const N: usize> PartitionedBaseAir<F> for IsEqArrayTestAir<N> {}
 impl<F: Field, const N: usize> BaseAir<F> for IsEqArrayTestAir<N> {
     fn width(&self) -> usize {
