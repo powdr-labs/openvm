@@ -8,6 +8,8 @@ use openvm_circuit_primitives::var_range::{
     SharedVariableRangeCheckerChip, VariableRangeCheckerBus,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{instruction::Instruction, LocalOpcode};
 use openvm_native_compiler::CastfOpcode;
 use openvm_rv32im_circuit::adapters::RV32_REGISTER_NUM_LIMBS;
@@ -25,7 +27,7 @@ pub(crate) const LIMB_BITS: usize = 8;
 pub(crate) const FINAL_LIMB_BITS: usize = 6;
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, FlattenFields)]
 pub struct CastFCoreCols<T> {
     pub in_val: T,
     pub out_val: [T; RV32_REGISTER_NUM_LIMBS],
@@ -43,7 +45,17 @@ impl<F: Field> BaseAir<F> for CastFCoreAir {
     }
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for CastFCoreAir {}
+impl CastFCoreAir {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        CastFCoreCols::<F>::flatten_fields().unwrap()
+    }
+}
+
+impl<F: Field> BaseAirWithPublicValues<F> for CastFCoreAir {
+    fn columns(&self) -> Vec<String> {
+        CastFCoreCols::<F>::flatten_fields().unwrap()
+    }
+}
 
 impl<AB, I> VmCoreAir<AB, I> for CastFCoreAir
 where
@@ -120,6 +132,10 @@ impl CastFCoreChip {
             },
             range_checker_chip,
         }
+    }
+
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        self.air.columns::<F>()
     }
 }
 

@@ -9,6 +9,8 @@ use std::{
 };
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{Air, AirBuilder, BaseAir},
@@ -23,7 +25,7 @@ pub use crate::range::RangeCheckBus;
 #[cfg(test)]
 mod tests;
 
-#[derive(Copy, Clone, Default, AlignedBorrow)]
+#[derive(Copy, Clone, Default, AlignedBorrow, FlattenFields)]
 pub struct RangeGateCols<T> {
     pub counter: T,
     pub mult: T,
@@ -46,11 +48,21 @@ pub struct RangeCheckerGateAir {
     pub bus: RangeCheckBus,
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for RangeCheckerGateAir {}
+impl<F: Field> BaseAirWithPublicValues<F> for RangeCheckerGateAir {
+    fn columns(&self) -> Vec<String> {
+        RangeGateCols::<F>::flatten_fields().unwrap()
+    }
+}
 impl<F: Field> PartitionedBaseAir<F> for RangeCheckerGateAir {}
 impl<F: Field> BaseAir<F> for RangeCheckerGateAir {
     fn width(&self) -> usize {
         NUM_RANGE_GATE_COLS
+    }
+}
+
+impl RangeCheckerGateAir {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        RangeGateCols::<F>::flatten_fields().unwrap()
     }
 }
 
@@ -141,6 +153,10 @@ impl RangeCheckerGateChip {
             })
             .collect();
         RowMajorMatrix::new(rows, NUM_RANGE_GATE_COLS)
+    }
+
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        self.air.columns::<F>()
     }
 }
 

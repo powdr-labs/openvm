@@ -1,9 +1,11 @@
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 
 use crate::system::memory::{offline_checker::AUX_LEN, MemoryAddress};
 
 #[repr(C)]
-#[derive(Debug, AlignedBorrow)]
+#[derive(Debug, AlignedBorrow, FlattenFields)]
 pub struct AccessAdapterCols<T, const N: usize> {
     pub is_valid: T,
     pub is_split: T,

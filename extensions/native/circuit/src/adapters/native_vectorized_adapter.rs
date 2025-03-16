@@ -18,6 +18,8 @@ use openvm_circuit::{
     },
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{instruction::Instruction, program::DEFAULT_PC_STEP};
 use openvm_native_compiler::conversion::AS;
 use openvm_stark_backend::{
@@ -48,6 +50,10 @@ impl<F: PrimeField32, const N: usize> NativeVectorizedAdapterChip<F, N> {
             _marker: PhantomData,
         }
     }
+
+    pub fn columns(&self) -> Vec<String> {
+        self.air.columns::<F>()
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -63,7 +69,7 @@ pub struct NativeVectorizedWriteRecord<const N: usize> {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, FlattenFields)]
 pub struct NativeVectorizedAdapterCols<T, const N: usize> {
     pub from_state: ExecutionState<T>,
     pub a_pointer: T,
@@ -82,6 +88,12 @@ pub struct NativeVectorizedAdapterAir<const N: usize> {
 impl<F: Field, const N: usize> BaseAir<F> for NativeVectorizedAdapterAir<N> {
     fn width(&self) -> usize {
         NativeVectorizedAdapterCols::<F, N>::width()
+    }
+}
+
+impl<const N: usize> NativeVectorizedAdapterAir<N> {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        NativeVectorizedAdapterCols::<F, N>::flatten_fields().unwrap()
     }
 }
 

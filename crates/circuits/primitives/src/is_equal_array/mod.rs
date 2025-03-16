@@ -1,5 +1,7 @@
 use itertools::izip;
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{p3_air::AirBuilder, p3_field::Field};
 
 use crate::{SubAir, TraceSubRowGenerator};
@@ -20,7 +22,7 @@ pub struct IsEqArrayIo<T, const NUM: usize> {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow, Clone, Copy, Debug)]
+#[derive(AlignedBorrow, Clone, Copy, Debug, FlattenFields)]
 pub struct IsEqArrayAuxCols<T, const NUM: usize> {
     // `diff_inv_marker` is filled with 0 except at the lowest index i such that
     // `x[i] != y[i]`. If such an `i` exists `diff_inv_marker[i]` is the inverse of `x[i] - y[i]`.
@@ -83,5 +85,11 @@ impl<F: Field, const NUM: usize> TraceSubRowGenerator<F> for IsEqArraySubAir<NUM
             }
         }
         *out = F::from_bool(is_eq);
+    }
+}
+
+impl<const NUM: usize> IsEqArraySubAir<NUM> {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        IsEqArrayAuxCols::<F, NUM>::flatten_fields().unwrap()
     }
 }

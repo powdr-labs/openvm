@@ -1,6 +1,7 @@
 use std::{array::from_fn, borrow::Borrow, sync::Arc};
 
 use derive_new::new;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_poseidon2_air::{
     Poseidon2SubAir, BABY_BEAR_POSEIDON2_HALF_FULL_ROUNDS, POSEIDON2_WIDTH,
 };
@@ -28,6 +29,9 @@ pub struct Poseidon2PeripheryAir<F: Field, const SBOX_REGISTERS: usize> {
 impl<F: Field, const SBOX_REGISTERS: usize> BaseAirWithPublicValues<F>
     for Poseidon2PeripheryAir<F, SBOX_REGISTERS>
 {
+    fn columns(&self) -> Vec<String> {
+        Poseidon2PeripheryCols::<F, SBOX_REGISTERS>::flatten_fields().unwrap()
+    }
 }
 impl<F: Field, const SBOX_REGISTERS: usize> PartitionedBaseAir<F>
     for Poseidon2PeripheryAir<F, SBOX_REGISTERS>

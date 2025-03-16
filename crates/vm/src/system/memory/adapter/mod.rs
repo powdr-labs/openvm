@@ -8,6 +8,7 @@ use openvm_circuit_primitives::{
     var_range::SharedVariableRangeCheckerChip, TraceSubRowGenerator,
 };
 use openvm_circuit_primitives_derive::{Chip, ChipUsageGetter};
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     config::{Domain, StarkGenericConfig, Val},
     p3_air::BaseAir,
@@ -207,6 +208,17 @@ impl<F> GenericAccessAdapterChip<F> {
         }
     }
 
+    pub fn columns(&self) -> Vec<String> {
+        match self {
+            GenericAccessAdapterChip::N2(chip) => chip.columns(),
+            GenericAccessAdapterChip::N4(chip) => chip.columns(),
+            GenericAccessAdapterChip::N8(chip) => chip.columns(),
+            GenericAccessAdapterChip::N16(chip) => chip.columns(),
+            GenericAccessAdapterChip::N32(chip) => chip.columns(),
+            GenericAccessAdapterChip::N64(chip) => chip.columns(),
+        }
+    }
+
     #[cfg(test)]
     fn records(&self) -> &[AccessAdapterRecord<F>] {
         match &self {
@@ -238,6 +250,10 @@ impl<F, const N: usize> AccessAdapterChip<F, N> {
             records: vec![],
             overridden_height: None,
         }
+    }
+
+    pub fn columns(&self) -> Vec<String> {
+        AccessAdapterCols::<F, N>::flatten_fields().unwrap()
     }
 }
 impl<F, const N: usize> GenericAccessAdapterChipTrait<F> for AccessAdapterChip<F, N> {

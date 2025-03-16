@@ -8,6 +8,8 @@ use std::{
 };
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     config::{StarkGenericConfig, Val},
     interaction::InteractionBuilder,
@@ -25,13 +27,13 @@ use super::bus::XorBus;
 mod tests;
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, AlignedBorrow)]
+#[derive(Copy, Clone, Debug, AlignedBorrow, FlattenFields)]
 pub struct XorLookupCols<T> {
     pub mult: T,
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, AlignedBorrow)]
+#[derive(Copy, Clone, Debug, AlignedBorrow, FlattenFields)]
 pub struct XorLookupPreprocessedCols<T> {
     pub x: T,
     pub y: T,
@@ -47,7 +49,11 @@ pub struct XorLookupAir<const M: usize> {
     pub bus: XorBus,
 }
 
-impl<F: Field, const M: usize> BaseAirWithPublicValues<F> for XorLookupAir<M> {}
+impl<F: Field, const M: usize> BaseAirWithPublicValues<F> for XorLookupAir<M> {
+    fn columns(&self) -> Vec<String> {
+        XorLookupCols::<F>::flatten_fields().unwrap()
+    }
+}
 impl<F: Field, const M: usize> PartitionedBaseAir<F> for XorLookupAir<M> {}
 impl<F: Field, const M: usize> BaseAir<F> for XorLookupAir<M> {
     fn width(&self) -> usize {
@@ -65,6 +71,12 @@ impl<F: Field, const M: usize> BaseAir<F> for XorLookupAir<M> {
             .collect();
 
         Some(RowMajorMatrix::new(rows, NUM_XOR_LOOKUP_PREPROCESSED_COLS))
+    }
+}
+
+impl<const M: usize> XorLookupAir<M> {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        XorLookupCols::<F>::flatten_fields().unwrap()
     }
 }
 
@@ -150,6 +162,10 @@ impl<const M: usize> XorLookupChip<M> {
             .collect();
 
         RowMajorMatrix::new_col(multiplicities)
+    }
+
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        self.air.columns::<F>()
     }
 }
 

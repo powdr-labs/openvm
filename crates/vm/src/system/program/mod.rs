@@ -1,3 +1,4 @@
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{
     instruction::{DebugInfo, Instruction},
     program::Program,
@@ -83,6 +84,10 @@ impl<F: PrimeField64> ProgramChip<F> {
                 pc_base: self.program.pc_base,
                 program_len: self.program.len(),
             })
+    }
+
+    pub fn columns(&self) -> Vec<String> {
+        ProgramCols::<F>::flatten_fields().unwrap()
     }
 }
 

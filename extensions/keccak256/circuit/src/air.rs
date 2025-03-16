@@ -12,6 +12,7 @@ use openvm_circuit_primitives::{
     bitwise_op_lookup::BitwiseOperationLookupBus,
     utils::{assert_array_eq, not, select},
 };
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::riscv::{RV32_CELL_BITS, RV32_MEMORY_AS, RV32_REGISTER_NUM_LIMBS};
 use openvm_keccak256_transpiler::Rv32KeccakOpcode;
 use openvm_rv32im_circuit::adapters::abstract_compose;
@@ -43,11 +44,21 @@ pub struct KeccakVmAir {
     pub(super) offset: usize,
 }
 
-impl<F> BaseAirWithPublicValues<F> for KeccakVmAir {}
+impl<F> BaseAirWithPublicValues<F> for KeccakVmAir {
+    fn columns(&self) -> Vec<String> {
+        KeccakVmCols::<F>::flatten_fields().unwrap()
+    }
+}
 impl<F> PartitionedBaseAir<F> for KeccakVmAir {}
 impl<F> BaseAir<F> for KeccakVmAir {
     fn width(&self) -> usize {
         NUM_KECCAK_VM_COLS
+    }
+}
+
+impl KeccakVmAir {
+    pub fn columns<F>(&self) -> Vec<String> {
+        KeccakVmCols::<F>::flatten_fields().unwrap()
     }
 }
 

@@ -11,6 +11,8 @@ use openvm_circuit_primitives::bitwise_op_lookup::{
     BitwiseOperationLookupBus, SharedBitwiseOperationLookupChip,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{
     instruction::Instruction,
     program::{DEFAULT_PC_STEP, PC_BITS},
@@ -28,7 +30,7 @@ use serde::{Deserialize, Serialize};
 use crate::adapters::{RV32_CELL_BITS, RV32_REGISTER_NUM_LIMBS, RV_J_TYPE_IMM_BITS};
 
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, AlignedBorrow, FlattenFields)]
 pub struct Rv32JalLuiCoreCols<T> {
     pub imm: T,
     pub rd_data: [T; RV32_REGISTER_NUM_LIMBS],
@@ -47,7 +49,17 @@ impl<F: Field> BaseAir<F> for Rv32JalLuiCoreAir {
     }
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for Rv32JalLuiCoreAir {}
+impl<F: Field> BaseAirWithPublicValues<F> for Rv32JalLuiCoreAir {
+    fn columns(&self) -> Vec<String> {
+        Rv32JalLuiCoreCols::<F>::flatten_fields().unwrap()
+    }
+}
+
+impl Rv32JalLuiCoreAir {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        Rv32JalLuiCoreCols::<F>::flatten_fields().unwrap()
+    }
+}
 
 impl<AB, I> VmCoreAir<AB, I> for Rv32JalLuiCoreAir
 where
@@ -159,6 +171,10 @@ impl Rv32JalLuiCoreChip {
             },
             bitwise_lookup_chip,
         }
+    }
+
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        self.air.columns::<F>()
     }
 }
 

@@ -23,6 +23,8 @@ use openvm_circuit_primitives::bitwise_op_lookup::{
     BitwiseOperationLookupBus, SharedBitwiseOperationLookupChip,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{
     instruction::Instruction,
     program::DEFAULT_PC_STEP,
@@ -95,6 +97,10 @@ impl<
             _marker: PhantomData,
         }
     }
+
+    pub fn columns(&self) -> Vec<String> {
+        self.air.columns::<F>()
+    }
 }
 
 #[serde_as]
@@ -127,7 +133,7 @@ pub struct Rv32VecHeapWriteRecord<const BLOCKS_PER_WRITE: usize, const WRITE_SIZ
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, FlattenFields)]
 pub struct Rv32VecHeapAdapterCols<
     T,
     const NUM_READS: usize,
@@ -165,6 +171,27 @@ pub struct Rv32VecHeapAdapterAir<
     pub bus: BitwiseOperationLookupBus,
     /// The max number of bits for an address in memory
     address_bits: usize,
+}
+
+impl<
+        const NUM_READS: usize,
+        const BLOCKS_PER_READ: usize,
+        const BLOCKS_PER_WRITE: usize,
+        const READ_SIZE: usize,
+        const WRITE_SIZE: usize,
+    > Rv32VecHeapAdapterAir<NUM_READS, BLOCKS_PER_READ, BLOCKS_PER_WRITE, READ_SIZE, WRITE_SIZE>
+{
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        Rv32VecHeapAdapterCols::<
+            F,
+            NUM_READS,
+            BLOCKS_PER_READ,
+            BLOCKS_PER_WRITE,
+            READ_SIZE,
+            WRITE_SIZE,
+        >::flatten_fields()
+        .unwrap()
+    }
 }
 
 impl<

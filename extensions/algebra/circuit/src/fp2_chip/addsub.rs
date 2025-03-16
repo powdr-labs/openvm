@@ -56,6 +56,10 @@ impl<F: PrimeField32, const BLOCKS: usize, const BLOCK_SIZE: usize>
         );
         Self(VmChipWrapper::new(adapter, core, offline_memory))
     }
+
+    pub fn columns(&self) -> Vec<String> {
+        self.0.core.air.columns::<F>()
+    }
 }
 
 pub fn fp2_addsub_expr(

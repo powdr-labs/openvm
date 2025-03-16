@@ -11,6 +11,8 @@ use openvm_circuit_primitives::{
     var_range::{SharedVariableRangeCheckerChip, VariableRangeCheckerBus},
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{instruction::Instruction, LocalOpcode};
 use openvm_rv32im_transpiler::Rv32LoadStoreOpcode::{self, *};
 use openvm_stark_backend::{
@@ -30,7 +32,7 @@ use crate::adapters::LoadStoreInstruction;
 /// shifted_read_data is the read_data shifted by (shift_amount & 2), this reduces the number of opcode flags needed
 /// using this shifted data we can generate the write_data as if the shift_amount was 0 for loadh and 0 or 1 for loadb
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, AlignedBorrow, FlattenFields)]
 pub struct LoadSignExtendCoreCols<T, const NUM_CELLS: usize> {
     /// This chip treats loadb with 0 shift and loadb with 1 shift as different instructions
     pub opcode_loadb_flag0: T,
@@ -73,6 +75,15 @@ impl<F: Field, const NUM_CELLS: usize, const LIMB_BITS: usize> BaseAir<F>
 impl<F: Field, const NUM_CELLS: usize, const LIMB_BITS: usize> BaseAirWithPublicValues<F>
     for LoadSignExtendCoreAir<NUM_CELLS, LIMB_BITS>
 {
+    fn columns(&self) -> Vec<String> {
+        LoadSignExtendCoreCols::<F, NUM_CELLS>::flatten_fields().unwrap()
+    }
+}
+
+impl<const NUM_CELLS: usize, const LIMB_BITS: usize> LoadSignExtendCoreAir<NUM_CELLS, LIMB_BITS> {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        LoadSignExtendCoreCols::<F, NUM_CELLS>::flatten_fields().unwrap()
+    }
 }
 
 impl<AB, I, const NUM_CELLS: usize, const LIMB_BITS: usize> VmCoreAir<AB, I>
@@ -189,6 +200,10 @@ impl<const NUM_CELLS: usize, const LIMB_BITS: usize> LoadSignExtendCoreChip<NUM_
             },
             range_checker_chip,
         }
+    }
+
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        self.air.columns::<F>()
     }
 }
 

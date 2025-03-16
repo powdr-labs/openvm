@@ -1,5 +1,7 @@
 use itertools::izip;
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::AirBuilder,
@@ -30,7 +32,7 @@ pub struct IsLtArrayIo<T, const NUM: usize> {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow, Clone, Copy, Debug)]
+#[derive(AlignedBorrow, Clone, Copy, Debug, FlattenFields)]
 pub struct IsLtArrayAuxCols<T, const NUM: usize, const AUX_LEN: usize> {
     // `diff_inv_marker` is filled with 0 except at the lowest index i such that
     // `x[i] != y[i]`. If such an `i` exists then it is constrained that `diff_val = y[i] - x[i]`.
@@ -146,6 +148,11 @@ impl<const NUM: usize> IsLtArraySubAir<NUM> {
 
         self.lt
             .eval_without_range_checks(builder, diff_val, io.out, io.count, lt_decomp);
+    }
+
+    pub fn columns<F>(&self) -> Vec<String> {
+        LessThanAuxCols::<F, NUM>::flatten_fields().unwrap()
+        // IsLtArrayIo ??
     }
 }
 

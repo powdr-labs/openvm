@@ -6,6 +6,8 @@ use openvm_circuit::arch::{
     VmCoreAir, VmCoreChip,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{instruction::Instruction, LocalOpcode};
 use openvm_native_compiler::FieldArithmeticOpcode::{self, *};
 use openvm_stark_backend::{
@@ -17,7 +19,7 @@ use openvm_stark_backend::{
 use serde::{Deserialize, Serialize};
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, FlattenFields)]
 pub struct FieldArithmeticCoreCols<T> {
     pub a: T,
     pub b: T,
@@ -40,7 +42,17 @@ impl<F: Field> BaseAir<F> for FieldArithmeticCoreAir {
     }
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for FieldArithmeticCoreAir {}
+impl FieldArithmeticCoreAir {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        FieldArithmeticCoreCols::<F>::flatten_fields().unwrap()
+    }
+}
+
+impl<F: Field> BaseAirWithPublicValues<F> for FieldArithmeticCoreAir {
+    fn columns(&self) -> Vec<String> {
+        FieldArithmeticCoreCols::<F>::flatten_fields().unwrap()
+    }
+}
 
 impl<AB, I> VmCoreAir<AB, I> for FieldArithmeticCoreAir
 where
@@ -121,6 +133,10 @@ impl FieldArithmeticCoreChip {
         Self {
             air: FieldArithmeticCoreAir {},
         }
+    }
+
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        self.air.columns::<F>()
     }
 }
 

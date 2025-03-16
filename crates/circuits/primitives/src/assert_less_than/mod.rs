@@ -1,5 +1,7 @@
 use derive_new::new;
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::AirBuilder,
@@ -51,7 +53,7 @@ impl<T> AssertLessThanIo<T> {
 /// `AUX_LEN` is the number of AUX columns
 /// we have that AUX_LEN = max_bits.div_ceil(bus.range_max_bits)
 #[repr(C)]
-#[derive(AlignedBorrow, Clone, Copy, Debug, new)]
+#[derive(AlignedBorrow, Clone, Copy, Debug, new, FlattenFields)]
 pub struct LessThanAuxCols<T, const AUX_LEN: usize> {
     // lower_decomp consists of lower decomposed into limbs of size bus.range_max_bits
     // note: the final limb might have less than bus.range_max_bits bits
@@ -159,6 +161,10 @@ impl AssertLtSubAir {
                 .eval(builder, count.clone());
             bits_remaining = bits_remaining.saturating_sub(self.range_max_bits());
         }
+    }
+
+    pub fn columns<F: Field, const AUX_LEN: usize>(&self) -> Vec<String> {
+        LessThanAuxCols::<F, AUX_LEN>::flatten_fields().unwrap()
     }
 }
 

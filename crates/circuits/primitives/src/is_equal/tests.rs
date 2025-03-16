@@ -30,7 +30,11 @@ pub struct IsEqualCols<T> {
 #[derive(Clone, Copy)]
 pub struct IsEqTestAir(pub IsEqSubAir);
 
-impl<F: Field> BaseAirWithPublicValues<F> for IsEqTestAir {}
+impl<F: Field> BaseAirWithPublicValues<F> for IsEqTestAir {
+    fn columns(&self) -> Vec<String> {
+        unimplemented!()
+    }
+}
 impl<F: Field> PartitionedBaseAir<F> for IsEqTestAir {}
 impl<F: Field> BaseAir<F> for IsEqTestAir {
     fn width(&self) -> usize {

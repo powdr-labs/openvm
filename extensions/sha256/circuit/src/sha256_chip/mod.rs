@@ -12,6 +12,7 @@ use openvm_circuit::arch::{
 use openvm_circuit_primitives::{
     bitwise_op_lookup::SharedBitwiseOperationLookupChip, encoder::Encoder,
 };
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{
     instruction::Instruction,
     program::DEFAULT_PC_STEP,
@@ -55,6 +56,13 @@ pub struct Sha256VmChip<F: PrimeField32> {
     pub bitwise_lookup_chip: SharedBitwiseOperationLookupChip<8>,
 
     offset: usize,
+}
+
+impl<F: PrimeField32> Sha256VmChip<F> {
+    pub fn columns(&self) -> Vec<String> {
+        self.air.columns::<F>()
+        // SharedBitwiseOperationLookupChip ?
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

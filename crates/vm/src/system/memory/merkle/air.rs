@@ -1,5 +1,6 @@
 use std::{borrow::Borrow, iter};
 
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{Air, AirBuilder, AirBuilderWithPublicValues, BaseAir},
@@ -27,6 +28,10 @@ impl<const CHUNK: usize, F: Field> BaseAir<F> for MemoryMerkleAir<CHUNK> {
 impl<const CHUNK: usize, F: Field> BaseAirWithPublicValues<F> for MemoryMerkleAir<CHUNK> {
     fn num_public_values(&self) -> usize {
         MemoryMerklePvs::<F, CHUNK>::width()
+    }
+
+    fn columns(&self) -> Vec<String> {
+        MemoryMerkleCols::<F, CHUNK>::flatten_fields().unwrap()
     }
 }
 

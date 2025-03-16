@@ -3,12 +3,14 @@ use std::{
     sync::{atomic::AtomicU32, Arc},
 };
 
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_poseidon2_air::{Poseidon2Config, Poseidon2SubChip};
 use openvm_stark_backend::{p3_field::PrimeField32, Stateful};
 use rustc_hash::FxHashMap;
 
 use super::{
-    air::Poseidon2PeripheryAir, PERIPHERY_POSEIDON2_CHUNK_SIZE, PERIPHERY_POSEIDON2_WIDTH,
+    air::Poseidon2PeripheryAir, columns::Poseidon2PeripheryCols, PERIPHERY_POSEIDON2_CHUNK_SIZE,
+    PERIPHERY_POSEIDON2_WIDTH,
 };
 use crate::arch::hasher::{Hasher, HasherChip};
 
@@ -27,6 +29,10 @@ impl<F: PrimeField32, const SBOX_REGISTERS: usize> Poseidon2PeripheryBaseChip<F,
             subchip,
             records: FxHashMap::default(),
         }
+    }
+
+    pub fn columns(&self) -> Vec<String> {
+        Poseidon2PeripheryCols::<F, SBOX_REGISTERS>::flatten_fields().unwrap()
     }
 }
 

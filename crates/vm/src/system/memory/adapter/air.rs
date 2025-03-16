@@ -4,6 +4,7 @@ use openvm_circuit_primitives::{
     is_less_than::{IsLessThanIo, IsLtSubAir},
     SubAir,
 };
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{Air, AirBuilder, BaseAir},
@@ -22,7 +23,11 @@ pub struct AccessAdapterAir<const N: usize> {
     pub lt_air: IsLtSubAir,
 }
 
-impl<T, const N: usize> BaseAirWithPublicValues<T> for AccessAdapterAir<N> {}
+impl<T, const N: usize> BaseAirWithPublicValues<T> for AccessAdapterAir<N> {
+    fn columns(&self) -> Vec<String> {
+        AccessAdapterCols::<T, N>::flatten_fields().unwrap()
+    }
+}
 impl<T, const N: usize> PartitionedBaseAir<T> for AccessAdapterAir<N> {}
 impl<T, const N: usize> BaseAir<T> for AccessAdapterAir<N> {
     fn width(&self) -> usize {

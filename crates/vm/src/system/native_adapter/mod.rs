@@ -18,6 +18,8 @@ use openvm_circuit::{
     },
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{instruction::Instruction, program::DEFAULT_PC_STEP};
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
@@ -52,6 +54,10 @@ impl<F: PrimeField32, const R: usize, const W: usize> NativeAdapterChip<F, R, W>
             _phantom: PhantomData,
         }
     }
+
+    pub fn columns(&self) -> Vec<String> {
+        NativeAdapterCols::<F, R, W>::flatten_fields().unwrap()
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -85,21 +91,21 @@ impl<F: Field, const W: usize> NativeWriteRecord<F, W> {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, FlattenFields)]
 pub struct NativeAdapterReadCols<T> {
     pub address: MemoryAddress<T, T>,
     pub read_aux: MemoryReadOrImmediateAuxCols<T>,
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, FlattenFields)]
 pub struct NativeAdapterWriteCols<T> {
     pub address: MemoryAddress<T, T>,
     pub write_aux: MemoryWriteAuxCols<T, 1>,
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, FlattenFields)]
 pub struct NativeAdapterCols<T, const R: usize, const W: usize> {
     pub from_state: ExecutionState<T>,
     pub reads_aux: [NativeAdapterReadCols<T>; R],

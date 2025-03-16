@@ -12,6 +12,8 @@ use openvm_circuit_primitives::{
     var_range::{SharedVariableRangeCheckerChip, VariableRangeCheckerBus},
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{
     instruction::Instruction,
     program::{DEFAULT_PC_STEP, PC_BITS},
@@ -31,7 +33,7 @@ use crate::adapters::{compose, RV32_CELL_BITS, RV32_REGISTER_NUM_LIMBS};
 const RV32_LIMB_MAX: u32 = (1 << RV32_CELL_BITS) - 1;
 
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, AlignedBorrow, FlattenFields)]
 pub struct Rv32JalrCoreCols<T> {
     pub imm: T,
     pub rs1_data: [T; RV32_REGISTER_NUM_LIMBS],
@@ -68,7 +70,17 @@ impl<F: Field> BaseAir<F> for Rv32JalrCoreAir {
     }
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for Rv32JalrCoreAir {}
+impl<F: Field> BaseAirWithPublicValues<F> for Rv32JalrCoreAir {
+    fn columns(&self) -> Vec<String> {
+        Rv32JalrCoreCols::<F>::flatten_fields().unwrap()
+    }
+}
+
+impl Rv32JalrCoreAir {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        Rv32JalrCoreCols::<F>::flatten_fields().unwrap()
+    }
+}
 
 impl<AB, I> VmCoreAir<AB, I> for Rv32JalrCoreAir
 where
@@ -194,6 +206,10 @@ impl Rv32JalrCoreChip {
             bitwise_lookup_chip,
             range_checker_chip,
         }
+    }
+
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        self.air.columns::<F>()
     }
 }
 

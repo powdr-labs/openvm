@@ -24,6 +24,8 @@ use openvm_circuit_primitives::bitwise_op_lookup::{
     BitwiseOperationLookupBus, SharedBitwiseOperationLookupChip,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{
     instruction::Instruction,
     program::DEFAULT_PC_STEP,
@@ -45,7 +47,7 @@ use serde_big_array::BigArray;
 ///   are read from registers (address space 1).
 /// * Reads are from the addresses in `rs[0]` (and `rs[1]` if `R = 2`).
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, FlattenFields)]
 pub struct Rv32HeapBranchAdapterCols<T, const NUM_READS: usize, const READ_SIZE: usize> {
     pub from_state: ExecutionState<T>,
 
@@ -69,6 +71,14 @@ impl<F: Field, const NUM_READS: usize, const READ_SIZE: usize> BaseAir<F>
 {
     fn width(&self) -> usize {
         Rv32HeapBranchAdapterCols::<F, NUM_READS, READ_SIZE>::width()
+    }
+}
+
+impl<const NUM_READS: usize, const READ_SIZE: usize>
+    Rv32HeapBranchAdapterAir<NUM_READS, READ_SIZE>
+{
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        Rv32HeapBranchAdapterCols::<F, NUM_READS, READ_SIZE>::flatten_fields().unwrap()
     }
 }
 
@@ -198,6 +208,10 @@ impl<F: PrimeField32, const NUM_READS: usize, const READ_SIZE: usize>
             bitwise_lookup_chip,
             _marker: PhantomData,
         }
+    }
+
+    pub fn columns(&self) -> Vec<String> {
+        self.air.columns::<F>()
     }
 }
 

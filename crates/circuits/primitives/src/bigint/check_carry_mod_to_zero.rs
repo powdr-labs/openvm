@@ -1,5 +1,7 @@
 use itertools::Itertools;
 use num_bigint::BigUint;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{interaction::InteractionBuilder, p3_field::FieldAlgebra};
 
 use super::{
@@ -9,7 +11,7 @@ use super::{
 };
 use crate::SubAir;
 
-#[derive(Clone)]
+#[derive(Clone, FlattenFields)]
 pub struct CheckCarryModToZeroCols<T> {
     pub carries: Vec<T>,
 
@@ -39,6 +41,10 @@ impl CheckCarryModToZeroSubAir {
             modulus_limbs,
             check_carry_to_zero,
         }
+    }
+
+    pub fn columns<F>(&self) -> Vec<String> {
+        CheckCarryModToZeroCols::<F>::flatten_fields().unwrap()
     }
 }
 

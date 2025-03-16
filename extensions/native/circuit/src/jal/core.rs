@@ -5,6 +5,8 @@ use openvm_circuit::arch::{
     VmCoreAir, VmCoreChip,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{instruction::Instruction, program::DEFAULT_PC_STEP, LocalOpcode};
 use openvm_native_compiler::NativeJalOpcode;
 use openvm_stark_backend::{
@@ -16,7 +18,7 @@ use openvm_stark_backend::{
 use serde::{Deserialize, Serialize};
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, FlattenFields)]
 pub struct JalCoreCols<T> {
     pub imm: T,
     pub is_valid: T,
@@ -31,7 +33,11 @@ impl<F: Field> BaseAir<F> for JalCoreAir {
     }
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for JalCoreAir {}
+impl<F: Field> BaseAirWithPublicValues<F> for JalCoreAir {
+    fn columns(&self) -> Vec<String> {
+        JalCoreCols::<F>::flatten_fields().unwrap()
+    }
+}
 
 impl<AB, I> VmCoreAir<AB, I> for JalCoreAir
 where

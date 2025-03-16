@@ -3,6 +3,8 @@
 
 use openvm_circuit_primitives::is_less_than::LessThanAuxCols;
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::p3_field::PrimeField32;
 
 use crate::system::memory::offline_checker::bridge::AUX_LEN;
@@ -11,7 +13,7 @@ use crate::system::memory::offline_checker::bridge::AUX_LEN;
 // we assume the order of the fields when using borrow or borrow_mut
 #[repr(C)]
 /// Base structure for auxiliary memory columns.
-#[derive(Clone, Copy, Debug, AlignedBorrow)]
+#[derive(Clone, Copy, Debug, AlignedBorrow, FlattenFields)]
 pub struct MemoryBaseAuxCols<T> {
     /// The previous timestamps in which the cells were accessed.
     pub(in crate::system::memory) prev_timestamp: T,
@@ -20,7 +22,7 @@ pub struct MemoryBaseAuxCols<T> {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, AlignedBorrow)]
+#[derive(Clone, Copy, Debug, AlignedBorrow, FlattenFields)]
 pub struct MemoryWriteAuxCols<T, const N: usize> {
     pub(in crate::system::memory) base: MemoryBaseAuxCols<T>,
     pub(in crate::system::memory) prev_data: [T; N],
@@ -57,7 +59,7 @@ impl<const N: usize, T> MemoryWriteAuxCols<T, N> {
 /// To fully constrain a memory read, in addition to these columns,
 /// the address space, pointer, and data must be provided.
 #[repr(C)]
-#[derive(Clone, Copy, Debug, AlignedBorrow)]
+#[derive(Clone, Copy, Debug, AlignedBorrow, FlattenFields)]
 pub struct MemoryReadAuxCols<T> {
     pub(in crate::system::memory) base: MemoryBaseAuxCols<T>,
 }
@@ -81,7 +83,7 @@ impl<F: PrimeField32> MemoryReadAuxCols<F> {
 }
 
 #[repr(C)]
-#[derive(Clone, Debug, AlignedBorrow)]
+#[derive(Clone, Debug, AlignedBorrow, FlattenFields)]
 pub struct MemoryReadOrImmediateAuxCols<T> {
     pub(crate) base: MemoryBaseAuxCols<T>,
     pub(crate) is_immediate: T,

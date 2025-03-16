@@ -5,6 +5,8 @@ use openvm_circuit::{
     system::memory::offline_checker::{MemoryReadAuxCols, MemoryWriteAuxCols},
 };
 use openvm_circuit_primitives::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::riscv::RV32_REGISTER_NUM_LIMBS;
 use openvm_sha256_air::{Sha256DigestCols, Sha256RoundCols};
 
@@ -12,7 +14,7 @@ use super::{SHA256_REGISTER_READS, SHA256_WRITE_SIZE};
 
 /// the first 16 rows of every SHA256 block will be of type Sha256VmRoundCols and the last row will be of type Sha256VmDigestCols
 #[repr(C)]
-#[derive(Clone, Copy, Debug, AlignedBorrow)]
+#[derive(Clone, Copy, Debug, AlignedBorrow, FlattenFields)]
 pub struct Sha256VmRoundCols<T> {
     pub control: Sha256VmControlCols<T>,
     pub inner: Sha256RoundCols<T>,
@@ -20,7 +22,7 @@ pub struct Sha256VmRoundCols<T> {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, AlignedBorrow)]
+#[derive(Clone, Copy, Debug, AlignedBorrow, FlattenFields)]
 pub struct Sha256VmDigestCols<T> {
     pub control: Sha256VmControlCols<T>,
     pub inner: Sha256DigestCols<T>,
@@ -39,7 +41,7 @@ pub struct Sha256VmDigestCols<T> {
 
 /// These are the columns that are used on both round and digest rows
 #[repr(C)]
-#[derive(Clone, Copy, Debug, AlignedBorrow)]
+#[derive(Clone, Copy, Debug, AlignedBorrow, FlattenFields)]
 pub struct Sha256VmControlCols<T> {
     /// Note: We will use the buffer in `inner.message_schedule` as the message data
     /// This is the length of the entire message

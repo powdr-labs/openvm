@@ -19,6 +19,8 @@ use openvm_circuit::{
 };
 use openvm_circuit_primitives::utils::not;
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{
     instruction::Instruction, program::DEFAULT_PC_STEP, riscv::RV32_REGISTER_AS,
 };
@@ -52,6 +54,10 @@ impl<F: PrimeField32> Rv32JalrAdapterChip<F> {
             _marker: PhantomData,
         }
     }
+
+    pub fn columns(&self) -> Vec<String> {
+        self.air.columns::<F>()
+    }
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Rv32JalrReadRecord {
@@ -65,7 +71,7 @@ pub struct Rv32JalrWriteRecord {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, AlignedBorrow, FlattenFields)]
 pub struct Rv32JalrAdapterCols<T> {
     pub from_state: ExecutionState<T>,
     pub rs1_ptr: T,
@@ -84,6 +90,12 @@ pub struct Rv32JalrAdapterAir {
 impl<F: Field> BaseAir<F> for Rv32JalrAdapterAir {
     fn width(&self) -> usize {
         Rv32JalrAdapterCols::<F>::width()
+    }
+}
+
+impl Rv32JalrAdapterAir {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        Rv32JalrAdapterCols::<F>::flatten_fields().unwrap()
     }
 }
 

@@ -19,6 +19,8 @@ use openvm_circuit::{
 };
 use openvm_circuit_primitives::utils::not;
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{
     instruction::Instruction,
     program::DEFAULT_PC_STEP,
@@ -56,6 +58,10 @@ impl<F: PrimeField32> Rv32BaseAluAdapterChip<F> {
             _marker: PhantomData,
         }
     }
+
+    pub fn columns(&self) -> Vec<String> {
+        self.air.columns::<F>()
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -80,7 +86,7 @@ pub struct Rv32BaseAluWriteRecord<F: Field> {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, FlattenFields)]
 pub struct Rv32BaseAluAdapterCols<T> {
     pub from_state: ExecutionState<T>,
     pub rd_ptr: T,
@@ -103,6 +109,12 @@ pub struct Rv32BaseAluAdapterAir {
 impl<F: Field> BaseAir<F> for Rv32BaseAluAdapterAir {
     fn width(&self) -> usize {
         Rv32BaseAluAdapterCols::<F>::width()
+    }
+}
+
+impl Rv32BaseAluAdapterAir {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        Rv32BaseAluAdapterCols::<F>::flatten_fields().unwrap()
     }
 }
 

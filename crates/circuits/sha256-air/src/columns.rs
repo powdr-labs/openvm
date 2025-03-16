@@ -1,6 +1,8 @@
 //! WARNING: the order of fields in the structs is important, do not change it
 
 use openvm_circuit_primitives::{utils::not, AlignedBorrow};
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::p3_field::FieldAlgebra;
 
 use super::{
@@ -21,7 +23,7 @@ use super::{
 /// 1. Common constraints to work on either struct type by accessing these shared fields
 /// 2. Specific constraints to use the appropriate struct, with flags helping to do conditional constraints
 #[repr(C)]
-#[derive(Clone, Copy, Debug, AlignedBorrow)]
+#[derive(Clone, Copy, Debug, AlignedBorrow, FlattenFields)]
 pub struct Sha256RoundCols<T> {
     pub flags: Sha256FlagsCols<T>,
     pub work_vars: Sha256WorkVarsCols<T>,
@@ -30,7 +32,7 @@ pub struct Sha256RoundCols<T> {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, AlignedBorrow)]
+#[derive(Clone, Copy, Debug, AlignedBorrow, FlattenFields)]
 pub struct Sha256DigestCols<T> {
     pub flags: Sha256FlagsCols<T>,
     /// Will serve as previous hash values for the next block
@@ -45,7 +47,7 @@ pub struct Sha256DigestCols<T> {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, AlignedBorrow)]
+#[derive(Clone, Copy, Debug, AlignedBorrow, FlattenFields)]
 pub struct Sha256MessageScheduleCols<T> {
     /// The message schedule words as 32-bit integers
     pub w: [[T; SHA256_WORD_BITS]; SHA256_ROUNDS_PER_ROW],
@@ -55,7 +57,7 @@ pub struct Sha256MessageScheduleCols<T> {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, AlignedBorrow)]
+#[derive(Clone, Copy, Debug, AlignedBorrow, FlattenFields)]
 pub struct Sha256WorkVarsCols<T> {
     /// `a` and `e` after each iteration as 32-bits
     pub a: [[T; SHA256_WORD_BITS]; SHA256_ROUNDS_PER_ROW],
@@ -68,7 +70,7 @@ pub struct Sha256WorkVarsCols<T> {
 /// These are the columns that are used to help with the message schedule additions
 /// Note: these need to be correctly assigned for every row even on padding rows
 #[repr(C)]
-#[derive(Clone, Copy, Debug, AlignedBorrow)]
+#[derive(Clone, Copy, Debug, AlignedBorrow, FlattenFields)]
 pub struct Sha256MessageHelperCols<T> {
     /// The following are used to move data forward to constrain the message schedule additions
     /// The value of `w` from 3 rounds ago
@@ -81,7 +83,7 @@ pub struct Sha256MessageHelperCols<T> {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, AlignedBorrow)]
+#[derive(Clone, Copy, Debug, AlignedBorrow, FlattenFields)]
 pub struct Sha256FlagsCols<T> {
     pub is_round_row: T,
     /// A flag that indicates if the current row is among the first 4 rows of a block

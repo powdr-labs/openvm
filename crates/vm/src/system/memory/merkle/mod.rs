@@ -1,3 +1,4 @@
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::p3_field::PrimeField32;
 use rustc_hash::FxHashSet;
 
@@ -77,5 +78,9 @@ impl<const CHUNK: usize, F: PrimeField32> MemoryMerkleChip<CHUNK, F> {
         for address_label in first_address_label..=last_address_label {
             self.touch_node(0, as_label, address_label);
         }
+    }
+
+    pub fn columns(&self) -> Vec<String> {
+        MemoryMerkleCols::<F, CHUNK>::flatten_fields().unwrap()
     }
 }

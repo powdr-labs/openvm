@@ -7,6 +7,7 @@ use openvm_circuit::{
 use openvm_circuit_primitives::{
     bitwise_op_lookup::BitwiseOperationLookupBus, encoder::Encoder, utils::not, SubAir,
 };
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{
     riscv::{RV32_CELL_BITS, RV32_MEMORY_AS, RV32_REGISTER_AS, RV32_REGISTER_NUM_LIMBS},
     LocalOpcode,
@@ -25,8 +26,8 @@ use openvm_stark_backend::{
 };
 
 use super::{
-    Sha256VmDigestCols, Sha256VmRoundCols, SHA256VM_CONTROL_WIDTH, SHA256VM_DIGEST_WIDTH,
-    SHA256VM_ROUND_WIDTH, SHA256VM_WIDTH, SHA256_READ_SIZE,
+    Sha256VmControlCols, Sha256VmDigestCols, Sha256VmRoundCols, SHA256VM_CONTROL_WIDTH,
+    SHA256VM_DIGEST_WIDTH, SHA256VM_ROUND_WIDTH, SHA256VM_WIDTH, SHA256_READ_SIZE,
 };
 
 #[derive(Clone, Debug, derive_new::new)]
@@ -41,7 +42,16 @@ pub struct Sha256VmAir {
     pub(super) padding_encoder: Encoder,
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for Sha256VmAir {}
+impl<F: Field> BaseAirWithPublicValues<F> for Sha256VmAir {
+    fn columns(&self) -> Vec<String> {
+        Sha256VmDigestCols::<F>::flatten_fields()
+            .unwrap()
+            .into_iter()
+            .chain(Sha256VmRoundCols::<F>::flatten_fields().unwrap())
+            .chain(Sha256VmControlCols::<F>::flatten_fields().unwrap())
+            .collect()
+    }
+}
 impl<F: Field> PartitionedBaseAir<F> for Sha256VmAir {}
 impl<F: Field> BaseAir<F> for Sha256VmAir {
     fn width(&self) -> usize {
@@ -555,5 +565,14 @@ impl Sha256VmAir {
             local_cols.control.cur_timestamp,
             local_cols.from_state.timestamp + AB::Expr::from_canonical_u32(3) + time_delta,
         );
+    }
+
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        Sha256VmDigestCols::<F>::flatten_fields()
+            .unwrap()
+            .into_iter()
+            .chain(Sha256VmRoundCols::<F>::flatten_fields().unwrap())
+            .chain(Sha256VmControlCols::<F>::flatten_fields().unwrap())
+            .collect()
     }
 }

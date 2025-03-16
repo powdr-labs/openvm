@@ -10,6 +10,8 @@ use std::{
 };
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{Air, BaseAir, PairBuilder},
@@ -25,13 +27,13 @@ pub mod tests;
 
 pub use bus::*;
 
-#[derive(Default, AlignedBorrow, Copy, Clone)]
+#[derive(Default, AlignedBorrow, Copy, Clone, FlattenFields)]
 #[repr(C)]
 pub struct RangeCols<T> {
     pub mult: T,
 }
 
-#[derive(Default, AlignedBorrow, Copy, Clone)]
+#[derive(Default, AlignedBorrow, Copy, Clone, FlattenFields)]
 #[repr(C)]
 pub struct RangePreprocessedCols<T> {
     pub counter: T,
@@ -51,7 +53,11 @@ impl RangeCheckerAir {
     }
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for RangeCheckerAir {}
+impl<F: Field> BaseAirWithPublicValues<F> for RangeCheckerAir {
+    fn columns(&self) -> Vec<String> {
+        RangeCols::<F>::flatten_fields().unwrap()
+    }
+}
 impl<F: Field> PartitionedBaseAir<F> for RangeCheckerAir {}
 impl<F: Field> BaseAir<F> for RangeCheckerAir {
     fn width(&self) -> usize {
@@ -61,6 +67,16 @@ impl<F: Field> BaseAir<F> for RangeCheckerAir {
     fn preprocessed_trace(&self) -> Option<RowMajorMatrix<F>> {
         let column = (0..self.range_max()).map(F::from_canonical_u32).collect();
         Some(RowMajorMatrix::new_col(column))
+    }
+}
+
+impl RangeCheckerAir {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        RangeCols::<F>::flatten_fields()
+            .unwrap()
+            .into_iter()
+            .chain(RangePreprocessedCols::<F>::flatten_fields().unwrap())
+            .collect()
     }
 }
 
@@ -118,5 +134,9 @@ impl RangeCheckerChip {
                 F::from_canonical_u32(self.count[n].load(std::sync::atomic::Ordering::SeqCst));
         }
         RowMajorMatrix::new(rows, NUM_RANGE_COLS)
+    }
+
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        self.air.columns::<F>()
     }
 }

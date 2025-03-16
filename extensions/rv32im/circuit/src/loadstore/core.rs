@@ -4,6 +4,8 @@ use openvm_circuit::arch::{
     AdapterAirContext, AdapterRuntimeContext, Result, VmAdapterInterface, VmCoreAir, VmCoreChip,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{instruction::Instruction, LocalOpcode};
 use openvm_rv32im_transpiler::Rv32LoadStoreOpcode::{self, *};
 use openvm_stark_backend::{
@@ -42,7 +44,7 @@ use InstructionOpcode::*;
 /// It also handles the shifting in case of not 4 byte aligned instructions
 /// This chips treats each (opcode, shift) pair as a separate instruction
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, AlignedBorrow, FlattenFields)]
 pub struct LoadStoreCoreCols<T, const NUM_CELLS: usize> {
     pub flags: [T; 4],
     /// we need to keep the degree of is_valid and is_load to 1
@@ -80,7 +82,17 @@ impl<F: Field, const NUM_CELLS: usize> BaseAir<F> for LoadStoreCoreAir<NUM_CELLS
     }
 }
 
-impl<F: Field, const NUM_CELLS: usize> BaseAirWithPublicValues<F> for LoadStoreCoreAir<NUM_CELLS> {}
+impl<F: Field, const NUM_CELLS: usize> BaseAirWithPublicValues<F> for LoadStoreCoreAir<NUM_CELLS> {
+    fn columns(&self) -> Vec<String> {
+        LoadStoreCoreCols::<F, NUM_CELLS>::flatten_fields().unwrap()
+    }
+}
+
+impl<const NUM_CELLS: usize> LoadStoreCoreAir<NUM_CELLS> {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        LoadStoreCoreCols::<F, NUM_CELLS>::flatten_fields().unwrap()
+    }
+}
 
 impl<AB, I, const NUM_CELLS: usize> VmCoreAir<AB, I> for LoadStoreCoreAir<NUM_CELLS>
 where
@@ -252,6 +264,10 @@ impl<const NUM_CELLS: usize> LoadStoreCoreChip<NUM_CELLS> {
         Self {
             air: LoadStoreCoreAir { offset },
         }
+    }
+
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        self.air.columns::<F>()
     }
 }
 

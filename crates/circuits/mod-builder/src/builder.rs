@@ -13,6 +13,8 @@ use openvm_circuit_primitives::{
     var_range::{VariableRangeCheckerBus, VariableRangeCheckerChip},
     SubAir, TraceSubRowGenerator,
 };
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{Air, AirBuilder, BaseAir},
@@ -263,6 +265,11 @@ impl FieldExpr {
         ret.setup_values = setup_values;
         ret
     }
+
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        FieldExprCols::<F>::flatten_fields().unwrap()
+        // ??
+    }
 }
 
 impl Deref for FieldExpr {
@@ -273,7 +280,11 @@ impl Deref for FieldExpr {
     }
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for FieldExpr {}
+impl<F: Field> BaseAirWithPublicValues<F> for FieldExpr {
+    fn columns(&self) -> Vec<String> {
+        FieldExprCols::<F>::flatten_fields().unwrap()
+    }
+}
 impl<F: Field> PartitionedBaseAir<F> for FieldExpr {}
 impl<F: Field> BaseAir<F> for FieldExpr {
     fn width(&self) -> usize {
@@ -401,6 +412,7 @@ impl<AB: InteractionBuilder> SubAir<AB> for FieldExpr {
 
 type Vecs<T> = Vec<Vec<T>>;
 
+#[derive(FlattenFields)]
 pub struct FieldExprCols<T> {
     pub is_valid: T,
     pub inputs: Vecs<T>,

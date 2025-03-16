@@ -1,5 +1,7 @@
 use derive_new::new;
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{p3_air::AirBuilder, p3_field::Field};
 
 use crate::{SubAir, TraceSubRowGenerator};
@@ -19,7 +21,7 @@ pub struct IsZeroIo<T> {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow, Copy, Clone, Debug, new)]
+#[derive(AlignedBorrow, Copy, Clone, Debug, new, FlattenFields)]
 pub struct IsZeroAuxCols<T> {
     pub inv: T,
 }
@@ -45,6 +47,12 @@ impl<AB: AirBuilder> SubAir<AB> for IsZeroSubAir {
         // We always assert this, even when `condition == 0`, because x = 0, out = 0 will pass.
         builder.assert_zero(io.x.clone() * io.out.clone());
         builder.when(io.condition).assert_one(io.out + io.x * inv);
+    }
+}
+
+impl IsZeroSubAir {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        IsZeroAuxCols::<F>::flatten_fields().unwrap()
     }
 }
 

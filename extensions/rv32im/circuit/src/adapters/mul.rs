@@ -18,6 +18,8 @@ use openvm_circuit::{
     },
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{
     instruction::Instruction, program::DEFAULT_PC_STEP, riscv::RV32_REGISTER_AS,
 };
@@ -52,6 +54,10 @@ impl<F: PrimeField32> Rv32MultAdapterChip<F> {
             _marker: PhantomData,
         }
     }
+
+    pub fn columns(&self) -> Vec<String> {
+        self.air.columns::<F>()
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -69,7 +75,7 @@ pub struct Rv32MultWriteRecord {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, FlattenFields)]
 pub struct Rv32MultAdapterCols<T> {
     pub from_state: ExecutionState<T>,
     pub rd_ptr: T,
@@ -88,6 +94,12 @@ pub struct Rv32MultAdapterAir {
 impl<F: Field> BaseAir<F> for Rv32MultAdapterAir {
     fn width(&self) -> usize {
         Rv32MultAdapterCols::<F>::width()
+    }
+}
+
+impl Rv32MultAdapterAir {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        Rv32MultAdapterCols::<F>::flatten_fields().unwrap()
     }
 }
 

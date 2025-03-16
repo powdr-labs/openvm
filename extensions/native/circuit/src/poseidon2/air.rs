@@ -5,6 +5,7 @@ use openvm_circuit::{
     system::memory::{offline_checker::MemoryBridge, MemoryAddress},
 };
 use openvm_circuit_primitives::utils::not;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::LocalOpcode;
 use openvm_native_compiler::{
     Poseidon2Opcode::{COMP_POS2, PERM_POS2},
@@ -20,6 +21,7 @@ use openvm_stark_backend::{
     rap::{BaseAirWithPublicValues, PartitionedBaseAir},
 };
 
+use super::columns::VerifyBatchCellCols;
 use crate::{
     chip::{NUM_INITIAL_READS, NUM_SIMPLE_ACCESSES},
     poseidon2::{
@@ -40,6 +42,12 @@ pub struct NativePoseidon2Air<F: Field, const SBOX_REGISTERS: usize> {
     pub(crate) address_space: F,
 }
 
+impl<F: Field, const SBOX_REGISTERS: usize> NativePoseidon2Air<F, SBOX_REGISTERS> {
+    pub fn columns(&self) -> Vec<String> {
+        NativePoseidon2Cols::<F, SBOX_REGISTERS>::flatten_fields().unwrap()
+    }
+}
+
 impl<F: Field, const SBOX_REGISTERS: usize> BaseAir<F> for NativePoseidon2Air<F, SBOX_REGISTERS> {
     fn width(&self) -> usize {
         NativePoseidon2Cols::<F, SBOX_REGISTERS>::width()
@@ -49,6 +57,9 @@ impl<F: Field, const SBOX_REGISTERS: usize> BaseAir<F> for NativePoseidon2Air<F,
 impl<F: Field, const SBOX_REGISTERS: usize> BaseAirWithPublicValues<F>
     for NativePoseidon2Air<F, SBOX_REGISTERS>
 {
+    fn columns(&self) -> Vec<String> {
+        NativePoseidon2Cols::<F, SBOX_REGISTERS>::flatten_fields().unwrap()
+    }
 }
 
 impl<F: Field, const SBOX_REGISTERS: usize> PartitionedBaseAir<F>

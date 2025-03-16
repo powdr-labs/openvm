@@ -8,6 +8,7 @@ use openvm_circuit::arch::{
 use openvm_circuit_primitives::{
     var_range::SharedVariableRangeCheckerChip, SubAir, TraceSubRowGenerator,
 };
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::instruction::Instruction;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
@@ -94,7 +95,17 @@ impl<F: Field> BaseAir<F> for FieldExpressionCoreAir {
     }
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for FieldExpressionCoreAir {}
+impl FieldExpressionCoreAir {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        FieldExprCols::<F>::flatten_fields().unwrap()
+    }
+}
+
+impl<F: Field> BaseAirWithPublicValues<F> for FieldExpressionCoreAir {
+    fn columns(&self) -> Vec<String> {
+        FieldExprCols::<F>::flatten_fields().unwrap()
+    }
+}
 
 impl<AB: InteractionBuilder, I> VmCoreAir<AB, I> for FieldExpressionCoreAir
 where
@@ -202,6 +213,10 @@ impl FieldExpressionCoreChip {
 
     pub fn expr(&self) -> &FieldExpr {
         &self.air.expr
+    }
+
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        self.air.columns::<F>()
     }
 }
 

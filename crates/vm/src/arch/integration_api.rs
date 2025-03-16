@@ -370,6 +370,15 @@ where
     fn num_public_values(&self) -> usize {
         self.core.num_public_values()
     }
+
+    fn columns(&self) -> Vec<String> {
+        todo!()
+        // self.adapter
+        //     .columns::<F>()
+        //     .into_iter()
+        //     .chain(self.core.columns::<F>())
+        //     .collect()
+    }
 }
 
 // Current cached trace is not supported

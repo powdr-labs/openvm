@@ -6,6 +6,8 @@ use std::{
 };
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     config::{StarkGenericConfig, Val},
     interaction::InteractionBuilder,
@@ -31,7 +33,7 @@ use crate::{
 /// The values describe aligned chunk of memory of size `CHUNK`---the data together with the last
 /// accessed timestamp---in either the initial or final memory state.
 #[repr(C)]
-#[derive(Debug, AlignedBorrow)]
+#[derive(Debug, AlignedBorrow, FlattenFields)]
 pub struct PersistentBoundaryCols<T, const CHUNK: usize> {
     // `expand_direction` =  1 corresponds to initial memory state
     // `expand_direction` = -1 corresponds to final memory state
@@ -64,7 +66,11 @@ impl<const CHUNK: usize, F> BaseAir<F> for PersistentBoundaryAir<CHUNK> {
     }
 }
 
-impl<const CHUNK: usize, F> BaseAirWithPublicValues<F> for PersistentBoundaryAir<CHUNK> {}
+impl<const CHUNK: usize, F> BaseAirWithPublicValues<F> for PersistentBoundaryAir<CHUNK> {
+    fn columns(&self) -> Vec<String> {
+        PersistentBoundaryCols::<F, CHUNK>::flatten_fields().unwrap()
+    }
+}
 impl<const CHUNK: usize, F> PartitionedBaseAir<F> for PersistentBoundaryAir<CHUNK> {}
 
 impl<const CHUNK: usize, AB: InteractionBuilder> Air<AB> for PersistentBoundaryAir<CHUNK> {
@@ -234,6 +240,10 @@ impl<const CHUNK: usize, F: PrimeField32> PersistentBoundaryChip<F, CHUNK> {
             }
             _ => panic!("Cannot finalize after finalization"),
         }
+    }
+
+    pub fn columns(&self) -> Vec<String> {
+        PersistentBoundaryCols::<F, CHUNK>::flatten_fields().unwrap()
     }
 }
 

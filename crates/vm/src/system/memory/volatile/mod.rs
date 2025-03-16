@@ -12,6 +12,8 @@ use openvm_circuit_primitives::{
     SubAir, TraceSubRowGenerator,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     config::{StarkGenericConfig, Val},
     interaction::InteractionBuilder,
@@ -37,7 +39,7 @@ mod tests;
 const ADDR_ELTS: usize = 2;
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, AlignedBorrow)]
+#[derive(Clone, Copy, Debug, AlignedBorrow, FlattenFields)]
 pub struct VolatileBoundaryCols<T> {
     pub addr_space: T,
     pub pointer: T,
@@ -74,7 +76,11 @@ impl VolatileBoundaryAir {
     }
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for VolatileBoundaryAir {}
+impl<F: Field> BaseAirWithPublicValues<F> for VolatileBoundaryAir {
+    fn columns(&self) -> Vec<String> {
+        VolatileBoundaryCols::<F>::flatten_fields().unwrap()
+    }
+}
 impl<F: Field> PartitionedBaseAir<F> for VolatileBoundaryAir {}
 impl<F: Field> BaseAir<F> for VolatileBoundaryAir {
     fn width(&self) -> usize {
@@ -155,6 +161,10 @@ impl<F> VolatileBoundaryChip<F> {
             overridden_height: None,
             final_memory: None,
         }
+    }
+
+    pub fn columns(&self) -> Vec<String> {
+        VolatileBoundaryCols::<F>::flatten_fields().unwrap()
     }
 }
 

@@ -188,6 +188,10 @@ impl<F: PrimeField32, const SBOX_REGISTERS: usize> NativePoseidon2Chip<F, SBOX_R
         let permuted = self.subchip.permute(concatenated);
         (concatenated, std::array::from_fn(|i| permuted[i]))
     }
+
+    pub fn columns(&self) -> Vec<String> {
+        self.air.columns()
+    }
 }
 
 pub(super) const NUM_INITIAL_READS: usize = 6;

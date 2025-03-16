@@ -1,8 +1,14 @@
-use openvm_stark_backend::{interaction::InteractionBuilder, p3_field::FieldAlgebra};
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
+use openvm_stark_backend::{
+    interaction::InteractionBuilder,
+    p3_field::{Field, FieldAlgebra},
+};
 
 use super::{utils::range_check, OverflowInt};
 use crate::SubAir;
 
+#[derive(FlattenFields)]
 pub struct CheckCarryToZeroCols<T> {
     pub carries: Vec<T>,
 }
@@ -33,6 +39,10 @@ impl CheckCarryToZeroSubAir {
             range_checker_bus,
             decomp,
         }
+    }
+
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        CheckCarryToZeroCols::<F>::flatten_fields().unwrap()
     }
 }
 

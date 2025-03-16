@@ -4,6 +4,8 @@ use std::{
 };
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{
     instruction::Instruction, program::DEFAULT_PC_STEP, LocalOpcode, PhantomDiscriminant,
     SysPhantom, SystemOpcode, VmOpcode,
@@ -46,7 +48,7 @@ pub struct PhantomAir {
     pub phantom_opcode: VmOpcode,
 }
 
-#[derive(AlignedBorrow, Copy, Clone, Serialize, Deserialize)]
+#[derive(AlignedBorrow, Copy, Clone, Serialize, Deserialize, FlattenFields)]
 pub struct PhantomCols<T> {
     pub pc: T,
     #[serde(with = "BigArray")]
@@ -61,7 +63,11 @@ impl<F: Field> BaseAir<F> for PhantomAir {
     }
 }
 impl<F: Field> PartitionedBaseAir<F> for PhantomAir {}
-impl<F: Field> BaseAirWithPublicValues<F> for PhantomAir {}
+impl<F: Field> BaseAirWithPublicValues<F> for PhantomAir {
+    fn columns(&self) -> Vec<String> {
+        PhantomCols::<F>::flatten_fields().unwrap()
+    }
+}
 
 impl<AB: AirBuilder + InteractionBuilder> Air<AB> for PhantomAir {
     fn eval(&self, builder: &mut AB) {
@@ -119,6 +125,10 @@ impl<F> PhantomChip<F> {
     ) -> Option<Box<dyn PhantomSubExecutor<F>>> {
         self.phantom_executors
             .insert(discriminant, Box::new(sub_executor))
+    }
+
+    pub fn columns(&self) -> Vec<String> {
+        PhantomCols::<F>::flatten_fields().unwrap()
     }
 }
 

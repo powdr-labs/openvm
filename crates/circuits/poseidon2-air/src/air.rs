@@ -52,6 +52,9 @@ impl<F: Field, const SBOX_REGISTERS: usize> BaseAir<F> for Poseidon2SubAir<F, SB
 impl<F: Field, const SBOX_REGISTERS: usize> BaseAirWithPublicValues<F>
     for Poseidon2SubAir<F, SBOX_REGISTERS>
 {
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
 }
 impl<F: Field, const SBOX_REGISTERS: usize> PartitionedBaseAir<F>
     for Poseidon2SubAir<F, SBOX_REGISTERS>

@@ -19,6 +19,8 @@ openvm-stark-sdk = { workspace = true }
 openvm-rv32im-circuit = { workspace = true }
 openvm-rv32-adapters = { workspace = true }
 openvm-algebra-transpiler = { workspace = true }
+openvm-columns = { workspace = true }
+openvm-columns-core = { workspace = true }
 
 itertools = { workspace = true }
 num-bigint = { workspace = true, features = ["serde"] }

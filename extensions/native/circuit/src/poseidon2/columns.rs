@@ -1,11 +1,13 @@
 use openvm_circuit::system::memory::offline_checker::{MemoryReadAuxCols, MemoryWriteAuxCols};
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_poseidon2_air::Poseidon2SubCols;
 
 use crate::poseidon2::CHUNK;
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, FlattenFields)]
 pub struct NativePoseidon2Cols<T, const SBOX_REGISTERS: usize> {
     // poseidon2
     pub inner: Poseidon2SubCols<T, SBOX_REGISTERS>,
@@ -48,7 +50,7 @@ const fn max3(a: usize, b: usize, c: usize) -> usize {
     max(a, max(b, c))
 }
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, FlattenFields)]
 pub struct TopLevelSpecificCols<T> {
     pub pc: T,
     pub end_timestamp: T,
@@ -87,13 +89,13 @@ pub struct TopLevelSpecificCols<T> {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, FlattenFields)]
 pub struct InsideRowSpecificCols<T> {
     pub cells: [VerifyBatchCellCols<T>; CHUNK],
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow, Copy, Clone)]
+#[derive(AlignedBorrow, Copy, Clone, FlattenFields)]
 pub struct VerifyBatchCellCols<T> {
     pub read: MemoryReadAuxCols<T>,
     pub opened_index: T,
@@ -104,7 +106,7 @@ pub struct VerifyBatchCellCols<T> {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow, Copy, Clone)]
+#[derive(AlignedBorrow, Copy, Clone, FlattenFields)]
 pub struct SimplePoseidonSpecificCols<T> {
     pub pc: T,
     pub is_compress: T,

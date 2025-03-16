@@ -21,6 +21,8 @@ use openvm_circuit::{
 };
 use openvm_circuit_primitives::utils::next_power_of_two_or_zero;
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{instruction::Instruction, program::DEFAULT_PC_STEP, LocalOpcode};
 use openvm_native_compiler::{conversion::AS, FriOpcode::FRI_REDUCED_OPENING};
 use openvm_stark_backend::{
@@ -43,7 +45,7 @@ use crate::field_extension::{FieldExtension, EXT_DEG};
 mod tests;
 
 #[repr(C)]
-#[derive(Debug, AlignedBorrow)]
+#[derive(Debug, AlignedBorrow, FlattenFields)]
 struct WorkloadCols<T> {
     prefix: PrefixCols<T>,
 
@@ -55,7 +57,7 @@ const WL_WIDTH: usize = WorkloadCols::<u8>::width();
 const_assert_eq!(WL_WIDTH, 27);
 
 #[repr(C)]
-#[derive(Debug, AlignedBorrow)]
+#[derive(Debug, AlignedBorrow, FlattenFields)]
 struct Instruction1Cols<T> {
     prefix: PrefixCols<T>,
 
@@ -79,7 +81,7 @@ const_assert_eq!(
 );
 
 #[repr(C)]
-#[derive(Debug, AlignedBorrow)]
+#[derive(Debug, AlignedBorrow, FlattenFields)]
 struct Instruction2Cols<T> {
     general: GeneralCols<T>,
     // is_first = 0 means the second instruction row.
@@ -125,7 +127,7 @@ pub const OVERALL_WIDTH: usize = const_max(const_max(WL_WIDTH, INS_1_WIDTH), INS
 const_assert_eq!(OVERALL_WIDTH, 27);
 
 #[repr(C)]
-#[derive(Debug, AlignedBorrow)]
+#[derive(Debug, AlignedBorrow, FlattenFields)]
 struct GeneralCols<T> {
     /// Whether the row is a workload row.
     is_workload_row: T,
@@ -137,7 +139,7 @@ const GENERAL_WIDTH: usize = GeneralCols::<u8>::width();
 const_assert_eq!(GENERAL_WIDTH, 3);
 
 #[repr(C)]
-#[derive(Debug, AlignedBorrow)]
+#[derive(Debug, AlignedBorrow, FlattenFields)]
 struct DataCols<T> {
     a_ptr: T,
     write_a: T,
@@ -152,7 +154,7 @@ const_assert_eq!(DATA_WIDTH, 12);
 
 /// Prefix of `WorkloadCols` and `Instruction1Cols`
 #[repr(C)]
-#[derive(Debug, AlignedBorrow)]
+#[derive(Debug, AlignedBorrow, FlattenFields)]
 struct PrefixCols<T> {
     general: GeneralCols<T>,
     /// WorkloadCols uses this column as `a`. Instruction1Cols uses this column as `is_first` which
@@ -177,7 +179,29 @@ impl<F: Field> BaseAir<F> for FriReducedOpeningAir {
     }
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for FriReducedOpeningAir {}
+impl FriReducedOpeningAir {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        PrefixCols::<F>::flatten_fields()
+            .unwrap()
+            .into_iter()
+            .chain(WorkloadCols::<F>::flatten_fields().unwrap())
+            .chain(Instruction1Cols::<F>::flatten_fields().unwrap())
+            .chain(Instruction2Cols::<F>::flatten_fields().unwrap())
+            .collect()
+    }
+}
+
+impl<F: Field> BaseAirWithPublicValues<F> for FriReducedOpeningAir {
+    fn columns(&self) -> Vec<String> {
+        PrefixCols::<F>::flatten_fields()
+            .unwrap()
+            .into_iter()
+            .chain(WorkloadCols::<F>::flatten_fields().unwrap())
+            .chain(Instruction1Cols::<F>::flatten_fields().unwrap())
+            .chain(Instruction2Cols::<F>::flatten_fields().unwrap())
+            .collect()
+    }
+}
 impl<F: Field> PartitionedBaseAir<F> for FriReducedOpeningAir {}
 impl<AB: InteractionBuilder> Air<AB> for FriReducedOpeningAir {
     fn eval(&self, builder: &mut AB) {
@@ -530,6 +554,10 @@ impl<F: PrimeField32> FriReducedOpeningChip<F> {
             streams,
             hint_offsets: HashMap::default(),
         }
+    }
+
+    pub fn columns(&self) -> Vec<String> {
+        self.air.columns::<F>()
     }
 }
 impl<F: PrimeField32> InstructionExecutor<F> for FriReducedOpeningChip<F> {

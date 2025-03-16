@@ -128,6 +128,10 @@ impl<F: PrimeField32> KeccakVmChip<F> {
             offline_memory,
         }
     }
+
+    pub fn columns(&self) -> Vec<String> {
+        self.air.columns::<F>()
+    }
 }
 
 impl<F: PrimeField32> InstructionExecutor<F> for KeccakVmChip<F> {

@@ -48,6 +48,10 @@ impl<F: Field> BaseAirWithPublicValues<F> for PublicValuesCoreAir {
     fn num_public_values(&self) -> usize {
         self.num_custom_pvs
     }
+
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
 }
 
 impl<AB: InteractionBuilder + AirBuilderWithPublicValues> VmCoreAir<AB, AdapterInterface<AB::Expr>>

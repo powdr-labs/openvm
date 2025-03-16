@@ -9,6 +9,8 @@ use std::{
 
 use itertools::Itertools;
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     config::{StarkGenericConfig, Val},
     interaction::InteractionBuilder,
@@ -26,14 +28,14 @@ mod tests;
 
 pub use bus::*;
 
-#[derive(Default, AlignedBorrow, Copy, Clone)]
+#[derive(Default, AlignedBorrow, Copy, Clone, FlattenFields)]
 #[repr(C)]
 pub struct BitwiseOperationLookupCols<T> {
     pub mult_range: T,
     pub mult_xor: T,
 }
 
-#[derive(Default, AlignedBorrow, Copy, Clone)]
+#[derive(Default, AlignedBorrow, Copy, Clone, FlattenFields)]
 #[repr(C)]
 pub struct BitwiseOperationLookupPreprocessedCols<T> {
     pub x: T,
@@ -53,11 +55,29 @@ pub struct BitwiseOperationLookupAir<const NUM_BITS: usize> {
 impl<F: Field, const NUM_BITS: usize> BaseAirWithPublicValues<F>
     for BitwiseOperationLookupAir<NUM_BITS>
 {
+    fn columns(&self) -> Vec<String> {
+        BitwiseOperationLookupCols::<F>::flatten_fields()
+            .unwrap()
+            .into_iter()
+            .chain(BitwiseOperationLookupPreprocessedCols::<F>::flatten_fields().unwrap())
+            .collect()
+    }
 }
 impl<F: Field, const NUM_BITS: usize> PartitionedBaseAir<F>
     for BitwiseOperationLookupAir<NUM_BITS>
 {
 }
+
+impl<const NUM_BITS: usize> BitwiseOperationLookupAir<NUM_BITS> {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        BitwiseOperationLookupCols::<F>::flatten_fields()
+            .unwrap()
+            .into_iter()
+            .chain(BitwiseOperationLookupPreprocessedCols::<F>::flatten_fields().unwrap())
+            .collect()
+    }
+}
+
 impl<F: Field, const NUM_BITS: usize> BaseAir<F> for BitwiseOperationLookupAir<NUM_BITS> {
     fn width(&self) -> usize {
         NUM_BITWISE_OP_LOOKUP_COLS
@@ -176,6 +196,10 @@ impl<const NUM_BITS: usize> BitwiseOperationLookupChip<NUM_BITS> {
     fn idx(x: u32, y: u32) -> usize {
         (x * (1 << NUM_BITS) + y) as usize
     }
+
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        self.air.columns::<F>()
+    }
 }
 
 impl<const NUM_BITS: usize> SharedBitwiseOperationLookupChip<NUM_BITS> {
@@ -204,6 +228,10 @@ impl<const NUM_BITS: usize> SharedBitwiseOperationLookupChip<NUM_BITS> {
 
     pub fn generate_trace<F: Field>(&self) -> RowMajorMatrix<F> {
         self.0.generate_trace()
+    }
+
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        self.0.columns::<F>()
     }
 }
 

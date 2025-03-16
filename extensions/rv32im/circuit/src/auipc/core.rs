@@ -11,6 +11,8 @@ use openvm_circuit_primitives::bitwise_op_lookup::{
     BitwiseOperationLookupBus, SharedBitwiseOperationLookupChip,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{instruction::Instruction, LocalOpcode};
 use openvm_rv32im_transpiler::Rv32AuipcOpcode::{self, *};
 use openvm_stark_backend::{
@@ -26,7 +28,7 @@ use crate::adapters::{RV32_CELL_BITS, RV32_REGISTER_NUM_LIMBS};
 const RV32_LIMB_MAX: u32 = (1 << RV32_CELL_BITS) - 1;
 
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, AlignedBorrow, FlattenFields)]
 pub struct Rv32AuipcCoreCols<T> {
     pub is_valid: T,
     pub imm_limbs: [T; RV32_REGISTER_NUM_LIMBS - 1],
@@ -45,7 +47,17 @@ impl<F: Field> BaseAir<F> for Rv32AuipcCoreAir {
     }
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for Rv32AuipcCoreAir {}
+impl<F: Field> BaseAirWithPublicValues<F> for Rv32AuipcCoreAir {
+    fn columns(&self) -> Vec<String> {
+        Rv32AuipcCoreCols::<F>::flatten_fields().unwrap()
+    }
+}
+
+impl Rv32AuipcCoreAir {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        Rv32AuipcCoreCols::<F>::flatten_fields().unwrap()
+    }
+}
 
 impl<AB, I> VmCoreAir<AB, I> for Rv32AuipcCoreAir
 where
@@ -148,6 +160,10 @@ impl Rv32AuipcCoreChip {
             },
             bitwise_lookup_chip,
         }
+    }
+
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        self.air.columns::<F>()
     }
 }
 

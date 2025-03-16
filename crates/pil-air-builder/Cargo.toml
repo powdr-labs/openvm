@@ -1,0 +1,36 @@
+[package]
+name = "openvm-pil-air-builder"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+
+
+[dependencies]
+#sp1-stark.workspace = true
+p3-air.workspace = true
+p3-field.workspace = true
+p3-challenger.workspace = true
+p3-commit.workspace = true
+p3-dft.workspace = true
+p3-matrix.workspace = true
+p3-maybe-rayon.workspace = true
+p3-util.workspace = true
+itertools.workspace = true
+tracing.workspace = true
+serde = { workspace = true, features = ["derive", "alloc"] }
+openvm-circuit = { workspace = true, features = ["test-utils"] }
+openvm-stark-backend = { workspace = true }
+#openvm-stark-sdk = { workspace = true }
+
+[dev-dependencies]
+p3-baby-bear.workspace = true
+p3-challenger.workspace = true
+p3-commit = { workspace = true, features = ["test-utils"] }
+p3-dft.workspace = true
+p3-fri.workspace = true
+p3-keccak.workspace = true
+p3-matrix.workspace = true
+p3-merkle-tree.workspace = true
+p3-symmetric.workspace = true

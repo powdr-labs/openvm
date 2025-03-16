@@ -1,6 +1,8 @@
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 
-#[derive(Debug, AlignedBorrow)]
+#[derive(Debug, AlignedBorrow, FlattenFields)]
 #[repr(C)]
 pub struct MemoryMerkleCols<T, const CHUNK: usize> {
     // `expand_direction` =  1 corresponds to initial memory state

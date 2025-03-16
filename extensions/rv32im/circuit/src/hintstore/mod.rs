@@ -20,6 +20,8 @@ use openvm_circuit_primitives::{
     utils::next_power_of_two_or_zero,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{
     instruction::Instruction,
     program::DEFAULT_PC_STEP,
@@ -48,7 +50,7 @@ use crate::adapters::{compose, decompose};
 mod tests;
 
 #[repr(C)]
-#[derive(AlignedBorrow, Debug)]
+#[derive(AlignedBorrow, Debug, FlattenFields)]
 pub struct Rv32HintStoreCols<T> {
     // common
     pub is_single: T,
@@ -84,8 +86,18 @@ impl<F: Field> BaseAir<F> for Rv32HintStoreAir {
     }
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for Rv32HintStoreAir {}
+impl<F: Field> BaseAirWithPublicValues<F> for Rv32HintStoreAir {
+    fn columns(&self) -> Vec<String> {
+        Rv32HintStoreCols::<F>::flatten_fields().unwrap()
+    }
+}
 impl<F: Field> PartitionedBaseAir<F> for Rv32HintStoreAir {}
+
+impl Rv32HintStoreAir {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        Rv32HintStoreCols::<F>::flatten_fields().unwrap()
+    }
+}
 
 impl<AB: InteractionBuilder> Air<AB> for Rv32HintStoreAir {
     fn eval(&self, builder: &mut AB) {
@@ -277,6 +289,10 @@ impl<F: PrimeField32> Rv32HintStoreChip<F> {
     }
     pub fn set_streams(&mut self, streams: Arc<Mutex<Streams<F>>>) {
         self.streams.set(streams).unwrap();
+    }
+
+    pub fn columns(&self) -> Vec<String> {
+        self.air.columns::<F>()
     }
 }
 

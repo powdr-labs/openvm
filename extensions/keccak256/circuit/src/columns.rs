@@ -3,6 +3,8 @@ use core::mem::size_of;
 use openvm_circuit::system::memory::offline_checker::{MemoryReadAuxCols, MemoryWriteAuxCols};
 use openvm_circuit_primitives::utils::assert_array_eq;
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::riscv::RV32_REGISTER_NUM_LIMBS;
 use openvm_stark_backend::p3_air::AirBuilder;
 use p3_keccak_air::KeccakCols as KeccakPermCols;
@@ -13,7 +15,7 @@ use super::{
 };
 
 #[repr(C)]
-#[derive(Debug, AlignedBorrow)]
+#[derive(Debug, AlignedBorrow, FlattenFields)]
 pub struct KeccakVmCols<T> {
     /// Columns for keccak-f permutation
     pub inner: KeccakPermCols<T>,
@@ -29,7 +31,7 @@ pub struct KeccakVmCols<T> {
 /// Includes columns for instruction execution and register reads.
 #[allow(clippy::too_many_arguments)]
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Default, AlignedBorrow, derive_new::new)]
+#[derive(Copy, Clone, Debug, Default, AlignedBorrow, derive_new::new, FlattenFields)]
 pub struct KeccakInstructionCols<T> {
     /// Program counter
     pub pc: T,
@@ -68,7 +70,7 @@ pub struct KeccakInstructionCols<T> {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, AlignedBorrow)]
+#[derive(Clone, Copy, Debug, AlignedBorrow, FlattenFields)]
 pub struct KeccakSpongeCols<T> {
     /// Only used on first row of a round to determine whether the state
     /// prior to absorb should be reset to all 0s.
@@ -92,7 +94,7 @@ pub struct KeccakSpongeCols<T> {
 }
 
 #[repr(C)]
-#[derive(Clone, Debug, AlignedBorrow)]
+#[derive(Clone, Debug, AlignedBorrow, FlattenFields)]
 pub struct KeccakMemoryCols<T> {
     pub register_aux: [MemoryReadAuxCols<T>; KECCAK_REGISTER_READS],
     pub absorb_reads: [MemoryReadAuxCols<T>; KECCAK_ABSORB_READS],

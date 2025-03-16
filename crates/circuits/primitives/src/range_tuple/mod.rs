@@ -12,6 +12,8 @@ use std::{
 };
 
 use itertools::Itertools;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     config::{StarkGenericConfig, Val},
     interaction::InteractionBuilder,
@@ -30,12 +32,12 @@ pub mod tests;
 
 pub use bus::*;
 
-#[derive(Default, Copy, Clone)]
+#[derive(Default, Copy, Clone, FlattenFields)]
 pub struct RangeTupleCols<T> {
     pub mult: T,
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, FlattenFields)]
 pub struct RangeTuplePreprocessedCols<T> {
     pub tuple: Vec<T>,
 }
@@ -52,8 +54,22 @@ impl<const N: usize> RangeTupleCheckerAir<N> {
         self.bus.sizes.iter().product()
     }
 }
-impl<F: Field, const N: usize> BaseAirWithPublicValues<F> for RangeTupleCheckerAir<N> {}
+impl<F: Field, const N: usize> BaseAirWithPublicValues<F> for RangeTupleCheckerAir<N> {
+    fn columns(&self) -> Vec<String> {
+        RangeTupleCols::<F>::flatten_fields().unwrap()
+    }
+}
 impl<F: Field, const N: usize> PartitionedBaseAir<F> for RangeTupleCheckerAir<N> {}
+
+impl<const N: usize> RangeTupleCheckerAir<N> {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        RangeTupleCols::<F>::flatten_fields()
+            .unwrap()
+            .into_iter()
+            .chain(RangeTuplePreprocessedCols::<F>::flatten_fields().unwrap())
+            .collect()
+    }
+}
 
 impl<F: Field, const N: usize> BaseAir<F> for RangeTupleCheckerAir<N> {
     fn width(&self) -> usize {
@@ -157,6 +173,10 @@ impl<const N: usize> RangeTupleCheckerChip<N> {
             .collect::<Vec<_>>();
         RowMajorMatrix::new(rows, 1)
     }
+
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        self.air.columns::<F>()
+    }
 }
 
 impl<const N: usize> SharedRangeTupleCheckerChip<N> {
@@ -181,6 +201,10 @@ impl<const N: usize> SharedRangeTupleCheckerChip<N> {
 
     pub fn generate_trace<F: Field>(&self) -> RowMajorMatrix<F> {
         self.0.generate_trace()
+    }
+
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        self.0.columns::<F>()
     }
 }
 

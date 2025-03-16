@@ -6,10 +6,11 @@ use openvm_circuit_primitives::{
     utils::{not, select},
     SubAir,
 };
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{AirBuilder, BaseAir},
-    p3_field::FieldAlgebra,
+    p3_field::{Field, FieldAlgebra},
     p3_matrix::Matrix,
 };
 
@@ -19,7 +20,7 @@ use super::{
     SHA256_H, SHA256_HASH_WORDS, SHA256_K, SHA256_ROUNDS_PER_ROW, SHA256_ROUND_WIDTH,
     SHA256_WORD_BITS, SHA256_WORD_U16S, SHA256_WORD_U8S,
 };
-use crate::constraint_word_addition;
+use crate::{constraint_word_addition, Sha256FlagsCols};
 
 #[derive(Clone, Debug)]
 pub struct Sha256Air {
@@ -532,5 +533,14 @@ impl Sha256Air {
                 &next.work_vars.carry_e[i], // carries of addition
             );
         }
+    }
+
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        Sha256RoundCols::<F>::flatten_fields()
+            .unwrap()
+            .into_iter()
+            .chain(Sha256DigestCols::<F>::flatten_fields().unwrap())
+            .chain(Sha256FlagsCols::<F>::flatten_fields().unwrap())
+            .collect()
     }
 }

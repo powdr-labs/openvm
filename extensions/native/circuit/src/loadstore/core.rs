@@ -9,6 +9,8 @@ use openvm_circuit::arch::{
     Streams, VmAdapterInterface, VmCoreAir, VmCoreChip,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::instruction::Instruction;
 use openvm_native_compiler::NativeLoadStoreOpcode;
 use openvm_stark_backend::{
@@ -24,7 +26,7 @@ use strum::IntoEnumIterator;
 use super::super::adapters::loadstore_native_adapter::NativeLoadStoreInstruction;
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, FlattenFields)]
 pub struct NativeLoadStoreCoreCols<T, const NUM_CELLS: usize> {
     pub is_loadw: T,
     pub is_storew: T,
@@ -57,9 +59,18 @@ impl<F: Field, const NUM_CELLS: usize> BaseAir<F> for NativeLoadStoreCoreAir<NUM
     }
 }
 
+impl<const NUM_CELLS: usize> NativeLoadStoreCoreAir<NUM_CELLS> {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        NativeLoadStoreCoreCols::<F, NUM_CELLS>::flatten_fields().unwrap()
+    }
+}
+
 impl<F: Field, const NUM_CELLS: usize> BaseAirWithPublicValues<F>
     for NativeLoadStoreCoreAir<NUM_CELLS>
 {
+    fn columns(&self) -> Vec<String> {
+        NativeLoadStoreCoreCols::<F, NUM_CELLS>::flatten_fields().unwrap()
+    }
 }
 
 impl<AB, I, const NUM_CELLS: usize> VmCoreAir<AB, I> for NativeLoadStoreCoreAir<NUM_CELLS>
@@ -130,6 +141,10 @@ impl<F: Field, const NUM_CELLS: usize> NativeLoadStoreCoreChip<F, NUM_CELLS> {
     }
     pub fn set_streams(&mut self, streams: Arc<Mutex<Streams<F>>>) {
         self.streams.set(streams).unwrap();
+    }
+
+    pub fn columns(&self) -> Vec<String> {
+        self.air.columns::<F>()
     }
 }
 

@@ -10,6 +10,8 @@ use openvm_circuit::arch::{
     VmCoreAir, VmCoreChip,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{instruction::Instruction, LocalOpcode};
 use openvm_native_compiler::FieldExtensionOpcode::{self, *};
 use openvm_stark_backend::{
@@ -24,7 +26,7 @@ pub const BETA: usize = 11;
 pub const EXT_DEG: usize = 4;
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, FlattenFields)]
 pub struct FieldExtensionCoreCols<T> {
     pub x: [T; EXT_DEG],
     pub y: [T; EXT_DEG],
@@ -47,7 +49,17 @@ impl<F: Field> BaseAir<F> for FieldExtensionCoreAir {
     }
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for FieldExtensionCoreAir {}
+impl FieldExtensionCoreAir {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        FieldExtensionCoreCols::<F>::flatten_fields().unwrap()
+    }
+}
+
+impl<F: Field> BaseAirWithPublicValues<F> for FieldExtensionCoreAir {
+    fn columns(&self) -> Vec<String> {
+        FieldExtensionCoreCols::<F>::flatten_fields().unwrap()
+    }
+}
 
 impl<AB, I> VmCoreAir<AB, I> for FieldExtensionCoreAir
 where
@@ -149,6 +161,10 @@ impl FieldExtensionCoreChip {
         Self {
             air: FieldExtensionCoreAir {},
         }
+    }
+
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        self.air.columns::<F>()
     }
 }
 

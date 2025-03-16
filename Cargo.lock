@@ -3444,6 +3444,8 @@ dependencies = [
  "openvm-circuit-derive",
  "openvm-circuit-primitives",
  "openvm-circuit-primitives-derive",
+ "openvm-columns",
+ "openvm-columns-core",
  "openvm-instructions",
  "openvm-mod-circuit-builder",
  "openvm-pairing-guest",
@@ -3680,6 +3682,8 @@ dependencies = [
  "openvm-circuit-derive",
  "openvm-circuit-primitives",
  "openvm-circuit-primitives-derive",
+ "openvm-columns",
+ "openvm-columns-core",
  "openvm-instructions",
  "openvm-keccak256-circuit",
  "openvm-keccak256-transpiler",
@@ -3730,6 +3734,8 @@ dependencies = [
  "num-bigint 0.4.6",
  "num-traits",
  "openvm-circuit-primitives-derive",
+ "openvm-columns",
+ "openvm-columns-core",
  "openvm-stark-backend",
  "openvm-stark-sdk",
  "p3-dft",
@@ -3751,6 +3757,24 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.96",
+]
+
+[[package]]
+name = "openvm-columns"
+version = "1.0.0-rc.2"
+dependencies = [
+ "openvm-columns-core",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.98",
+]
+
+[[package]]
+name = "openvm-columns-core"
+version = "1.0.0-rc.2"
+dependencies = [
+ "p3-keccak-air",
+ "p3-poseidon2-air",
 ]
 
 [[package]]
@@ -3907,6 +3931,8 @@ dependencies = [
  "openvm-circuit-derive",
  "openvm-circuit-primitives",
  "openvm-circuit-primitives-derive",
+ "openvm-columns",
+ "openvm-columns-core",
  "openvm-instructions",
  "openvm-keccak256-transpiler",
  "openvm-rv32im-circuit",
@@ -3983,6 +4009,8 @@ dependencies = [
  "num-traits",
  "openvm-circuit",
  "openvm-circuit-primitives",
+ "openvm-columns",
+ "openvm-columns-core",
  "openvm-instructions",
  "openvm-pairing-guest",
  "openvm-stark-backend",
@@ -4009,6 +4037,8 @@ dependencies = [
  "openvm-circuit-derive",
  "openvm-circuit-primitives",
  "openvm-circuit-primitives-derive",
+ "openvm-columns",
+ "openvm-columns-core",
  "openvm-instructions",
  "openvm-native-compiler",
  "openvm-poseidon2-air",
@@ -4206,6 +4236,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "openvm-pil-air-builder"
+version = "1.0.0-rc.2"
+dependencies = [
+ "itertools 0.14.0",
+ "openvm-circuit",
+ "openvm-stark-backend",
+ "p3-air",
+ "p3-baby-bear",
+ "p3-challenger",
+ "p3-commit",
+ "p3-dft",
+ "p3-field",
+ "p3-fri",
+ "p3-keccak",
+ "p3-matrix",
+ "p3-maybe-rayon",
+ "p3-merkle-tree",
+ "p3-symmetric",
+ "p3-util",
+ "serde",
+ "tracing",
+]
+
+[[package]]
 name = "openvm-platform"
 version = "1.0.0-rc.1"
 dependencies = [
@@ -4263,6 +4317,8 @@ dependencies = [
  "openvm-circuit",
  "openvm-circuit-primitives",
  "openvm-circuit-primitives-derive",
+ "openvm-columns",
+ "openvm-columns-core",
  "openvm-instructions",
  "openvm-rv32im-circuit",
  "openvm-stark-backend",
@@ -4293,6 +4349,8 @@ dependencies = [
  "openvm-circuit-derive",
  "openvm-circuit-primitives",
  "openvm-circuit-primitives-derive",
+ "openvm-columns",
+ "openvm-columns-core",
  "openvm-instructions",
  "openvm-rv32im-transpiler",
  "openvm-stark-backend",
@@ -4399,6 +4457,8 @@ dependencies = [
  "lazy_static",
  "openvm-circuit",
  "openvm-circuit-primitives",
+ "openvm-columns",
+ "openvm-columns-core",
  "openvm-stark-backend",
  "openvm-stark-sdk",
  "rand",
@@ -4420,6 +4480,8 @@ dependencies = [
  "openvm-circuit-derive",
  "openvm-circuit-primitives",
  "openvm-circuit-primitives-derive",
+ "openvm-columns",
+ "openvm-columns-core",
  "openvm-instructions",
  "openvm-rv32im-circuit",
  "openvm-sha256-air",
@@ -4477,8 +4539,12 @@ dependencies = [
 
 [[package]]
 name = "openvm-stark-backend"
+<<<<<<< HEAD
 version = "1.0.0-rc.0"
 source = "git+https://github.com/powdr-labs/stark-backend.git?branch=powdr#18cf1c084ebeb3ca1163e55b87893f1d1fd7fc1f"
+=======
+version = "1.0.0-rc.2"
+>>>>>>> 19fda019d (columns)
 dependencies = [
  "async-trait",
  "cfg-if",

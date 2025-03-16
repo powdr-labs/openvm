@@ -1,3 +1,4 @@
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::AirBuilder,
@@ -158,6 +159,11 @@ impl IsLtSubAir {
                 .eval(builder, count.clone());
             bits_remaining = bits_remaining.saturating_sub(self.bus.range_max_bits);
         }
+    }
+
+    pub fn columns<F: Field, const AUX_LEN: usize>(&self) -> Vec<String> {
+        LessThanAuxCols::<F, AUX_LEN>::flatten_fields().unwrap()
+        // IsLessThanIO ?
     }
 }
 

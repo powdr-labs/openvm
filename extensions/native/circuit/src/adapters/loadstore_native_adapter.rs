@@ -17,6 +17,8 @@ use openvm_circuit::{
     },
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{instruction::Instruction, program::DEFAULT_PC_STEP};
 use openvm_native_compiler::{
     conversion::AS,
@@ -71,6 +73,10 @@ impl<F: PrimeField32, const NUM_CELLS: usize> NativeLoadStoreAdapterChip<F, NUM_
             _marker: PhantomData,
         }
     }
+
+    pub fn columns(&self) -> Vec<String> {
+        self.air.columns::<F>()
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -96,7 +102,7 @@ pub struct NativeLoadStoreWriteRecord<F: Field, const NUM_CELLS: usize> {
 }
 
 #[repr(C)]
-#[derive(Clone, Debug, AlignedBorrow)]
+#[derive(Clone, Debug, AlignedBorrow, FlattenFields)]
 pub struct NativeLoadStoreAdapterCols<T, const NUM_CELLS: usize> {
     pub from_state: ExecutionState<T>,
     pub a: T,
@@ -119,6 +125,12 @@ pub struct NativeLoadStoreAdapterAir<const NUM_CELLS: usize> {
 impl<F: Field, const NUM_CELLS: usize> BaseAir<F> for NativeLoadStoreAdapterAir<NUM_CELLS> {
     fn width(&self) -> usize {
         NativeLoadStoreAdapterCols::<F, NUM_CELLS>::width()
+    }
+}
+
+impl<const NUM_CELLS: usize> NativeLoadStoreAdapterAir<NUM_CELLS> {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        NativeLoadStoreAdapterCols::<F, NUM_CELLS>::flatten_fields().unwrap()
     }
 }
 

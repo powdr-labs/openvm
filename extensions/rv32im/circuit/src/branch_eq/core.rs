@@ -9,6 +9,8 @@ use openvm_circuit::arch::{
 };
 use openvm_circuit_primitives::utils::not;
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{instruction::Instruction, LocalOpcode};
 use openvm_rv32im_transpiler::BranchEqualOpcode;
 use openvm_stark_backend::{
@@ -22,7 +24,7 @@ use serde_big_array::BigArray;
 use strum::IntoEnumIterator;
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, FlattenFields)]
 pub struct BranchEqualCoreCols<T, const NUM_LIMBS: usize> {
     pub a: [T; NUM_LIMBS],
     pub b: [T; NUM_LIMBS],
@@ -51,6 +53,15 @@ impl<F: Field, const NUM_LIMBS: usize> BaseAir<F> for BranchEqualCoreAir<NUM_LIM
 impl<F: Field, const NUM_LIMBS: usize> BaseAirWithPublicValues<F>
     for BranchEqualCoreAir<NUM_LIMBS>
 {
+    fn columns(&self) -> Vec<String> {
+        BranchEqualCoreCols::<F, NUM_LIMBS>::flatten_fields().unwrap()
+    }
+}
+
+impl<const NUM_LIMBS: usize> BranchEqualCoreAir<NUM_LIMBS> {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        BranchEqualCoreCols::<F, NUM_LIMBS>::flatten_fields().unwrap()
+    }
 }
 
 impl<AB, I, const NUM_LIMBS: usize> VmCoreAir<AB, I> for BranchEqualCoreAir<NUM_LIMBS>
@@ -152,6 +163,10 @@ impl<const NUM_LIMBS: usize> BranchEqualCoreChip<NUM_LIMBS> {
         Self {
             air: BranchEqualCoreAir { offset, pc_step },
         }
+    }
+
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        self.air.columns::<F>()
     }
 }
 

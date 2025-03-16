@@ -24,6 +24,8 @@ use openvm_circuit_primitives::{
     var_range::{SharedVariableRangeCheckerChip, VariableRangeCheckerBus},
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{
     instruction::Instruction,
     program::DEFAULT_PC_STEP,
@@ -117,6 +119,10 @@ impl<F: PrimeField32> Rv32LoadStoreAdapterChip<F> {
             _marker: PhantomData,
         }
     }
+
+    pub fn columns(&self) -> Vec<String> {
+        self.air.columns::<F>()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -144,7 +150,7 @@ pub struct Rv32LoadStoreWriteRecord<F: Field> {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, AlignedBorrow, FlattenFields)]
 pub struct Rv32LoadStoreAdapterCols<T> {
     pub from_state: ExecutionState<T>,
     pub rs1_ptr: T,
@@ -174,6 +180,12 @@ pub struct Rv32LoadStoreAdapterAir {
 impl<F: Field> BaseAir<F> for Rv32LoadStoreAdapterAir {
     fn width(&self) -> usize {
         Rv32LoadStoreAdapterCols::<F>::width()
+    }
+}
+
+impl Rv32LoadStoreAdapterAir {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        Rv32LoadStoreAdapterCols::<F>::flatten_fields().unwrap()
     }
 }
 

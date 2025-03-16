@@ -1,4 +1,6 @@
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     air_builders::PartitionedAirBuilder,
     interaction::InteractionBuilder,
@@ -10,14 +12,14 @@ use openvm_stark_backend::{
 
 use super::ProgramBus;
 
-#[derive(Copy, Clone, Debug, AlignedBorrow, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, AlignedBorrow, PartialEq, Eq, FlattenFields)]
 #[repr(C)]
 pub struct ProgramCols<T> {
     pub exec: ProgramExecutionCols<T>,
     pub exec_freq: T,
 }
 
-#[derive(Copy, Clone, Debug, AlignedBorrow, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, AlignedBorrow, PartialEq, Eq, FlattenFields)]
 #[repr(C)]
 pub struct ProgramExecutionCols<T> {
     pub pc: T,
@@ -37,7 +39,11 @@ pub struct ProgramAir {
     pub bus: ProgramBus,
 }
 
-impl<F: Field> BaseAirWithPublicValues<F> for ProgramAir {}
+impl<F: Field> BaseAirWithPublicValues<F> for ProgramAir {
+    fn columns(&self) -> Vec<String> {
+        ProgramCols::<F>::flatten_fields().unwrap()
+    }
+}
 impl<F: Field> PartitionedBaseAir<F> for ProgramAir {
     fn cached_main_widths(&self) -> Vec<usize> {
         vec![ProgramExecutionCols::<F>::width()]

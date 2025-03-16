@@ -23,6 +23,8 @@ use openvm_circuit_primitives::bitwise_op_lookup::{
     BitwiseOperationLookupBus, SharedBitwiseOperationLookupChip,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{
     instruction::Instruction,
     program::DEFAULT_PC_STEP,
@@ -48,7 +50,7 @@ use serde_with::serde_as;
 ///   (and `rs[1]` if `R = 2`).
 /// * Writes are to 32-bit register rd.
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, FlattenFields)]
 pub struct Rv32IsEqualModAdapterCols<
     T,
     const NUM_READS: usize,
@@ -78,6 +80,19 @@ pub struct Rv32IsEqualModAdapterAir<
     pub(super) memory_bridge: MemoryBridge,
     pub bus: BitwiseOperationLookupBus,
     address_bits: usize,
+}
+
+impl<
+        const NUM_READS: usize,
+        const BLOCKS_PER_READ: usize,
+        const BLOCK_SIZE: usize,
+        const TOTAL_READ_SIZE: usize,
+    > Rv32IsEqualModAdapterAir<NUM_READS, BLOCKS_PER_READ, BLOCK_SIZE, TOTAL_READ_SIZE>
+{
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        Rv32IsEqualModAdapterCols::<F, NUM_READS, BLOCKS_PER_READ, BLOCK_SIZE>::flatten_fields()
+            .unwrap()
+    }
 }
 
 impl<
@@ -271,6 +286,10 @@ impl<
             bitwise_lookup_chip,
             _marker: PhantomData,
         }
+    }
+
+    pub fn columns(&self) -> Vec<String> {
+        self.air.columns::<F>()
     }
 }
 

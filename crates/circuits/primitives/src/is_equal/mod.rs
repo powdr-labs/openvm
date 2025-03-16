@@ -1,4 +1,5 @@
 use derive_new::new;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{p3_air::AirBuilder, p3_field::Field};
 
 use crate::{
@@ -54,5 +55,11 @@ impl<F: Field> TraceSubRowGenerator<F> for IsEqSubAir {
 
     fn generate_subrow<'a>(&'a self, (x, y): (F, F), (inv, out): (&'a mut F, &'a mut F)) {
         IsZeroSubAir.generate_subrow(x - y, (inv, out));
+    }
+}
+
+impl IsEqSubAir {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        IsEqualAuxCols::<F>::flatten_fields().unwrap()
     }
 }

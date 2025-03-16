@@ -12,6 +12,8 @@ use openvm_circuit_primitives::{
     utils::not,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{instruction::Instruction, LocalOpcode};
 use openvm_rv32im_transpiler::LessThanOpcode;
 use openvm_stark_backend::{
@@ -25,7 +27,7 @@ use serde_big_array::BigArray;
 use strum::IntoEnumIterator;
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, FlattenFields)]
 pub struct LessThanCoreCols<T, const NUM_LIMBS: usize, const LIMB_BITS: usize> {
     pub b: [T; NUM_LIMBS],
     pub c: [T; NUM_LIMBS],
@@ -61,6 +63,15 @@ impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAir<F>
 impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAirWithPublicValues<F>
     for LessThanCoreAir<NUM_LIMBS, LIMB_BITS>
 {
+    fn columns(&self) -> Vec<String> {
+        LessThanCoreCols::<F, NUM_LIMBS, LIMB_BITS>::flatten_fields().unwrap()
+    }
+}
+
+impl<const NUM_LIMBS: usize, const LIMB_BITS: usize> LessThanCoreAir<NUM_LIMBS, LIMB_BITS> {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        LessThanCoreCols::<F, NUM_LIMBS, LIMB_BITS>::flatten_fields().unwrap()
+    }
 }
 
 impl<AB, I, const NUM_LIMBS: usize, const LIMB_BITS: usize> VmCoreAir<AB, I>
@@ -188,6 +199,10 @@ impl<const NUM_LIMBS: usize, const LIMB_BITS: usize> LessThanCoreChip<NUM_LIMBS,
             },
             bitwise_lookup_chip,
         }
+    }
+
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        self.air.columns::<F>()
     }
 }
 

@@ -19,6 +19,8 @@ use openvm_circuit::{
 };
 use openvm_circuit_primitives::utils::not;
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{
     instruction::Instruction, program::DEFAULT_PC_STEP, riscv::RV32_REGISTER_AS,
 };
@@ -60,6 +62,10 @@ impl<F: PrimeField32> Rv32RdWriteAdapterChip<F> {
             _marker: PhantomData,
         }
     }
+
+    pub fn columns(&self) -> Vec<String> {
+        self.air.columns::<F>()
+    }
 }
 
 impl<F: PrimeField32> Rv32CondRdWriteAdapterChip<F> {
@@ -72,6 +78,10 @@ impl<F: PrimeField32> Rv32CondRdWriteAdapterChip<F> {
         let air = Rv32CondRdWriteAdapterAir { inner: inner.air };
         Self { inner, air }
     }
+
+    pub fn columns(&self) -> Vec<String> {
+        self.air.columns::<F>()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,7 +91,7 @@ pub struct Rv32RdWriteWriteRecord {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, AlignedBorrow, FlattenFields)]
 pub struct Rv32RdWriteAdapterCols<T> {
     pub from_state: ExecutionState<T>,
     pub rd_ptr: T,
@@ -89,7 +99,7 @@ pub struct Rv32RdWriteAdapterCols<T> {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, AlignedBorrow, FlattenFields)]
 pub struct Rv32CondRdWriteAdapterCols<T> {
     inner: Rv32RdWriteAdapterCols<T>,
     pub needs_write: T,
@@ -112,9 +122,21 @@ impl<F: Field> BaseAir<F> for Rv32RdWriteAdapterAir {
     }
 }
 
+impl Rv32RdWriteAdapterAir {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        Rv32RdWriteAdapterCols::<F>::flatten_fields().unwrap()
+    }
+}
+
 impl<F: Field> BaseAir<F> for Rv32CondRdWriteAdapterAir {
     fn width(&self) -> usize {
         Rv32CondRdWriteAdapterCols::<F>::width()
+    }
+}
+
+impl Rv32CondRdWriteAdapterAir {
+    pub fn columns<F: Field>(&self) -> Vec<String> {
+        Rv32CondRdWriteAdapterCols::<F>::flatten_fields().unwrap()
     }
 }
 

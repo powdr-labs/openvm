@@ -5,6 +5,8 @@ use std::{
 };
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::LocalOpcode;
 use openvm_stark_backend::{
     config::{StarkGenericConfig, Val},
@@ -54,6 +56,10 @@ pub struct VmConnectorPvs<F> {
 impl<F: Field> BaseAirWithPublicValues<F> for VmConnectorAir {
     fn num_public_values(&self) -> usize {
         VmConnectorPvs::<F>::width()
+    }
+
+    fn columns(&self) -> Vec<String> {
+        todo!()
     }
 }
 impl<F: Field> PartitionedBaseAir<F> for VmConnectorAir {}
