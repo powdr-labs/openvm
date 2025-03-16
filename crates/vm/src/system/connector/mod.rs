@@ -178,7 +178,7 @@ impl<F: PrimeField32> VmConnectorChip<F> {
     }
 
     pub fn columns(&self) -> Vec<String> {
-        ConnectorCols::<u32>::flatten_fields().unwrap()
+        VmConnectorPvs::<F>::flatten_fields().unwrap()
     }
 }
 
