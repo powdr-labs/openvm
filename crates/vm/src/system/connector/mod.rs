@@ -38,7 +38,7 @@ pub struct VmConnectorAir {
     pub program_bus: ProgramBus,
 }
 
-#[derive(Debug, Clone, Copy, AlignedBorrow)]
+#[derive(Debug, Clone, Copy, AlignedBorrow, FlattenFields)]
 #[repr(C)]
 pub struct VmConnectorPvs<F> {
     /// The initial PC of this segment.
@@ -59,7 +59,7 @@ impl<F: Field> BaseAirWithPublicValues<F> for VmConnectorAir {
     }
 
     fn columns(&self) -> Vec<String> {
-        todo!()
+        VmConnectorPvs::<F>::flatten_fields().unwrap()
     }
 }
 impl<F: Field> PartitionedBaseAir<F> for VmConnectorAir {}
@@ -73,7 +73,7 @@ impl<F: Field> BaseAir<F> for VmConnectorAir {
     }
 }
 
-#[derive(Debug, Copy, Clone, AlignedBorrow, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, AlignedBorrow, FlattenFields, Serialize, Deserialize)]
 #[repr(C)]
 pub struct ConnectorCols<T> {
     pub pc: T,
@@ -175,6 +175,10 @@ impl<F: PrimeField32> VmConnectorChip<F> {
             is_terminate: exit_code.is_some() as u32,
             exit_code: exit_code.unwrap_or(DEFAULT_SUSPEND_EXIT_CODE),
         });
+    }
+
+    pub fn columns(&self) -> Vec<String> {
+        ConnectorCols::<u32>::flatten_fields().unwrap()
     }
 }
 

@@ -58,8 +58,13 @@ impl<F: PrimeField32, const BLOCKS: usize, const BLOCK_SIZE: usize>
     }
 
     pub fn columns(&self) -> Vec<String> {
-        //self.0.core.air.columns::<F>() ?
-        self.0.adapter.columns()
+        self.0
+            .core
+            .air
+            .columns()
+            .into_iter()
+            .chain(self.0.adapter.columns::<F>())
+            .collect()
     }
 }
 

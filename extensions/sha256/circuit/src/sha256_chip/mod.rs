@@ -61,7 +61,6 @@ pub struct Sha256VmChip<F: PrimeField32> {
 impl<F: PrimeField32> Sha256VmChip<F> {
     pub fn columns(&self) -> Vec<String> {
         self.air.columns::<F>()
-        // SharedBitwiseOperationLookupChip ?
     }
 }
 

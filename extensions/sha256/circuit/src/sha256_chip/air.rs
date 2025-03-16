@@ -44,12 +44,17 @@ pub struct Sha256VmAir {
 
 impl<F: Field> BaseAirWithPublicValues<F> for Sha256VmAir {
     fn columns(&self) -> Vec<String> {
-        Sha256VmDigestCols::<F>::flatten_fields()
-            .unwrap()
-            .into_iter()
-            .chain(Sha256VmRoundCols::<F>::flatten_fields().unwrap())
-            .chain(Sha256VmControlCols::<F>::flatten_fields().unwrap())
-            .collect()
+        if SHA256VM_ROUND_WIDTH > SHA256VM_DIGEST_WIDTH {
+            Sha256VmRoundCols::<F>::flatten_fields()
+                .unwrap()
+                .into_iter()
+                .collect()
+        } else {
+            Sha256VmDigestCols::<F>::flatten_fields()
+                .unwrap()
+                .into_iter()
+                .collect()
+        }
     }
 }
 impl<F: Field> PartitionedBaseAir<F> for Sha256VmAir {}
@@ -568,11 +573,16 @@ impl Sha256VmAir {
     }
 
     pub fn columns<F: Field>(&self) -> Vec<String> {
-        Sha256VmDigestCols::<F>::flatten_fields()
-            .unwrap()
-            .into_iter()
-            .chain(Sha256VmRoundCols::<F>::flatten_fields().unwrap())
-            .chain(Sha256VmControlCols::<F>::flatten_fields().unwrap())
-            .collect()
+        if SHA256VM_ROUND_WIDTH > SHA256VM_DIGEST_WIDTH {
+            Sha256VmRoundCols::<F>::flatten_fields()
+                .unwrap()
+                .into_iter()
+                .collect()
+        } else {
+            Sha256VmDigestCols::<F>::flatten_fields()
+                .unwrap()
+                .into_iter()
+                .collect()
+        }
     }
 }

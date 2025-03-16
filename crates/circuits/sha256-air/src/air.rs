@@ -536,11 +536,13 @@ impl Sha256Air {
     }
 
     pub fn columns<F: Field>(&self) -> Vec<String> {
-        Sha256RoundCols::<F>::flatten_fields()
-            .unwrap()
-            .into_iter()
-            .chain(Sha256DigestCols::<F>::flatten_fields().unwrap())
-            .chain(Sha256FlagsCols::<F>::flatten_fields().unwrap())
-            .collect()
+        if Sha256RoundCols::<F>::width() >= Sha256DigestCols::<F>::width() {
+            Sha256RoundCols::<F>::flatten_fields()
+        } else {
+            Sha256DigestCols::<F>::flatten_fields()
+        }
+        .unwrap()
+        .into_iter()
+        .collect()
     }
 }

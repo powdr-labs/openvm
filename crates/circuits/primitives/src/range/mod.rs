@@ -72,11 +72,8 @@ impl<F: Field> BaseAir<F> for RangeCheckerAir {
 
 impl RangeCheckerAir {
     pub fn columns<F: Field>(&self) -> Vec<String> {
-        RangeCols::<F>::flatten_fields()
-            .unwrap()
-            .into_iter()
-            .chain(RangePreprocessedCols::<F>::flatten_fields().unwrap())
-            .collect()
+        RangeCols::<F>::flatten_fields().unwrap()
+            
     }
 }
 

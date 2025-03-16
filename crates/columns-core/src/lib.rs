@@ -1,3 +1,6 @@
+use p3_keccak_air::KeccakCols;
+use p3_poseidon2_air::Poseidon2Cols;
+
 pub trait FlattenFieldsHelper {
     fn flatten_fields() -> Option<Vec<String>>;
 }
@@ -14,21 +17,6 @@ impl<T: FlattenFieldsHelper, const N: usize> FlattenFieldsHelper for [T; N] {
         Some(fields)
     }
 }
-
-// AB::Var is needed to implement Vec<T> (e.g: inside CheckCarryModToZeroCols)
-// but I couldn't find a way to get a unique identifier so I implemented the
-// whole Vec<T> inside the macro which also introduce its own issues
-// (can't iterate over it)
-// Same situation for Vec<Vec<T>> (e.g: inside FieldExprCols)
-
-// impl<AB: AirBuilder> FlattenFieldsHelper for AB::Var {
-//     fn flatten_fields() -> Option<Vec<String>> {
-//         // Simple implementation - just return the type name
-//         Some(vec!["var".to_string()])
-//     }
-// }
-
-use p3_keccak_air::KeccakCols;
 
 impl<T> FlattenFieldsHelper for KeccakCols<T> {
     fn flatten_fields() -> Option<Vec<String>> {
@@ -109,8 +97,6 @@ impl<T> FlattenFieldsHelper for KeccakCols<T> {
     }
 }
 
-use p3_poseidon2_air::Poseidon2Cols;
-
 impl<
         F,
         const WIDTH: usize,
@@ -148,44 +134,3 @@ impl<
         Some(fields)
     }
 }
-
-// impl<F, const SBOX_REGISTERS: usize> FlattenFieldsHelper for Poseidon2SubCols<F, SBOX_REGISTERS> {
-//     fn flatten_fields() -> Option<Vec<String>> {
-//         let mut fields = Vec::new();
-
-//         // Generate field names for the state array
-//         for i in 0..16 {
-//             fields.push(format!("state__{}", i));
-//         }
-
-//         // Generate field names for MDS matrix
-//         for i in 0..16 {
-//             for j in 0..16 {
-//                 fields.push(format!("mds__{}_{}", i, j));
-//             }
-//         }
-
-//         // Generate field names for round constants
-//         for r in 0..7 {
-//             for i in 0..16 {
-//                 fields.push(format!("constants__{}_{}", r, i));
-//             }
-//         }
-
-//         // Generate field names for S-boxes
-//         for i in 0..SBOX_REGISTERS {
-//             fields.push(format!("sbox__{}", i));
-//         }
-
-//         // Include other known fields
-//         for i in 0..4 {
-//             fields.push(format!("partial__{}", i));
-//         }
-
-//         for i in 0..13 {
-//             fields.push(format!("ending__{}", i));
-//         }
-
-//         Some(fields)
-//     }
-// }
