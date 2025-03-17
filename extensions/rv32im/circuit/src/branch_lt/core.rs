@@ -67,6 +67,10 @@ impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAir<F>
     fn width(&self) -> usize {
         BranchLessThanCoreCols::<F, NUM_LIMBS, LIMB_BITS>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        BranchLessThanCoreCols::<F, NUM_LIMBS, LIMB_BITS>::flatten_fields().unwrap()
+    }
 }
 impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAirWithPublicValues<F>
     for BranchLessThanCoreAir<NUM_LIMBS, LIMB_BITS>

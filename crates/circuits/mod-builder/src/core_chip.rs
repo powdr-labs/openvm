@@ -93,6 +93,10 @@ impl<F: Field> BaseAir<F> for FieldExpressionCoreAir {
     fn width(&self) -> usize {
         BaseAir::<F>::width(&self.expr)
     }
+
+    fn columns(&self) -> Vec<String> {
+        FieldExprCols::<F>::flatten_fields().unwrap()
+    }
 }
 
 impl FieldExpressionCoreAir {

@@ -35,6 +35,10 @@ impl<const BLOCK_SIZE: usize, F> BaseAir<F> for MemoryDummyAir<BLOCK_SIZE> {
     fn width(&self) -> usize {
         size_of::<DummyMemoryInteractionCols<u8, BLOCK_SIZE>>()
     }
+
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
 }
 
 impl<const BLOCK_SIZE: usize, AB: InteractionBuilder> Air<AB> for MemoryDummyAir<BLOCK_SIZE> {

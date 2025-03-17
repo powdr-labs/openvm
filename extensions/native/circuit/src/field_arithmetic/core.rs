@@ -40,6 +40,10 @@ impl<F: Field> BaseAir<F> for FieldArithmeticCoreAir {
     fn width(&self) -> usize {
         FieldArithmeticCoreCols::<F>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        FieldArithmeticCoreCols::<F>::flatten_fields().unwrap()
+    }
 }
 
 impl FieldArithmeticCoreAir {

@@ -54,6 +54,10 @@ impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAir<F>
     fn width(&self) -> usize {
         MulHCoreCols::<F, NUM_LIMBS, LIMB_BITS>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        MulHCoreCols::<F, NUM_LIMBS, LIMB_BITS>::flatten_fields().unwrap()
+    }
 }
 impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAirWithPublicValues<F>
     for MulHCoreAir<NUM_LIMBS, LIMB_BITS>

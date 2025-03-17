@@ -56,9 +56,7 @@ impl<F: Field, const NUM_BITS: usize> BaseAirWithPublicValues<F>
     for BitwiseOperationLookupAir<NUM_BITS>
 {
     fn columns(&self) -> Vec<String> {
-        BitwiseOperationLookupCols::<F>::flatten_fields()
-            .unwrap()
-            
+        BitwiseOperationLookupCols::<F>::flatten_fields().unwrap()
     }
 }
 impl<F: Field, const NUM_BITS: usize> PartitionedBaseAir<F>
@@ -68,9 +66,7 @@ impl<F: Field, const NUM_BITS: usize> PartitionedBaseAir<F>
 
 impl<const NUM_BITS: usize> BitwiseOperationLookupAir<NUM_BITS> {
     pub fn columns<F: Field>(&self) -> Vec<String> {
-        BitwiseOperationLookupCols::<F>::flatten_fields()
-            .unwrap()
-            
+        BitwiseOperationLookupCols::<F>::flatten_fields().unwrap()
     }
 }
 
@@ -95,6 +91,10 @@ impl<F: Field, const NUM_BITS: usize> BaseAir<F> for BitwiseOperationLookupAir<N
             rows,
             NUM_BITWISE_OP_LOOKUP_PREPROCESSED_COLS,
         ))
+    }
+
+    fn columns(&self) -> Vec<String> {
+        BitwiseOperationLookupCols::<F>::flatten_fields().unwrap()
     }
 }
 

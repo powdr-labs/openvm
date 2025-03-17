@@ -47,6 +47,17 @@ impl<F> BaseAir<F> for Sha256Air {
             Sha256DigestCols::<F>::width(),
         )
     }
+
+    fn columns(&self) -> Vec<String> {
+        if Sha256RoundCols::<F>::width() >= Sha256DigestCols::<F>::width() {
+            Sha256RoundCols::<F>::flatten_fields()
+        } else {
+            Sha256DigestCols::<F>::flatten_fields()
+        }
+        .unwrap()
+        .into_iter()
+        .collect()
+    }
 }
 
 impl<AB: InteractionBuilder> SubAir<AB> for Sha256Air {

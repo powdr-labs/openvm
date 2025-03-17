@@ -50,6 +50,10 @@ impl<F: Field, const AUX_LEN: usize> BaseAir<F> for AssertLtTestAir<AUX_LEN> {
     fn width(&self) -> usize {
         AssertLessThanCols::<F, AUX_LEN>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
 }
 impl<AB: InteractionBuilder, const AUX_LEN: usize> Air<AB> for AssertLtTestAir<AUX_LEN> {
     fn eval(&self, builder: &mut AB) {

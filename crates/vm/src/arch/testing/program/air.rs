@@ -24,6 +24,10 @@ impl<F: Field> BaseAir<F> for ProgramDummyAir {
     fn width(&self) -> usize {
         ProgramTester::<F>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
 }
 
 impl<AB: InteractionBuilder> Air<AB> for ProgramDummyAir {

@@ -93,6 +93,10 @@ impl<F: Field, const READ_SIZE: usize, const WRITE_SIZE: usize> BaseAir<F>
     fn width(&self) -> usize {
         ConvertAdapterCols::<F, READ_SIZE, WRITE_SIZE>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        ConvertAdapterCols::<F, READ_SIZE, WRITE_SIZE>::flatten_fields().unwrap()
+    }
 }
 
 impl<const READ_SIZE: usize, const WRITE_SIZE: usize> ConvertAdapterAir<READ_SIZE, WRITE_SIZE> {

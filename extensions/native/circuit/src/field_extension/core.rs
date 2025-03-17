@@ -47,6 +47,10 @@ impl<F: Field> BaseAir<F> for FieldExtensionCoreAir {
     fn width(&self) -> usize {
         FieldExtensionCoreCols::<F>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        FieldExtensionCoreCols::<F>::flatten_fields().unwrap()
+    }
 }
 
 impl FieldExtensionCoreAir {

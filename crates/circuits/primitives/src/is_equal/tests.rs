@@ -40,6 +40,9 @@ impl<F: Field> BaseAir<F> for IsEqTestAir {
     fn width(&self) -> usize {
         IsEqualCols::<F>::width()
     }
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
 }
 impl<AB: AirBuilder> Air<AB> for IsEqTestAir {
     fn eval(&self, builder: &mut AB) {

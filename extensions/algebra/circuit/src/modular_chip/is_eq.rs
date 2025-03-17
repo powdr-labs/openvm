@@ -100,6 +100,10 @@ impl<F: Field, const READ_LIMBS: usize, const WRITE_LIMBS: usize, const LIMB_BIT
     fn width(&self) -> usize {
         ModularIsEqualCoreCols::<F, READ_LIMBS>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        ModularIsEqualCoreCols::<F, READ_LIMBS>::flatten_fields().unwrap()
+    }
 }
 impl<F: Field, const READ_LIMBS: usize, const WRITE_LIMBS: usize, const LIMB_BITS: usize>
     BaseAirWithPublicValues<F> for ModularIsEqualCoreAir<READ_LIMBS, WRITE_LIMBS, LIMB_BITS>

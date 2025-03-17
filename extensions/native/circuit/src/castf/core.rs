@@ -43,6 +43,10 @@ impl<F: Field> BaseAir<F> for CastFCoreAir {
     fn width(&self) -> usize {
         CastFCoreCols::<F>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        CastFCoreCols::<F>::flatten_fields().unwrap()
+    }
 }
 
 impl CastFCoreAir {

@@ -107,6 +107,11 @@ impl<
     fn width(&self) -> usize {
         Rv32IsEqualModAdapterCols::<F, NUM_READS, BLOCKS_PER_READ, BLOCK_SIZE>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        Rv32IsEqualModAdapterCols::<F, NUM_READS, BLOCKS_PER_READ, BLOCK_SIZE>::flatten_fields()
+            .unwrap()
+    }
 }
 
 impl<

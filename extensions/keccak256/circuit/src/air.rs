@@ -54,6 +54,10 @@ impl<F> BaseAir<F> for KeccakVmAir {
     fn width(&self) -> usize {
         NUM_KECCAK_VM_COLS
     }
+
+    fn columns(&self) -> Vec<String> {
+        KeccakVmCols::<F>::flatten_fields().unwrap()
+    }
 }
 
 impl KeccakVmAir {

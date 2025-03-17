@@ -62,6 +62,20 @@ impl<F: Field> BaseAir<F> for Sha256VmAir {
     fn width(&self) -> usize {
         SHA256VM_WIDTH
     }
+
+    fn columns(&self) -> Vec<String> {
+        if SHA256VM_ROUND_WIDTH > SHA256VM_DIGEST_WIDTH {
+            Sha256VmRoundCols::<F>::flatten_fields()
+                .unwrap()
+                .into_iter()
+                .collect()
+        } else {
+            Sha256VmDigestCols::<F>::flatten_fields()
+                .unwrap()
+                .into_iter()
+                .collect()
+        }
+    }
 }
 
 impl<AB: InteractionBuilder> Air<AB> for Sha256VmAir {

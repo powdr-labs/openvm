@@ -78,6 +78,10 @@ impl<F: Field> BaseAir<F> for AluNativeAdapterAir {
     fn width(&self) -> usize {
         AluNativeAdapterCols::<F>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        AluNativeAdapterCols::<F>::flatten_fields().unwrap()
+    }
 }
 
 impl AluNativeAdapterAir {

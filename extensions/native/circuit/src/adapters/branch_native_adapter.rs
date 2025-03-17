@@ -79,6 +79,10 @@ impl<F: Field> BaseAir<F> for BranchNativeAdapterAir {
     fn width(&self) -> usize {
         BranchNativeAdapterCols::<F>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        BranchNativeAdapterCols::<F>::flatten_fields().unwrap()
+    }
 }
 
 impl BranchNativeAdapterAir {

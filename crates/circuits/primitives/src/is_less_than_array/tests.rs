@@ -44,6 +44,10 @@ impl<F: Field, const NUM: usize, const AUX_LEN: usize> BaseAir<F>
     fn width(&self) -> usize {
         IsLtArrayCols::<F, NUM, AUX_LEN>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
 }
 impl<F: Field, const NUM: usize, const AUX_LEN: usize> PartitionedBaseAir<F>
     for IsLtArrayTestAir<NUM, AUX_LEN>

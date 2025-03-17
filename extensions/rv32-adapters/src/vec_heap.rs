@@ -214,6 +214,18 @@ impl<
             WRITE_SIZE,
         >::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        Rv32VecHeapAdapterCols::<
+            F,
+            NUM_READS,
+            BLOCKS_PER_READ,
+            BLOCKS_PER_WRITE,
+            READ_SIZE,
+            WRITE_SIZE,
+        >::flatten_fields()
+        .unwrap()
+    }
 }
 
 impl<

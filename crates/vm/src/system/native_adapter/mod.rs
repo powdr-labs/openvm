@@ -122,6 +122,10 @@ impl<F: Field, const R: usize, const W: usize> BaseAir<F> for NativeAdapterAir<R
     fn width(&self) -> usize {
         NativeAdapterCols::<F, R, W>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        NativeAdapterCols::<F, R, W>::flatten_fields().unwrap()
+    }
 }
 
 impl<AB: InteractionBuilder, const R: usize, const W: usize> VmAdapterAir<AB>

@@ -58,6 +58,10 @@ impl<F: Field> BaseAir<F> for RangeCheckerGateAir {
     fn width(&self) -> usize {
         NUM_RANGE_GATE_COLS
     }
+
+    fn columns(&self) -> Vec<String> {
+        RangeGateCols::<F>::flatten_fields().unwrap()
+    }
 }
 
 impl RangeCheckerGateAir {

@@ -86,6 +86,10 @@ impl<F: Field> BaseAir<F> for VariableRangeCheckerAir {
             NUM_VARIABLE_RANGE_PREPROCESSED_COLS,
         ))
     }
+
+    fn columns(&self) -> Vec<String> {
+        VariableRangeCols::<F>::flatten_fields().unwrap()
+    }
 }
 
 impl VariableRangeCheckerAir {

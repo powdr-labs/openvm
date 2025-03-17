@@ -33,6 +33,10 @@ impl<T, const N: usize> BaseAir<T> for AccessAdapterAir<N> {
     fn width(&self) -> usize {
         size_of::<AccessAdapterCols<u8, N>>()
     }
+
+    fn columns(&self) -> Vec<String> {
+        AccessAdapterCols::<T, N>::flatten_fields().unwrap()
+    }
 }
 
 impl<const N: usize, AB: InteractionBuilder> Air<AB> for AccessAdapterAir<N> {

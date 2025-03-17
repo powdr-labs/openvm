@@ -71,6 +71,10 @@ impl<F: Field> BaseAir<F> for VmConnectorAir {
     fn preprocessed_trace(&self) -> Option<RowMajorMatrix<F>> {
         Some(RowMajorMatrix::new_col(vec![F::ZERO, F::ONE]))
     }
+
+    fn columns(&self) -> Vec<String> {
+        VmConnectorPvs::<F>::flatten_fields().unwrap()
+    }
 }
 
 #[derive(Debug, Copy, Clone, AlignedBorrow, FlattenFields, Serialize, Deserialize)]

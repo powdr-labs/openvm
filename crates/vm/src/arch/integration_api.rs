@@ -360,6 +360,12 @@ where
     fn width(&self) -> usize {
         self.adapter.width() + self.core.width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        let mut columns = self.adapter.columns();
+        columns.extend(BaseAir::columns(&self.core).into_iter());
+        columns
+    }
 }
 
 impl<F, A, M> BaseAirWithPublicValues<F> for VmAirWrapper<A, M>
@@ -372,7 +378,9 @@ where
     }
 
     fn columns(&self) -> Vec<String> {
-        self.core.columns()
+        let mut columns = self.adapter.columns();
+        columns.extend(BaseAirWithPublicValues::columns(&self.core).into_iter());
+        columns
     }
 }
 

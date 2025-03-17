@@ -31,6 +31,10 @@ impl<F: Field> BaseAir<F> for JalCoreAir {
     fn width(&self) -> usize {
         JalCoreCols::<F>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        JalCoreCols::<F>::flatten_fields().unwrap()
+    }
 }
 
 impl<F: Field> BaseAirWithPublicValues<F> for JalCoreAir {

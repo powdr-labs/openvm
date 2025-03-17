@@ -70,6 +70,11 @@ impl<F: Field, const NUM_READS: usize, const READ_SIZE: usize, const WRITE_SIZE:
     fn width(&self) -> usize {
         Rv32VecHeapAdapterCols::<F, NUM_READS, 1, 1, READ_SIZE, WRITE_SIZE>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        Rv32VecHeapAdapterCols::<F, NUM_READS, 1, 1, READ_SIZE, WRITE_SIZE>::flatten_fields()
+            .unwrap()
+    }
 }
 
 impl<

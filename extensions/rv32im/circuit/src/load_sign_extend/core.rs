@@ -70,6 +70,10 @@ impl<F: Field, const NUM_CELLS: usize, const LIMB_BITS: usize> BaseAir<F>
     fn width(&self) -> usize {
         LoadSignExtendCoreCols::<F, NUM_CELLS>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        LoadSignExtendCoreCols::<F, NUM_CELLS>::flatten_fields().unwrap()
+    }
 }
 
 impl<F: Field, const NUM_CELLS: usize, const LIMB_BITS: usize> BaseAirWithPublicValues<F>

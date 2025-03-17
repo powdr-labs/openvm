@@ -9,6 +9,8 @@ use openvm_circuit_primitives::var_range::{
     SharedVariableRangeCheckerChip, VariableRangeCheckerBus,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_poseidon2_air::Poseidon2Config;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
@@ -48,7 +50,7 @@ const MAX: usize = 64;
 const RANGE_CHECKER_BUS: usize = 3;
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, FlattenFields)]
 struct MemoryRequesterCols<T> {
     address_space: T,
     pointer: T,
@@ -81,6 +83,10 @@ impl<T> PartitionedBaseAir<T> for MemoryRequesterAir {}
 impl<T> BaseAir<T> for MemoryRequesterAir {
     fn width(&self) -> usize {
         MemoryRequesterCols::<T>::width()
+    }
+
+    fn columns(&self) -> Vec<String> {
+        MemoryRequesterCols::<T>::flatten_fields().unwrap()
     }
 }
 

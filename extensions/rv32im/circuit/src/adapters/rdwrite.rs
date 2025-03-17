@@ -120,6 +120,10 @@ impl<F: Field> BaseAir<F> for Rv32RdWriteAdapterAir {
     fn width(&self) -> usize {
         Rv32RdWriteAdapterCols::<F>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        Rv32RdWriteAdapterCols::<F>::flatten_fields().unwrap()
+    }
 }
 
 impl Rv32RdWriteAdapterAir {
@@ -131,6 +135,10 @@ impl Rv32RdWriteAdapterAir {
 impl<F: Field> BaseAir<F> for Rv32CondRdWriteAdapterAir {
     fn width(&self) -> usize {
         Rv32CondRdWriteAdapterCols::<F>::width()
+    }
+
+    fn columns(&self) -> Vec<String> {
+        Rv32CondRdWriteAdapterCols::<F>::flatten_fields().unwrap()
     }
 }
 

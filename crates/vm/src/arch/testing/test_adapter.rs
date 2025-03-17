@@ -5,6 +5,8 @@ use std::{
 };
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::instruction::Instruction;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
@@ -131,7 +133,7 @@ pub struct TestAdapterAir {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, FlattenFields)]
 pub struct TestAdapterCols<T> {
     pub from_pc: T,
     pub operands: [T; 7],
@@ -140,6 +142,10 @@ pub struct TestAdapterCols<T> {
 impl<F: Field> BaseAir<F> for TestAdapterAir {
     fn width(&self) -> usize {
         TestAdapterCols::<F>::width()
+    }
+
+    fn columns(&self) -> Vec<String> {
+        TestAdapterCols::<F>::flatten_fields().unwrap()
     }
 }
 

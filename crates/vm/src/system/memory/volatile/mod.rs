@@ -86,6 +86,10 @@ impl<F: Field> BaseAir<F> for VolatileBoundaryAir {
     fn width(&self) -> usize {
         VolatileBoundaryCols::<F>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        VolatileBoundaryCols::<F>::flatten_fields().unwrap()
+    }
 }
 
 impl<AB: InteractionBuilder> Air<AB> for VolatileBoundaryAir {

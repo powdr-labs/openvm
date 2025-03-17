@@ -64,6 +64,10 @@ impl<const CHUNK: usize, F> BaseAir<F> for PersistentBoundaryAir<CHUNK> {
     fn width(&self) -> usize {
         PersistentBoundaryCols::<F, CHUNK>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        PersistentBoundaryCols::<F, CHUNK>::flatten_fields().unwrap()
+    }
 }
 
 impl<const CHUNK: usize, F> BaseAirWithPublicValues<F> for PersistentBoundaryAir<CHUNK> {

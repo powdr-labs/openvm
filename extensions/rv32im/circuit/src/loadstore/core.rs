@@ -80,6 +80,10 @@ impl<F: Field, const NUM_CELLS: usize> BaseAir<F> for LoadStoreCoreAir<NUM_CELLS
     fn width(&self) -> usize {
         LoadStoreCoreCols::<F, NUM_CELLS>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        LoadStoreCoreCols::<F, NUM_CELLS>::flatten_fields().unwrap()
+    }
 }
 
 impl<F: Field, const NUM_CELLS: usize> BaseAirWithPublicValues<F> for LoadStoreCoreAir<NUM_CELLS> {

@@ -89,6 +89,10 @@ impl<F: Field, const N: usize> BaseAir<F> for NativeVectorizedAdapterAir<N> {
     fn width(&self) -> usize {
         NativeVectorizedAdapterCols::<F, N>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        NativeVectorizedAdapterCols::<F, N>::flatten_fields().unwrap()
+    }
 }
 
 impl<const N: usize> NativeVectorizedAdapterAir<N> {

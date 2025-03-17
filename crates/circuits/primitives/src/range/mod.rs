@@ -68,12 +68,15 @@ impl<F: Field> BaseAir<F> for RangeCheckerAir {
         let column = (0..self.range_max()).map(F::from_canonical_u32).collect();
         Some(RowMajorMatrix::new_col(column))
     }
+
+    fn columns(&self) -> Vec<String> {
+        RangeCols::<F>::flatten_fields().unwrap()
+    }
 }
 
 impl RangeCheckerAir {
     pub fn columns<F: Field>(&self) -> Vec<String> {
         RangeCols::<F>::flatten_fields().unwrap()
-            
     }
 }
 

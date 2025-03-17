@@ -126,6 +126,10 @@ impl<F: Field, const NUM_CELLS: usize> BaseAir<F> for NativeLoadStoreAdapterAir<
     fn width(&self) -> usize {
         NativeLoadStoreAdapterCols::<F, NUM_CELLS>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        NativeLoadStoreAdapterCols::<F, NUM_CELLS>::flatten_fields().unwrap()
+    }
 }
 
 impl<const NUM_CELLS: usize> NativeLoadStoreAdapterAir<NUM_CELLS> {

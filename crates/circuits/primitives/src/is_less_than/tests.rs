@@ -49,6 +49,10 @@ impl<F: Field> BaseAir<F> for IsLtTestAir {
         // Cannot use size_of because Cols has Vec<T> which is stored on the heap
         3 + self.0.decomp_limbs
     }
+
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
 }
 impl<AB: InteractionBuilder> Air<AB> for IsLtTestAir {
     fn eval(&self, builder: &mut AB) {

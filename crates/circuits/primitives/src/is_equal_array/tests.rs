@@ -45,6 +45,10 @@ impl<F: Field, const N: usize> BaseAir<F> for IsEqArrayTestAir<N> {
     fn width(&self) -> usize {
         IsEqArrayCols::<F, N>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
 }
 impl<AB: AirBuilder, const N: usize> Air<AB> for IsEqArrayTestAir<N> {
     fn eval(&self, builder: &mut AB) {

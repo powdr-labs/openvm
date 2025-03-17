@@ -24,6 +24,10 @@ impl<const CHUNK: usize, F: Field> BaseAir<F> for MemoryMerkleAir<CHUNK> {
     fn width(&self) -> usize {
         MemoryMerkleCols::<F, CHUNK>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        MemoryMerkleCols::<F, CHUNK>::flatten_fields().unwrap()
+    }
 }
 impl<const CHUNK: usize, F: Field> BaseAirWithPublicValues<F> for MemoryMerkleAir<CHUNK> {
     fn num_public_values(&self) -> usize {

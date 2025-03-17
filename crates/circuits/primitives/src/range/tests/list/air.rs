@@ -27,6 +27,10 @@ impl<F: Field> BaseAir<F> for ListAir {
     fn width(&self) -> usize {
         NUM_LIST_COLS
     }
+
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
 }
 
 impl<AB: InteractionBuilder> Air<AB> for ListAir {

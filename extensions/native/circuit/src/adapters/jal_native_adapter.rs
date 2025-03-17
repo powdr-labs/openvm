@@ -19,6 +19,8 @@ use openvm_circuit::{
     },
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_columns::FlattenFields;
+use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{instruction::Instruction, program::DEFAULT_PC_STEP};
 use openvm_native_compiler::conversion::AS;
 use openvm_stark_backend::{
@@ -50,7 +52,7 @@ impl<F: PrimeField32> JalNativeAdapterChip<F> {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, FlattenFields)]
 pub struct JalNativeAdapterCols<T> {
     pub from_state: ExecutionState<T>,
     pub a_pointer: T,
@@ -66,6 +68,10 @@ pub struct JalNativeAdapterAir {
 impl<F: Field> BaseAir<F> for JalNativeAdapterAir {
     fn width(&self) -> usize {
         JalNativeAdapterCols::<F>::width()
+    }
+
+    fn columns(&self) -> Vec<String> {
+        JalNativeAdapterCols::<F>::flatten_fields().unwrap()
     }
 }
 

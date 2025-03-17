@@ -177,6 +177,16 @@ impl<F: Field> BaseAir<F> for FriReducedOpeningAir {
     fn width(&self) -> usize {
         OVERALL_WIDTH
     }
+
+    fn columns(&self) -> Vec<String> {
+        PrefixCols::<F>::flatten_fields()
+            .unwrap()
+            .into_iter()
+            .chain(WorkloadCols::<F>::flatten_fields().unwrap())
+            .chain(Instruction1Cols::<F>::flatten_fields().unwrap())
+            .chain(Instruction2Cols::<F>::flatten_fields().unwrap())
+            .collect()
+    }
 }
 
 impl FriReducedOpeningAir {

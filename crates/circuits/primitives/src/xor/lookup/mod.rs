@@ -72,6 +72,10 @@ impl<F: Field, const M: usize> BaseAir<F> for XorLookupAir<M> {
 
         Some(RowMajorMatrix::new(rows, NUM_XOR_LOOKUP_PREPROCESSED_COLS))
     }
+
+    fn columns(&self) -> Vec<String> {
+        XorLookupCols::<F>::flatten_fields().unwrap()
+    }
 }
 
 impl<const M: usize> XorLookupAir<M> {

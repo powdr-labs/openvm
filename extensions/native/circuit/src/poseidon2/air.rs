@@ -52,6 +52,10 @@ impl<F: Field, const SBOX_REGISTERS: usize> BaseAir<F> for NativePoseidon2Air<F,
     fn width(&self) -> usize {
         NativePoseidon2Cols::<F, SBOX_REGISTERS>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        NativePoseidon2Cols::<F, SBOX_REGISTERS>::flatten_fields().unwrap()
+    }
 }
 
 impl<F: Field, const SBOX_REGISTERS: usize> BaseAirWithPublicValues<F>

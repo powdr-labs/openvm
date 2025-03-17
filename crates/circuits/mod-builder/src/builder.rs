@@ -295,6 +295,10 @@ impl<F: Field> BaseAir<F> for FieldExpr {
             + self.builder.num_flags
             + 1 // is_valid
     }
+
+    fn columns(&self) -> Vec<String> {
+        FieldExprCols::<F>::flatten_fields().unwrap()
+    }
 }
 
 impl<AB: InteractionBuilder> Air<AB> for FieldExpr {

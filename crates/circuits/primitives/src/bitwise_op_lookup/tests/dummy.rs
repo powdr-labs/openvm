@@ -32,6 +32,10 @@ impl<F: Field> BaseAir<F> for DummyAir {
     fn preprocessed_trace(&self) -> Option<RowMajorMatrix<F>> {
         None
     }
+
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
 }
 
 impl<AB: InteractionBuilder + AirBuilder> Air<AB> for DummyAir {

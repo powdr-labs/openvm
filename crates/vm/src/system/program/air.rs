@@ -56,6 +56,10 @@ impl<F: Field> BaseAir<F> for ProgramAir {
     fn width(&self) -> usize {
         ProgramCols::<F>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        ProgramCols::<F>::flatten_fields().unwrap()
+    }
 }
 
 impl<AB: PartitionedAirBuilder + InteractionBuilder> Air<AB> for ProgramAir {

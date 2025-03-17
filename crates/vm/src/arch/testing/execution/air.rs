@@ -35,6 +35,10 @@ impl<F: Field> BaseAir<F> for ExecutionDummyAir {
     fn width(&self) -> usize {
         size_of::<DummyExecutionInteractionCols<u8>>()
     }
+
+    fn columns(&self) -> Vec<String> {
+        todo!()
+    }
 }
 
 impl<AB: InteractionBuilder> Air<AB> for ExecutionDummyAir {

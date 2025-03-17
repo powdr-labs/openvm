@@ -181,6 +181,10 @@ impl<F: Field> BaseAir<F> for Rv32LoadStoreAdapterAir {
     fn width(&self) -> usize {
         Rv32LoadStoreAdapterCols::<F>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        Rv32LoadStoreAdapterCols::<F>::flatten_fields().unwrap()
+    }
 }
 
 impl Rv32LoadStoreAdapterAir {

@@ -91,6 +91,10 @@ impl<F: Field> BaseAir<F> for Rv32JalrAdapterAir {
     fn width(&self) -> usize {
         Rv32JalrAdapterCols::<F>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        Rv32JalrAdapterCols::<F>::flatten_fields().unwrap()
+    }
 }
 
 impl Rv32JalrAdapterAir {

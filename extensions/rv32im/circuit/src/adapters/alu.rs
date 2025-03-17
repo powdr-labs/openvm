@@ -110,6 +110,10 @@ impl<F: Field> BaseAir<F> for Rv32BaseAluAdapterAir {
     fn width(&self) -> usize {
         Rv32BaseAluAdapterCols::<F>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        Rv32BaseAluAdapterCols::<F>::flatten_fields().unwrap()
+    }
 }
 
 impl Rv32BaseAluAdapterAir {

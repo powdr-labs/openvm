@@ -47,6 +47,10 @@ impl<F: Field> BaseAir<F> for Rv32JalLuiCoreAir {
     fn width(&self) -> usize {
         Rv32JalLuiCoreCols::<F>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        Rv32JalLuiCoreCols::<F>::flatten_fields().unwrap()
+    }
 }
 
 impl<F: Field> BaseAirWithPublicValues<F> for Rv32JalLuiCoreAir {

@@ -64,7 +64,6 @@ impl<F: Field, const N: usize> PartitionedBaseAir<F> for RangeTupleCheckerAir<N>
 impl<const N: usize> RangeTupleCheckerAir<N> {
     pub fn columns<F: Field>(&self) -> Vec<String> {
         RangeTupleCols::<F>::flatten_fields().unwrap()
-            
     }
 }
 
@@ -93,6 +92,10 @@ impl<F: Field, const N: usize> BaseAir<F> for RangeTupleCheckerAir<N> {
                 .collect(),
             N,
         ))
+    }
+
+    fn columns(&self) -> Vec<String> {
+        RangeTupleCols::<F>::flatten_fields().unwrap()
     }
 }
 

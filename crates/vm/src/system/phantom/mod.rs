@@ -61,6 +61,10 @@ impl<F: Field> BaseAir<F> for PhantomAir {
     fn width(&self) -> usize {
         PhantomCols::<F>::width()
     }
+
+    fn columns(&self) -> Vec<String> {
+        PhantomCols::<F>::flatten_fields().unwrap()
+    }
 }
 impl<F: Field> PartitionedBaseAir<F> for PhantomAir {}
 impl<F: Field> BaseAirWithPublicValues<F> for PhantomAir {
