@@ -3,11 +3,10 @@ use std::sync::Arc;
 use derive_new::new;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
-    p3_air::{Air, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{Air, BaseAir, BaseAirWithPublicValues, PartitionedBaseAir},
     utils::disable_debug_builder,
     verifier::VerificationError,
 };

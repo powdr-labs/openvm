@@ -17,10 +17,9 @@ use openvm_columns::FlattenFields;
 use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
-    p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField64},
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{Air, AirBuilder, BaseAir, BaseAirWithPublicValues, PartitionedBaseAir},
 };
 
 use super::{FieldVariable, SymbolicExpr};

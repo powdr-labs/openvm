@@ -35,8 +35,8 @@ use openvm_rv32im_circuit::adapters::{
 };
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
-    p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::BaseAir,
 };
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;

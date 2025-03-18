@@ -1,12 +1,12 @@
 use openvm_stark_backend::p3_field::{Field, PrimeField32};
 use openvm_stark_sdk::p3_baby_bear::BabyBear;
 use p3_poseidon2::ExternalLayerConstants;
-use p3_poseidon2_air::RoundConstants;
 
 use super::{
     BABYBEAR_BEGIN_EXT_CONSTS, BABYBEAR_END_EXT_CONSTS, BABYBEAR_PARTIAL_CONSTS,
     BABY_BEAR_POSEIDON2_HALF_FULL_ROUNDS, BABY_BEAR_POSEIDON2_PARTIAL_ROUNDS, POSEIDON2_WIDTH,
 };
+use crate::RoundConstants;
 
 // Currently only contains round constants, but this struct may contain other configuration parameters in the future.
 #[derive(Clone, Copy, Debug)]

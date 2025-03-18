@@ -11,9 +11,8 @@ use openvm_instructions::{instruction::Instruction, program::DEFAULT_PC_STEP, Lo
 use openvm_native_compiler::NativeJalOpcode;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
-    p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
-    rap::BaseAirWithPublicValues,
+    rap::{BaseAir, BaseAirWithPublicValues},
 };
 use serde::{Deserialize, Serialize};
 

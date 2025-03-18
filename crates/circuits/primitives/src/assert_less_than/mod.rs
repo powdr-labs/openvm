@@ -4,8 +4,8 @@ use openvm_columns::FlattenFields;
 use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
-    p3_air::AirBuilder,
     p3_field::{Field, FieldAlgebra},
+    rap::AirBuilder,
 };
 
 use crate::{

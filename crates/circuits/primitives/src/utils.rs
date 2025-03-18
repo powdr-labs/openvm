@@ -1,7 +1,8 @@
 use itertools::zip_eq;
 use openvm_stark_backend::{
-    p3_air::{AirBuilder, VirtualPairCol},
+    p3_air::VirtualPairCol,
     p3_field::{Field, FieldAlgebra},
+    rap::AirBuilder,
 };
 
 /// Return either 0 if n is zero or the next power of two of n.

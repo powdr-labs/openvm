@@ -3,10 +3,9 @@ use std::{borrow::Borrow, mem::size_of};
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
-    p3_air::{Air, BaseAir},
     p3_field::Field,
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{Air, BaseAir, BaseAirWithPublicValues, PartitionedBaseAir},
 };
 
 use crate::arch::{ExecutionBus, ExecutionState};

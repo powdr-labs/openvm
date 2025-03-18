@@ -6,7 +6,7 @@ use openvm_circuit_primitives::{
     SubAir,
 };
 use openvm_stark_backend::{
-    interaction::InteractionBuilder, p3_air::AirBuilder, p3_field::FieldAlgebra,
+    interaction::InteractionBuilder, p3_field::FieldAlgebra, rap::AirBuilder,
 };
 
 use super::bus::MemoryBus;

@@ -11,12 +11,12 @@ use openvm_circuit_primitives::range_tuple::{RangeTupleCheckerBus, SharedRangeTu
 use openvm_instructions::{instruction::Instruction, LocalOpcode};
 use openvm_rv32im_transpiler::MulOpcode;
 use openvm_stark_backend::{
-    p3_air::BaseAir,
     p3_field::FieldAlgebra,
     p3_matrix::{
         dense::{DenseMatrix, RowMajorMatrix},
         Matrix,
     },
+    rap::BaseAir,
     utils::disable_debug_builder,
     verifier::VerificationError,
     ChipUsageGetter,

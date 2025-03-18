@@ -14,8 +14,8 @@ use openvm_native_compiler::{
 };
 use openvm_poseidon2_air::{Poseidon2Config, Poseidon2SubChip};
 use openvm_stark_backend::{
-    p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32, PrimeField64},
+    rap::BaseAir,
     utils::disable_debug_builder,
     verifier::VerificationError,
 };

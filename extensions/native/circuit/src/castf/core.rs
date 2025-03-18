@@ -15,9 +15,8 @@ use openvm_native_compiler::CastfOpcode;
 use openvm_rv32im_circuit::adapters::RV32_REGISTER_NUM_LIMBS;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
-    p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
-    rap::BaseAirWithPublicValues,
+    rap::{BaseAir, BaseAirWithPublicValues},
 };
 use serde::{Deserialize, Serialize};
 

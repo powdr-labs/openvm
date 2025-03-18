@@ -11,12 +11,11 @@ use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     config::{StarkGenericConfig, Val},
     interaction::InteractionBuilder,
-    p3_air::{Air, BaseAir},
     p3_field::{FieldAlgebra, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
     prover::types::AirProofInput,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{Air, BaseAir, BaseAirWithPublicValues, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter,
 };
 use rustc_hash::FxHashSet;

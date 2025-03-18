@@ -27,8 +27,8 @@ use openvm_instructions::{
 use openvm_rv32im_circuit::adapters::read_rv32_register;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
-    p3_air::BaseAir,
     p3_field::{Field, PrimeField32},
+    rap::BaseAir,
 };
 
 use super::{

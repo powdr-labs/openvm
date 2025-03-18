@@ -1,8 +1,7 @@
 use std::{array::from_fn, sync::Arc};
 
 use openvm_stark_backend::{
-    p3_air::BaseAir, p3_field::FieldAlgebra, utils::disable_debug_builder,
-    verifier::VerificationError,
+    p3_field::FieldAlgebra, rap::BaseAir, utils::disable_debug_builder, verifier::VerificationError,
 };
 use openvm_stark_sdk::{
     config::{

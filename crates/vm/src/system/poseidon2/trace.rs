@@ -3,12 +3,11 @@ use std::borrow::BorrowMut;
 use openvm_circuit_primitives::utils::next_power_of_two_or_zero;
 use openvm_stark_backend::{
     config::{StarkGenericConfig, Val},
-    p3_air::BaseAir,
     p3_field::{FieldAlgebra, PrimeField32},
     p3_matrix::dense::RowMajorMatrix,
     p3_maybe_rayon::prelude::*,
     prover::types::AirProofInput,
-    rap::get_air_name,
+    rap::{get_air_name, BaseAir},
     AirRef, Chip, ChipUsageGetter,
 };
 

@@ -1,4 +1,4 @@
-use openvm_stark_backend::p3_air::AirBuilder;
+use openvm_stark_backend::rap::AirBuilder;
 
 /// Trait with associated types intended to allow reuse of constraint logic
 /// inside other AIRs.

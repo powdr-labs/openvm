@@ -1,6 +1,6 @@
 use derive_new::new;
 use openvm_columns_core::FlattenFieldsHelper;
-use openvm_stark_backend::{p3_air::AirBuilder, p3_field::Field};
+use openvm_stark_backend::{p3_field::Field, rap::AirBuilder};
 
 use crate::{
     is_zero::{IsZeroAuxCols, IsZeroIo, IsZeroSubAir},

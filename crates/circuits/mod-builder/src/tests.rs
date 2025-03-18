@@ -3,7 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 use num_bigint::BigUint;
 use openvm_circuit_primitives::{bigint::utils::*, TraceSubRowGenerator};
 use openvm_stark_backend::{
-    p3_air::BaseAir, p3_field::FieldAlgebra, p3_matrix::dense::RowMajorMatrix,
+    p3_field::FieldAlgebra, p3_matrix::dense::RowMajorMatrix, rap::BaseAir,
 };
 use openvm_stark_sdk::{
     any_rap_arc_vec, config::baby_bear_blake3::BabyBearBlake3Engine, engine::StarkFriEngine,

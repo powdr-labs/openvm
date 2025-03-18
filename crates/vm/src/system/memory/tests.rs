@@ -14,11 +14,10 @@ use openvm_columns_core::FlattenFieldsHelper;
 use openvm_poseidon2_air::Poseidon2Config;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
-    p3_air::{Air, BaseAir},
     p3_field::{FieldAlgebra, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     prover::types::AirProofInput,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{Air, BaseAir, BaseAirWithPublicValues, PartitionedBaseAir},
     Chip,
 };
 use openvm_stark_sdk::{

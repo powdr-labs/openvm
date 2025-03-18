@@ -26,8 +26,8 @@ use openvm_native_compiler::{
 };
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
-    p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::BaseAir,
 };
 use serde::{Deserialize, Serialize};
 

@@ -4,10 +4,9 @@ use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     air_builders::PartitionedAirBuilder,
     interaction::InteractionBuilder,
-    p3_air::{Air, BaseAir},
     p3_field::Field,
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{Air, BaseAir, BaseAirWithPublicValues, PartitionedBaseAir},
 };
 
 use super::ProgramBus;

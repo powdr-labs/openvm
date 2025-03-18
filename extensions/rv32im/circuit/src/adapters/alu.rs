@@ -28,8 +28,8 @@ use openvm_instructions::{
 };
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
-    p3_air::{AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::{AirBuilder, BaseAir},
 };
 use serde::{Deserialize, Serialize};
 

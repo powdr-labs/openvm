@@ -2,7 +2,7 @@ use itertools::izip;
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_columns::FlattenFields;
 use openvm_columns_core::FlattenFieldsHelper;
-use openvm_stark_backend::{p3_air::AirBuilder, p3_field::Field};
+use openvm_stark_backend::{p3_field::Field, rap::AirBuilder};
 
 use crate::{SubAir, TraceSubRowGenerator};
 

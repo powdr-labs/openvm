@@ -15,10 +15,9 @@ use openvm_poseidon2_air::{Poseidon2SubAir, BABY_BEAR_POSEIDON2_HALF_FULL_ROUNDS
 use openvm_stark_backend::{
     air_builders::sub::SubAirBuilder,
     interaction::{InteractionBuilder, InteractionType},
-    p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra},
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{Air, AirBuilder, BaseAir, BaseAirWithPublicValues, PartitionedBaseAir},
 };
 
 use super::columns::VerifyBatchCellCols;

@@ -9,9 +9,9 @@ use openvm_circuit_primitives::{
 use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
-    p3_air::{AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra},
     p3_matrix::Matrix,
+    rap::{AirBuilder, BaseAir},
 };
 
 use super::{

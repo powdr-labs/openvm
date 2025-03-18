@@ -1,10 +1,10 @@
 use std::iter;
 
 use openvm_stark_backend::interaction::{Interaction, InteractionBuilder};
-use p3_air::{Air, AirBuilder, AirBuilderWithPublicValues, PairBuilder};
 use p3_field::Field;
 use p3_matrix::dense::RowMajorMatrix;
 use p3_util::log2_ceil_usize;
+use rap::{Air, AirBuilder, AirBuilderWithPublicValues, PairBuilder};
 //use sp1_stark::air::{AirInteraction, InteractionScope, MessageBuilder};
 use tracing::instrument;
 

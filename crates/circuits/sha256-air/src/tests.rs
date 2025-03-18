@@ -11,10 +11,9 @@ use openvm_circuit_primitives::{
 use openvm_stark_backend::{
     config::{StarkGenericConfig, Val},
     interaction::InteractionBuilder,
-    p3_air::{Air, BaseAir},
     p3_field::{Field, PrimeField32},
     prover::types::AirProofInput,
-    rap::{get_air_name, BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{get_air_name, Air, BaseAir, BaseAirWithPublicValues, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter,
 };
 use openvm_stark_sdk::utils::create_seeded_rng;

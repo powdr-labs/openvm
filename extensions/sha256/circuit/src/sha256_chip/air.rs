@@ -19,10 +19,9 @@ use openvm_sha256_air::{
 use openvm_sha256_transpiler::Rv32Sha256Opcode;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
-    p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra},
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{Air, AirBuilder, BaseAir, BaseAirWithPublicValues, PartitionedBaseAir},
 };
 
 use super::{

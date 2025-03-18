@@ -35,11 +35,10 @@ use openvm_rv32im_transpiler::{
 use openvm_stark_backend::{
     config::{StarkGenericConfig, Val},
     interaction::InteractionBuilder,
-    p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     prover::types::AirProofInput,
-    rap::{AnyRap, BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{Air, AirBuilder, AnyRap, BaseAir, BaseAirWithPublicValues, PartitionedBaseAir},
     Chip, ChipUsageGetter, Stateful,
 };
 use serde::{Deserialize, Serialize};

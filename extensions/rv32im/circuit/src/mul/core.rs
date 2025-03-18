@@ -15,9 +15,8 @@ use openvm_instructions::{instruction::Instruction, LocalOpcode};
 use openvm_rv32im_transpiler::MulOpcode;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
-    p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
-    rap::BaseAirWithPublicValues,
+    rap::{BaseAir, BaseAirWithPublicValues},
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_big_array::BigArray;

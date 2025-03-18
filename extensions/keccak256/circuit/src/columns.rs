@@ -6,7 +6,7 @@ use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_columns::FlattenFields;
 use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::riscv::RV32_REGISTER_NUM_LIMBS;
-use openvm_stark_backend::p3_air::AirBuilder;
+use openvm_stark_backend::rap::AirBuilder;
 use p3_keccak_air::KeccakCols as KeccakPermCols;
 
 use super::{

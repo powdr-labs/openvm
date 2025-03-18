@@ -28,12 +28,11 @@ use openvm_native_compiler::{conversion::AS, FriOpcode::FRI_REDUCED_OPENING};
 use openvm_stark_backend::{
     config::{StarkGenericConfig, Val},
     interaction::InteractionBuilder,
-    p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
     prover::types::AirProofInput,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{Air, AirBuilder, BaseAir, BaseAirWithPublicValues, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter, Stateful,
 };
 use serde::{Deserialize, Serialize};

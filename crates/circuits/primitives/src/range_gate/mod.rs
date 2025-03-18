@@ -13,11 +13,10 @@ use openvm_columns::FlattenFields;
 use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
-    p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_util::indices_arr,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{Air, AirBuilder, BaseAir, BaseAirWithPublicValues, PartitionedBaseAir},
 };
 
 pub use crate::range::RangeCheckBus;

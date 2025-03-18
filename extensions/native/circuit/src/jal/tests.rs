@@ -8,9 +8,9 @@ use openvm_instructions::{
 };
 use openvm_native_compiler::NativeJalOpcode::*;
 use openvm_stark_backend::{
-    p3_air::BaseAir,
     p3_field::{FieldAlgebra, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
+    rap::BaseAir,
     utils::disable_debug_builder,
     verifier::VerificationError,
     Chip, ChipUsageGetter,

@@ -13,12 +13,11 @@ use openvm_instructions::{
 use openvm_stark_backend::{
     config::{StarkGenericConfig, Val},
     interaction::InteractionBuilder,
-    p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
     prover::types::AirProofInput,
-    rap::{get_air_name, BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{get_air_name, Air, AirBuilder, BaseAir, BaseAirWithPublicValues, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter, Stateful,
 };
 use rustc_hash::FxHashMap;

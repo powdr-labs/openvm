@@ -6,11 +6,11 @@ use openvm_instructions::{instruction::Instruction, LocalOpcode};
 use openvm_native_compiler::Poseidon2Opcode::COMP_POS2;
 use openvm_stark_backend::{
     config::{StarkGenericConfig, Val},
-    p3_air::BaseAir,
     p3_field::{Field, PrimeField32},
     p3_matrix::dense::RowMajorMatrix,
     p3_maybe_rayon::prelude::*,
     prover::types::AirProofInput,
+    rap::BaseAir,
     AirRef, Chip, ChipUsageGetter,
 };
 

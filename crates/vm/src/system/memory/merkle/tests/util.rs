@@ -2,11 +2,11 @@ use std::array::from_fn;
 
 use openvm_stark_backend::{
     config::{Domain, StarkGenericConfig},
-    p3_air::BaseAir,
     p3_commit::PolynomialSpace,
     p3_field::Field,
     p3_matrix::dense::RowMajorMatrix,
     prover::types::AirProofInput,
+    rap::BaseAir,
 };
 use openvm_stark_sdk::dummy_airs::interaction::dummy_interaction_air::DummyInteractionAir;
 

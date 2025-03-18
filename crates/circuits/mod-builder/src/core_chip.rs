@@ -12,10 +12,9 @@ use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::instruction::Instruction;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
-    p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
-    rap::BaseAirWithPublicValues,
+    rap::{BaseAir, BaseAirWithPublicValues},
 };
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};

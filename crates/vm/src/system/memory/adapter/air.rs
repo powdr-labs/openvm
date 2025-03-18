@@ -7,10 +7,9 @@ use openvm_circuit_primitives::{
 use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
-    p3_air::{Air, AirBuilder, BaseAir},
     p3_field::FieldAlgebra,
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{Air, AirBuilder, BaseAir, BaseAirWithPublicValues, PartitionedBaseAir},
 };
 
 use crate::system::memory::{

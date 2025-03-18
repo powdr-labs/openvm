@@ -11,12 +11,11 @@ use openvm_instructions::{instruction::Instruction, LocalOpcode};
 use openvm_stark_backend::{
     air_builders::{debug::DebugConstraintBuilder, symbolic::SymbolicRapBuilder},
     config::{StarkGenericConfig, Val},
-    p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{FieldAlgebra, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
     prover::types::AirProofInput,
-    rap::{get_air_name, BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{get_air_name, Air, AirBuilder, BaseAir, BaseAirWithPublicValues, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter, Stateful,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};

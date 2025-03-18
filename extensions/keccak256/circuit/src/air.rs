@@ -1,4 +1,4 @@
-use std::{array::from_fn, borrow::Borrow, iter::zip};
+use std::{array::from_fn, borrow::Borrow, iter::zip, string};
 
 use itertools::{izip, Itertools};
 use openvm_circuit::{
@@ -19,12 +19,15 @@ use openvm_rv32im_circuit::adapters::abstract_compose;
 use openvm_stark_backend::{
     air_builders::sub::SubAirBuilder,
     interaction::InteractionBuilder,
-    p3_air::{Air, AirBuilder, BaseAir},
-    p3_field::FieldAlgebra,
-    p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    p3_air::utils::{andn, xor, xor3},
+    p3_field::{FieldAlgebra, PrimeField64},
+    p3_matrix::{dense::RowMajorMatrix, Matrix},
+    rap::{Air, AirBuilder, BaseAir, BaseAirWithPublicValues, PartitionedBaseAir},
 };
-use p3_keccak_air::{KeccakAir, NUM_KECCAK_COLS as NUM_KECCAK_PERM_COLS, U64_LIMBS};
+use p3_keccak_air::{
+    generate_trace_rows, KeccakCols, NUM_KECCAK_COLS as NUM_KECCAK_PERM_COLS, NUM_ROUNDS, U64_LIMBS,
+};
+use rand::random;
 
 use super::{
     columns::{KeccakVmCols, NUM_KECCAK_VM_COLS},
@@ -32,6 +35,376 @@ use super::{
     KECCAK_RATE_U16S, KECCAK_REGISTER_READS, KECCAK_WIDTH_U16S, KECCAK_WORD_SIZE,
     NUM_ABSORB_ROUNDS,
 };
+// ________________________________________________
+#[derive(Debug)]
+pub struct KeccakAir {}
+const BITS_PER_LIMB: usize = 16;
+
+impl KeccakAir {
+    pub fn generate_trace_rows<F: PrimeField64>(&self, num_hashes: usize) -> RowMajorMatrix<F> {
+        let inputs = (0..num_hashes).map(|_| random()).collect::<Vec<_>>();
+        generate_trace_rows(inputs)
+    }
+}
+
+impl<F> BaseAir<F> for KeccakAir {
+    fn width(&self) -> usize {
+        NUM_KECCAK_PERM_COLS
+    }
+
+    fn columns(&self) -> Vec<string::String> {
+        todo!()
+    }
+}
+
+impl<AB: AirBuilder> Air<AB> for KeccakAir {
+    #[inline]
+    fn eval(&self, builder: &mut AB) {
+        eval_round_flags(builder);
+
+        let main = builder.main();
+        let (local, next) = (main.row_slice(0), main.row_slice(1));
+        let local: &KeccakCols<AB::Var> = (*local).borrow();
+        let next: &KeccakCols<AB::Var> = (*next).borrow();
+
+        let first_step = local.step_flags[0];
+        let final_step = local.step_flags[NUM_ROUNDS - 1];
+        let not_final_step = AB::Expr::ONE - final_step;
+
+        // If this is the first step, the input A must match the preimage.
+        for y in 0..5 {
+            for x in 0..5 {
+                for limb in 0..U64_LIMBS {
+                    builder
+                        .when(first_step)
+                        .assert_eq(local.preimage[y][x][limb], local.a[y][x][limb]);
+                }
+            }
+        }
+
+        // The export flag must be 0 or 1.
+        builder.assert_bool(local.export);
+
+        // If this is not the final step, the export flag must be off.
+        builder
+            .when(not_final_step.clone())
+            .assert_zero(local.export);
+
+        // If this is not the final step, the local and next preimages must match.
+        for y in 0..5 {
+            for x in 0..5 {
+                for limb in 0..U64_LIMBS {
+                    builder
+                        .when(not_final_step.clone())
+                        .when_transition()
+                        .assert_eq(local.preimage[y][x][limb], next.preimage[y][x][limb]);
+                }
+            }
+        }
+
+        // C'[x, z] = xor(C[x, z], C[x - 1, z], C[x + 1, z - 1]).
+        for x in 0..5 {
+            for z in 0..64 {
+                builder.assert_bool(local.c[x][z]);
+                let xor = xor3::<AB::Expr>(
+                    local.c[x][z].into(),
+                    local.c[(x + 4) % 5][z].into(),
+                    local.c[(x + 1) % 5][(z + 63) % 64].into(),
+                );
+                let c_prime = local.c_prime[x][z];
+                builder.assert_eq(c_prime, xor);
+            }
+        }
+
+        // Check that the input limbs are consistent with A' and D.
+        // A[x, y, z] = xor(A'[x, y, z], D[x, y, z])
+        //            = xor(A'[x, y, z], C[x - 1, z], C[x + 1, z - 1])
+        //            = xor(A'[x, y, z], C[x, z], C'[x, z]).
+        // The last step is valid based on the identity we checked above.
+        // It isn't required, but makes this check a bit cleaner.
+        for y in 0..5 {
+            for x in 0..5 {
+                let get_bit = |z| {
+                    let a_prime: AB::Var = local.a_prime[y][x][z];
+                    let c: AB::Var = local.c[x][z];
+                    let c_prime: AB::Var = local.c_prime[x][z];
+                    xor3::<AB::Expr>(a_prime.into(), c.into(), c_prime.into())
+                };
+
+                for limb in 0..U64_LIMBS {
+                    let a_limb = local.a[y][x][limb];
+                    let computed_limb = (limb * BITS_PER_LIMB..(limb + 1) * BITS_PER_LIMB)
+                        .rev()
+                        .fold(AB::Expr::ZERO, |acc, z| {
+                            builder.assert_bool(local.a_prime[y][x][z]);
+                            acc.double() + get_bit(z)
+                        });
+                    builder.assert_eq(computed_limb, a_limb);
+                }
+            }
+        }
+
+        // xor_{i=0}^4 A'[x, i, z] = C'[x, z], so for each x, z,
+        // diff * (diff - 2) * (diff - 4) = 0, where
+        // diff = sum_{i=0}^4 A'[x, i, z] - C'[x, z]
+        for x in 0..5 {
+            for z in 0..64 {
+                let sum: AB::Expr = (0..5).map(|y| local.a_prime[y][x][z].into()).sum();
+                let diff = sum - local.c_prime[x][z];
+                let four = AB::Expr::from_canonical_u8(4);
+                builder.assert_zero(diff.clone() * (diff.clone() - AB::Expr::TWO) * (diff - four));
+            }
+        }
+
+        // A''[x, y] = xor(B[x, y], andn(B[x + 1, y], B[x + 2, y])).
+        for y in 0..5 {
+            for x in 0..5 {
+                let get_bit = |z| {
+                    let andn = andn::<AB::Expr>(
+                        local.b((x + 1) % 5, y, z).into(),
+                        local.b((x + 2) % 5, y, z).into(),
+                    );
+                    xor::<AB::Expr>(local.b(x, y, z).into(), andn)
+                };
+
+                for limb in 0..U64_LIMBS {
+                    let computed_limb = (limb * BITS_PER_LIMB..(limb + 1) * BITS_PER_LIMB)
+                        .rev()
+                        .fold(AB::Expr::ZERO, |acc, z| acc.double() + get_bit(z));
+                    builder.assert_eq(computed_limb, local.a_prime_prime[y][x][limb]);
+                }
+            }
+        }
+
+        // A'''[0, 0] = A''[0, 0] XOR RC
+        for limb in 0..U64_LIMBS {
+            let computed_a_prime_prime_0_0_limb = (limb * BITS_PER_LIMB
+                ..(limb + 1) * BITS_PER_LIMB)
+                .rev()
+                .fold(AB::Expr::ZERO, |acc, z| {
+                    builder.assert_bool(local.a_prime_prime_0_0_bits[z]);
+                    acc.double() + local.a_prime_prime_0_0_bits[z]
+                });
+            let a_prime_prime_0_0_limb = local.a_prime_prime[0][0][limb];
+            builder.assert_eq(computed_a_prime_prime_0_0_limb, a_prime_prime_0_0_limb);
+        }
+
+        let get_xored_bit = |i| {
+            let mut rc_bit_i = AB::Expr::ZERO;
+            for r in 0..NUM_ROUNDS {
+                let this_round = local.step_flags[r];
+                let this_round_constant = AB::Expr::from_canonical_u8(rc_value_bit(r, i));
+                rc_bit_i += this_round * this_round_constant;
+            }
+
+            xor::<AB::Expr>(local.a_prime_prime_0_0_bits[i].into(), rc_bit_i)
+        };
+
+        for limb in 0..U64_LIMBS {
+            let a_prime_prime_prime_0_0_limb = local.a_prime_prime_prime_0_0_limbs[limb];
+            let computed_a_prime_prime_prime_0_0_limb = (limb * BITS_PER_LIMB
+                ..(limb + 1) * BITS_PER_LIMB)
+                .rev()
+                .fold(AB::Expr::ZERO, |acc, z| acc.double() + get_xored_bit(z));
+            builder.assert_eq(
+                computed_a_prime_prime_prime_0_0_limb,
+                a_prime_prime_prime_0_0_limb,
+            );
+        }
+
+        // Enforce that this round's output equals the next round's input.
+        for x in 0..5 {
+            for y in 0..5 {
+                for limb in 0..U64_LIMBS {
+                    let output = local.a_prime_prime_prime(y, x, limb);
+                    let input = next.a[y][x][limb];
+                    builder
+                        .when_transition()
+                        .when(not_final_step.clone())
+                        .assert_eq(output, input);
+                }
+            }
+        }
+    }
+}
+
+#[inline]
+pub(crate) fn eval_round_flags<AB: AirBuilder>(builder: &mut AB) {
+    let main = builder.main();
+    let (local, next) = (main.row_slice(0), main.row_slice(1));
+    let local: &KeccakCols<AB::Var> = (*local).borrow();
+    let next: &KeccakCols<AB::Var> = (*next).borrow();
+
+    // Initially, the first step flag should be 1 while the others should be 0.
+    builder.when_first_row().assert_one(local.step_flags[0]);
+    for i in 1..NUM_ROUNDS {
+        builder.when_first_row().assert_zero(local.step_flags[i]);
+    }
+
+    for i in 0..NUM_ROUNDS {
+        let current_round_flag = local.step_flags[i];
+        let next_round_flag = next.step_flags[(i + 1) % NUM_ROUNDS];
+        builder
+            .when_transition()
+            .assert_eq(next_round_flag, current_round_flag);
+    }
+}
+
+pub const RC: [u64; 24] = [
+    0x0000000000000001,
+    0x0000000000008082,
+    0x800000000000808A,
+    0x8000000080008000,
+    0x000000000000808B,
+    0x0000000080000001,
+    0x8000000080008081,
+    0x8000000000008009,
+    0x000000000000008A,
+    0x0000000000000088,
+    0x0000000080008009,
+    0x000000008000000A,
+    0x000000008000808B,
+    0x800000000000008B,
+    0x8000000000008089,
+    0x8000000000008003,
+    0x8000000000008002,
+    0x8000000000000080,
+    0x000000000000800A,
+    0x800000008000000A,
+    0x8000000080008081,
+    0x8000000000008080,
+    0x0000000080000001,
+    0x8000000080008008,
+];
+
+const RC_BITS: [[u8; 64]; 24] = [
+    [
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0,
+    ],
+    [
+        0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0,
+    ],
+    [
+        0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 1,
+    ],
+    [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 1,
+    ],
+    [
+        1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0,
+    ],
+    [
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0,
+    ],
+    [
+        1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 1,
+    ],
+    [
+        1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 1,
+    ],
+    [
+        0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0,
+    ],
+    [
+        0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0,
+    ],
+    [
+        1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0,
+    ],
+    [
+        0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0,
+    ],
+    [
+        1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0,
+    ],
+    [
+        1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 1,
+    ],
+    [
+        1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 1,
+    ],
+    [
+        1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 1,
+    ],
+    [
+        0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 1,
+    ],
+    [
+        0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 1,
+    ],
+    [
+        0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0,
+    ],
+    [
+        0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 1,
+    ],
+    [
+        1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 1,
+    ],
+    [
+        0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 1,
+    ],
+    [
+        1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0,
+    ],
+    [
+        0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 1,
+    ],
+];
+
+pub(crate) const fn rc_value_bit(round: usize, bit_index: usize) -> u8 {
+    RC_BITS[round][bit_index]
+}
+
+// ________________________________________________
 
 #[derive(Clone, Copy, Debug, derive_new::new)]
 pub struct KeccakVmAir {

@@ -1,6 +1,4 @@
 use p3_keccak_air::KeccakCols;
-use p3_poseidon2_air::Poseidon2Cols;
-
 pub trait FlattenFieldsHelper {
     fn flatten_fields() -> Option<Vec<String>>;
 }
@@ -97,40 +95,40 @@ impl<T> FlattenFieldsHelper for KeccakCols<T> {
     }
 }
 
-impl<
-        F,
-        const WIDTH: usize,
-        const SBOX_DEGREE: u64,
-        const SBOX_REGISTERS: usize,
-        const HALF_FULL_ROUNDS: usize,
-        const PARTIAL_ROUNDS: usize,
-    > FlattenFieldsHelper
-    for Poseidon2Cols<F, WIDTH, SBOX_DEGREE, SBOX_REGISTERS, HALF_FULL_ROUNDS, PARTIAL_ROUNDS>
-{
-    fn flatten_fields() -> Option<Vec<String>> {
-        let mut fields = Vec::new();
+// impl<
+//         F,
+//         const WIDTH: usize,
+//         const SBOX_DEGREE: u64,
+//         const SBOX_REGISTERS: usize,
+//         const HALF_FULL_ROUNDS: usize,
+//         const PARTIAL_ROUNDS: usize,
+//     > FlattenFieldsHelper
+//     for Poseidon2Cols<F, WIDTH, SBOX_DEGREE, SBOX_REGISTERS, HALF_FULL_ROUNDS, PARTIAL_ROUNDS>
+// {
+//     fn flatten_fields() -> Option<Vec<String>> {
+//         let mut fields = Vec::new();
 
-        // Generate field names using exact parameter values
-        fields.push("export".to_string());
+//         // Generate field names using exact parameter values
+//         fields.push("export".to_string());
 
-        // Use actual parameters for array sizes
-        for i in 0..WIDTH {
-            fields.push(format!("inputs__{}", i));
-        }
+//         // Use actual parameters for array sizes
+//         for i in 0..WIDTH {
+//             fields.push(format!("inputs__{}", i));
+//         }
 
-        // Other fields with their array sizes
-        for i in 0..HALF_FULL_ROUNDS {
-            fields.push(format!("beginning_full_rounds__{}", i));
-        }
+//         // Other fields with their array sizes
+//         for i in 0..HALF_FULL_ROUNDS {
+//             fields.push(format!("beginning_full_rounds__{}", i));
+//         }
 
-        for i in 0..PARTIAL_ROUNDS {
-            fields.push(format!("partial_rounds__{}", i));
-        }
+//         for i in 0..PARTIAL_ROUNDS {
+//             fields.push(format!("partial_rounds__{}", i));
+//         }
 
-        for i in 0..HALF_FULL_ROUNDS {
-            fields.push(format!("ending_full_rounds__{}", i));
-        }
+//         for i in 0..HALF_FULL_ROUNDS {
+//             fields.push(format!("ending_full_rounds__{}", i));
+//         }
 
-        Some(fields)
-    }
-}
+//         Some(fields)
+//     }
+// }

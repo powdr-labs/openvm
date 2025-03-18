@@ -4,8 +4,8 @@ use openvm_circuit_primitives::{
     bitwise_op_lookup::SharedBitwiseOperationLookupChip, utils::next_power_of_two_or_zero,
 };
 use openvm_stark_backend::{
-    p3_air::BaseAir, p3_field::PrimeField32, p3_matrix::dense::RowMajorMatrix,
-    p3_maybe_rayon::prelude::*,
+    p3_field::PrimeField32, p3_matrix::dense::RowMajorMatrix, p3_maybe_rayon::prelude::*,
+    rap::BaseAir,
 };
 use sha2::{compress256, digest::generic_array::GenericArray};
 

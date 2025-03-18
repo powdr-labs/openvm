@@ -21,9 +21,8 @@ use openvm_columns_core::FlattenFieldsHelper;
 use openvm_instructions::{instruction::Instruction, LocalOpcode};
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
-    p3_air::{AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField32},
-    rap::BaseAirWithPublicValues,
+    rap::{AirBuilder, BaseAir, BaseAirWithPublicValues},
 };
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;

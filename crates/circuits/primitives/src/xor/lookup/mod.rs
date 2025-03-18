@@ -13,11 +13,10 @@ use openvm_columns_core::FlattenFieldsHelper;
 use openvm_stark_backend::{
     config::{StarkGenericConfig, Val},
     interaction::InteractionBuilder,
-    p3_air::{Air, BaseAir, PairBuilder},
     p3_field::Field,
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     prover::types::AirProofInput,
-    rap::{get_air_name, BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{get_air_name, Air, BaseAir, BaseAirWithPublicValues, PairBuilder, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter,
 };
 
