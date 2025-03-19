@@ -27,7 +27,6 @@ members = [
     "crates/toolchain/tests",
     "crates/columns",
     "crates/columns-core",
-    "crates/pil-air-builder",
     "crates/vm",
     "extensions/rv32im/circuit",
     "extensions/rv32im/transpiler",
@@ -131,7 +130,6 @@ openvm-toolchain-tests = { path = "crates/toolchain/tests", default-features = f
 openvm-custom-insn = { path = "crates/toolchain/custom_insn", default-features = false }
 openvm-columns = { path = "crates/columns", default-features = false }
 openvm-columns-core = { path = "crates/columns-core", default-features = false }
-openvm-pil-air-builder = { path = "crates/pil-air-builder", default-features = false }
 
 # Extensions
 openvm-rv32im-circuit = { path = "extensions/rv32im/circuit", default-features = false }
