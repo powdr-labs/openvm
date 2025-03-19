@@ -31,7 +31,7 @@ pub struct IsEqTestAir(pub IsEqSubAir);
 
 impl<F: Field> BaseAirWithPublicValues<F> for IsEqTestAir {
     fn columns(&self) -> Vec<String> {
-        unimplemented!()
+        todo!()
     }
 }
 impl<F: Field> PartitionedBaseAir<F> for IsEqTestAir {}

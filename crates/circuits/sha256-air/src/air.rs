@@ -20,7 +20,7 @@ use super::{
     SHA256_H, SHA256_HASH_WORDS, SHA256_K, SHA256_ROUNDS_PER_ROW, SHA256_ROUND_WIDTH,
     SHA256_WORD_BITS, SHA256_WORD_U16S, SHA256_WORD_U8S,
 };
-use crate::{constraint_word_addition, Sha256FlagsCols};
+use crate::constraint_word_addition;
 
 #[derive(Clone, Debug)]
 pub struct Sha256Air {
