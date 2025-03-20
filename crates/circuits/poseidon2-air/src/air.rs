@@ -144,7 +144,12 @@ impl<
     }
 
     fn columns(&self) -> vec::Vec<string::String> {
-        todo!()
+        Poseidon2Cols::<F,
+         WIDTH,
+         SBOX_DEGREE,
+         SBOX_REGISTERS,
+         HALF_FULL_ROUNDS,
+         PARTIAL_ROUNDS>::flatten_fields().unwrap()
     }
 }
 
@@ -543,7 +548,9 @@ impl<F: Field, const SBOX_REGISTERS: usize> BaseAir<F> for Poseidon2SubAir<F, SB
     }
 
     fn columns(&self) -> Vec<String> {
-        unimplemented!()
+        match self {
+            Self::BabyBearMds(air) => air.columns(),
+        }
     }
 }
 
@@ -551,11 +558,9 @@ impl<F: Field, const SBOX_REGISTERS: usize> BaseAirWithPublicValues<F>
     for Poseidon2SubAir<F, SBOX_REGISTERS>
 {
     fn columns(&self) -> Vec<String> {
-        // TODO: fix this
-        unimplemented!()
-        //match self {
-        //    Self::BabyBearMds(air) => air.columns(),
-        //}
+        match self {
+            Self::BabyBearMds(air) => air.columns(),
+        }
     }
 }
 impl<F: Field, const SBOX_REGISTERS: usize> PartitionedBaseAir<F>

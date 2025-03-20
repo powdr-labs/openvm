@@ -55,8 +55,6 @@ impl<F> BaseAir<F> for Sha256Air {
             Sha256DigestCols::<F>::flatten_fields()
         }
         .unwrap()
-        .into_iter()
-        .collect()
     }
 }
 
@@ -553,7 +551,5 @@ impl Sha256Air {
             Sha256DigestCols::<F>::flatten_fields()
         }
         .unwrap()
-        .into_iter()
-        .collect()
     }
 }

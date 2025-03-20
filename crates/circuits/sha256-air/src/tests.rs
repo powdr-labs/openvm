@@ -41,7 +41,7 @@ impl<F: Field> BaseAir<F> for Sha256TestAir {
     }
 
     fn columns(&self) -> Vec<String> {
-        <Sha256Air as BaseAir<F>>::columns(&self.sub_air)
+        todo!()
     }
 }
 
