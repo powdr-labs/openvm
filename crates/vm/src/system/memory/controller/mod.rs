@@ -100,7 +100,7 @@ pub struct MemoryController<F> {
     // addr_space -> Memory data structure
     memory: Memory<F>,
     /// A reference to the `OfflineMemory`. Will be populated after `finalize()`.
-    offline_memory: Arc<Mutex<OfflineMemory<F>>>,
+    pub offline_memory: Arc<Mutex<OfflineMemory<F>>>,
     pub access_adapters: AccessAdapterInventory<F>,
     // Filled during finalization.
     final_state: Option<FinalState<F>>,
