@@ -361,8 +361,17 @@ where
     }
 
     fn columns(&self) -> Vec<String> {
-        let mut columns = self.adapter.columns();
-        columns.extend(BaseAir::columns(&self.core).into_iter());
+        let mut columns: Vec<String> = self
+            .adapter
+            .columns()
+            .into_iter()
+            .map(|col| format!("adapter_{}", col))
+            .collect();
+        columns.extend(
+            BaseAir::columns(&self.core)
+                .into_iter()
+                .map(|col| format!("core_{}", col)),
+        );
         columns
     }
 }
@@ -377,8 +386,17 @@ where
     }
 
     fn columns(&self) -> Vec<String> {
-        let mut columns = self.adapter.columns();
-        columns.extend(BaseAirWithPublicValues::columns(&self.core).into_iter());
+        let mut columns: Vec<String> = self
+            .adapter
+            .columns()
+            .into_iter()
+            .map(|col| format!("adapter_{}", col))
+            .collect();
+        columns.extend(
+            BaseAirWithPublicValues::columns(&self.core)
+                .into_iter()
+                .map(|col| format!("core_{}", col)),
+        );
         columns
     }
 }
