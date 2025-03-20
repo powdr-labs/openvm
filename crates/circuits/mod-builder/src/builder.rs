@@ -267,7 +267,6 @@ impl FieldExpr {
 
     pub fn columns<F: Field>(&self) -> Vec<String> {
         FieldExprCols::<F>::flatten_fields().unwrap()
-        // ??
     }
 }
 
