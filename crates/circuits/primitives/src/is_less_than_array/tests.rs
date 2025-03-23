@@ -16,11 +16,12 @@ use openvm_stark_backend::{
 use openvm_stark_sdk::{
     any_rap_arc_vec, config::baby_bear_poseidon2::BabyBearPoseidon2Engine, engine::StarkFriEngine,
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use super::*;
 
 #[repr(C)]
-#[derive(AlignedBorrow, Clone, Copy, Debug)]
+#[derive(AlignedBorrow, Clone, Copy, Debug, StructReflection)]
 pub struct IsLtArrayCols<T, const NUM: usize, const AUX_LEN: usize> {
     pub x: [T; NUM],
     pub y: [T; NUM],
@@ -40,6 +41,10 @@ impl<F: Field, const NUM: usize, const AUX_LEN: usize> BaseAir<F>
 {
     fn width(&self) -> usize {
         IsLtArrayCols::<F, NUM, AUX_LEN>::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        IsLtArrayCols::<F, NUM, AUX_LEN>::struct_reflection()
     }
 }
 impl<F: Field, const NUM: usize, const AUX_LEN: usize> PartitionedBaseAir<F>

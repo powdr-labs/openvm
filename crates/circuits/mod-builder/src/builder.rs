@@ -310,6 +310,10 @@ impl<F: Field> BaseAir<F> for FieldExpr {
             + self.builder.num_flags
             + 1 // is_valid
     }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        None
+    }
 }
 
 impl<AB: InteractionBuilder> Air<AB> for FieldExpr {

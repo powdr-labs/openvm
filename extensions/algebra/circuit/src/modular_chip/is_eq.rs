@@ -25,12 +25,13 @@ use openvm_stark_backend::{
 };
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 // Given two numbers b and c, we want to prove that a) b == c or b != c, depending on
 // result of cmp_result and b) b, c < N for some modulus N that is passed into the AIR
 // at runtime (i.e. when chip is instantiated).
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct ModularIsEqualCoreCols<T, const READ_LIMBS: usize> {
     pub is_valid: T,
     pub is_setup: T,
@@ -97,6 +98,10 @@ impl<F: Field, const READ_LIMBS: usize, const WRITE_LIMBS: usize, const LIMB_BIT
 {
     fn width(&self) -> usize {
         ModularIsEqualCoreCols::<F, READ_LIMBS>::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        ModularIsEqualCoreCols::<F, READ_LIMBS>::struct_reflection()
     }
 }
 impl<F: Field, const READ_LIMBS: usize, const WRITE_LIMBS: usize, const LIMB_BITS: usize>

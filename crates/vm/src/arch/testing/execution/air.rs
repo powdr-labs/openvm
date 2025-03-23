@@ -8,10 +8,11 @@ use openvm_stark_backend::{
     p3_matrix::Matrix,
     rap::{BaseAirWithPublicValues, PartitionedBaseAir},
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use crate::arch::{ExecutionBus, ExecutionState};
 
-#[derive(Clone, Copy, Debug, AlignedBorrow, derive_new::new)]
+#[derive(Clone, Copy, Debug, AlignedBorrow, derive_new::new, StructReflection)]
 #[repr(C)]
 pub struct DummyExecutionInteractionCols<T> {
     /// The receive frequency. To send, set to negative.
@@ -30,6 +31,10 @@ impl<F: Field> PartitionedBaseAir<F> for ExecutionDummyAir {}
 impl<F: Field> BaseAir<F> for ExecutionDummyAir {
     fn width(&self) -> usize {
         size_of::<DummyExecutionInteractionCols<u8>>()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        DummyExecutionInteractionCols::<F>::struct_reflection()
     }
 }
 

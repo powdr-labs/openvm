@@ -22,6 +22,7 @@ use openvm_stark_backend::{
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use super::memory::MemoryControllerI;
 use crate::{
@@ -48,7 +49,7 @@ pub struct PhantomAir {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow, Copy, Clone, Serialize, Deserialize)]
+#[derive(AlignedBorrow, Copy, Clone, Serialize, Deserialize, StructReflection)]
 pub struct PhantomCols<T> {
     pub pc: T,
     #[serde(with = "BigArray")]
@@ -60,6 +61,10 @@ pub struct PhantomCols<T> {
 impl<F: Field> BaseAir<F> for PhantomAir {
     fn width(&self) -> usize {
         PhantomCols::<F>::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        PhantomCols::<F>::struct_reflection()
     }
 }
 impl<F: Field> PartitionedBaseAir<F> for PhantomAir {}

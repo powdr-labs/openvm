@@ -27,6 +27,7 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra, PrimeField32},
 };
 use serde::{Deserialize, Serialize};
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use super::RV32_REGISTER_NUM_LIMBS;
 
@@ -70,7 +71,7 @@ pub struct Rv32BranchWriteRecord {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct Rv32BranchAdapterCols<T> {
     pub from_state: ExecutionState<T>,
     pub rs1_ptr: T,
@@ -87,6 +88,10 @@ pub struct Rv32BranchAdapterAir {
 impl<F: Field> BaseAir<F> for Rv32BranchAdapterAir {
     fn width(&self) -> usize {
         Rv32BranchAdapterCols::<F>::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        Rv32BranchAdapterCols::<F>::struct_reflection()
     }
 }
 

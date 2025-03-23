@@ -18,6 +18,7 @@ use openvm_stark_backend::{
     p3_util::indices_arr,
     rap::{BaseAirWithPublicValues, PartitionedBaseAir},
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 pub use crate::range::RangeCheckBus;
 
@@ -25,7 +26,7 @@ pub use crate::range::RangeCheckBus;
 mod tests;
 
 #[repr(C)]
-#[derive(Copy, Clone, Default, AlignedBorrow)]
+#[derive(Copy, Clone, Default, AlignedBorrow, StructReflection)]
 pub struct RangeGateCols<T> {
     /// Column with sequential values from 0 to range_max-1
     pub counter: T,
@@ -55,6 +56,10 @@ impl<F: Field> PartitionedBaseAir<F> for RangeCheckerGateAir {}
 impl<F: Field> BaseAir<F> for RangeCheckerGateAir {
     fn width(&self) -> usize {
         NUM_RANGE_GATE_COLS
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        RangeGateCols::<F>::struct_reflection()
     }
 }
 

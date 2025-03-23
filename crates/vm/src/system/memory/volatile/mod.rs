@@ -26,6 +26,7 @@ use openvm_stark_backend::{
     AirRef, Chip, ChipUsageGetter,
 };
 use static_assertions::const_assert;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use super::TimestampedEquipartition;
 use crate::system::memory::{
@@ -42,7 +43,7 @@ const NUM_AS_LIMBS: usize = 1;
 const_assert!(NUM_AS_LIMBS <= AUX_LEN);
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, AlignedBorrow)]
+#[derive(Clone, Copy, Debug, AlignedBorrow, StructReflection)]
 pub struct VolatileBoundaryCols<T> {
     pub addr_space_limbs: [T; NUM_AS_LIMBS],
     pub pointer_limbs: [T; AUX_LEN],
@@ -108,6 +109,10 @@ impl<F: Field> PartitionedBaseAir<F> for VolatileBoundaryAir {}
 impl<F: Field> BaseAir<F> for VolatileBoundaryAir {
     fn width(&self) -> usize {
         VolatileBoundaryCols::<F>::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        VolatileBoundaryCols::<F>::struct_reflection()
     }
 }
 

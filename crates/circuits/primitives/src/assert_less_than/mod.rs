@@ -5,6 +5,7 @@ use openvm_stark_backend::{
     p3_air::AirBuilder,
     p3_field::{Field, FieldAlgebra},
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use crate::{
     var_range::{VariableRangeCheckerBus, VariableRangeCheckerChip},
@@ -51,7 +52,7 @@ impl<T> AssertLessThanIo<T> {
 /// `AUX_LEN` is the number of AUX columns
 /// we have that AUX_LEN = max_bits.div_ceil(bus.range_max_bits)
 #[repr(C)]
-#[derive(AlignedBorrow, Clone, Copy, Debug, new)]
+#[derive(AlignedBorrow, Clone, Copy, Debug, new, StructReflection)]
 pub struct LessThanAuxCols<T, const AUX_LEN: usize> {
     // lower_decomp consists of lower decomposed into limbs of size bus.range_max_bits
     // note: the final limb might have less than bus.range_max_bits bits

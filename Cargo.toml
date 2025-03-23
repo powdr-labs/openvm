@@ -184,8 +184,10 @@ snark-verifier-sdk = { version = "0.2.0", default-features = false, features = [
     "loader_halo2",
     "halo2-axiom",
 ] }
+<<<<<<< HEAD
 snark-verifier = { version = "0.2.0", default-features = false }
 halo2curves-axiom = "0.7.0"
+struct-reflection = { git = "https://github.com/gzanitti/struct-reflection-rs.git" }
 
 forge-fmt = "0.2.0"
 cargo_metadata = "0.18"
@@ -250,3 +252,14 @@ num-traits = { version = "0.2.19", default-features = false }
 # p3-poseidon2 = { path = "../Plonky3/poseidon2" }
 # p3-poseidon2-air = { path = "../Plonky3/poseidon2-air" }
 # p3-symmetric = { path = "../Plonky3/symmetric" }
+# p3-uni-stark = { path = "../Plonky3/uni-stark" }
+# p3-maybe-rayon = { path = "../Plonky3/maybe-rayon" }
+# p3-bn254-fr = { path = "../Plonky3/bn254-fr" }
+# p3-monty-31 = { path = "../Plonky3/monty-31" }
+
+# [patch."https://github.com/powdr-labs/stark-backend.git"]
+# openvm-stark-sdk = { path = "../stark-backend/crates/stark-sdk", default-features = false }
+# openvm-stark-backend = { path = "../stark-backend/crates/stark-backend", default-features = false }
+
+# [patch."https://github.com/gzanitti/struct-reflection-rs.git"]
+# struct-reflection = { path = "../struct-reflection-rs" }

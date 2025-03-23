@@ -39,6 +39,7 @@ use openvm_stark_backend::{
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
 use serde_with::serde_as;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 /// This adapter reads from NUM_READS <= 2 pointers and writes to a register.
 /// * The data is read from the heap (address space 2), and the pointers are read from registers
@@ -47,7 +48,7 @@ use serde_with::serde_as;
 ///   starting from the addresses in `rs[0]` (and `rs[1]` if `R = 2`).
 /// * Writes are to 32-bit register rd.
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct Rv32IsEqualModAdapterCols<
     T,
     const NUM_READS: usize,
@@ -90,6 +91,10 @@ impl<
 {
     fn width(&self) -> usize {
         Rv32IsEqualModAdapterCols::<F, NUM_READS, BLOCKS_PER_READ, BLOCK_SIZE>::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        Rv32IsEqualModAdapterCols::<F, NUM_READS, BLOCKS_PER_READ, BLOCK_SIZE>::struct_reflection()
     }
 }
 

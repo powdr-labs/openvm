@@ -30,7 +30,7 @@ use crate::var_range::{VariableRangeCheckerBus, VariableRangeCheckerChip};
 // repr(C) is needed to make sure that the compiler does not reorder the fields
 // we assume the order of the fields when using borrow or borrow_mut
 #[repr(C)]
-#[derive(AlignedBorrow, Clone, Copy, Debug, new)]
+#[derive(AlignedBorrow, Clone, Copy, Debug, new, StructReflection)]
 pub struct AssertLessThanCols<T, const AUX_LEN: usize> {
     pub x: T,
     pub y: T,
@@ -46,6 +46,10 @@ impl<F: Field, const AUX_LEN: usize> PartitionedBaseAir<F> for AssertLtTestAir<A
 impl<F: Field, const AUX_LEN: usize> BaseAir<F> for AssertLtTestAir<AUX_LEN> {
     fn width(&self) -> usize {
         AssertLessThanCols::<F, AUX_LEN>::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        AssertLessThanCols::<F, AUX_LEN>::struct_reflection()
     }
 }
 impl<AB: InteractionBuilder, const AUX_LEN: usize> Air<AB> for AssertLtTestAir<AUX_LEN> {

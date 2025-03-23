@@ -38,6 +38,7 @@ use openvm_stark_backend::{
 };
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 /// This adapter reads from R (R <= 2) pointers and writes to 1 pointer.
 /// * The data is read from the heap (address space 2), and the pointers are read from registers
@@ -128,7 +129,7 @@ pub struct Rv32VecHeapWriteRecord<const BLOCKS_PER_WRITE: usize, const WRITE_SIZ
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct Rv32VecHeapAdapterCols<
     T,
     const NUM_READS: usize,
@@ -187,6 +188,17 @@ impl<
             READ_SIZE,
             WRITE_SIZE,
         >::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        Rv32VecHeapAdapterCols::<
+            F,
+            NUM_READS,
+            BLOCKS_PER_READ,
+            BLOCKS_PER_WRITE,
+            READ_SIZE,
+            WRITE_SIZE,
+        >::struct_reflection()
     }
 }
 

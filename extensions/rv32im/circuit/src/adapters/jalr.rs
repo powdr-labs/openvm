@@ -28,6 +28,7 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra, PrimeField32},
 };
 use serde::{Deserialize, Serialize};
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use super::RV32_REGISTER_NUM_LIMBS;
 
@@ -67,7 +68,7 @@ pub struct Rv32JalrWriteRecord {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, AlignedBorrow, StructReflection)]
 pub struct Rv32JalrAdapterCols<T> {
     pub from_state: ExecutionState<T>,
     pub rs1_ptr: T,
@@ -88,6 +89,10 @@ pub struct Rv32JalrAdapterAir {
 impl<F: Field> BaseAir<F> for Rv32JalrAdapterAir {
     fn width(&self) -> usize {
         Rv32JalrAdapterCols::<F>::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        Rv32JalrAdapterCols::<F>::struct_reflection()
     }
 }
 
