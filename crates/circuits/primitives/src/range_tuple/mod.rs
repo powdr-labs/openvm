@@ -22,6 +22,7 @@ use openvm_stark_backend::{
     rap::{get_air_name, BaseAirWithPublicValues, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter, Stateful,
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 mod bus;
 
@@ -30,7 +31,7 @@ pub mod tests;
 
 pub use bus::*;
 
-#[derive(Default, Copy, Clone)]
+#[derive(Default, Copy, Clone, StructReflection)]
 pub struct RangeTupleCols<T> {
     pub mult: T,
 }
@@ -58,6 +59,10 @@ impl<F: Field, const N: usize> PartitionedBaseAir<F> for RangeTupleCheckerAir<N>
 impl<F: Field, const N: usize> BaseAir<F> for RangeTupleCheckerAir<N> {
     fn width(&self) -> usize {
         NUM_RANGE_TUPLE_COLS
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        RangeTupleCols::<F>::struct_reflection()
     }
 
     fn preprocessed_trace(&self) -> Option<RowMajorMatrix<F>> {

@@ -24,11 +24,12 @@ use openvm_stark_backend::{
     rap::BaseAirWithPublicValues,
 };
 use serde::{Deserialize, Serialize};
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use crate::adapters::{RV32_CELL_BITS, RV32_REGISTER_NUM_LIMBS, RV_J_TYPE_IMM_BITS};
 
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, AlignedBorrow, StructReflection)]
 pub struct Rv32JalLuiCoreCols<T> {
     pub imm: T,
     pub rd_data: [T; RV32_REGISTER_NUM_LIMBS],
@@ -44,6 +45,10 @@ pub struct Rv32JalLuiCoreAir {
 impl<F: Field> BaseAir<F> for Rv32JalLuiCoreAir {
     fn width(&self) -> usize {
         Rv32JalLuiCoreCols::<F>::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        Rv32JalLuiCoreCols::<F>::struct_reflection()
     }
 }
 

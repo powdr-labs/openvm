@@ -14,6 +14,7 @@ use openvm_stark_backend::{
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_big_array::BigArray;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use crate::adapters::LoadStoreInstruction;
 
@@ -42,7 +43,7 @@ use InstructionOpcode::*;
 /// It also handles the shifting in case of not 4 byte aligned instructions
 /// This chips treats each (opcode, shift) pair as a separate instruction
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, AlignedBorrow, StructReflection)]
 pub struct LoadStoreCoreCols<T, const NUM_CELLS: usize> {
     pub flags: [T; 4],
     /// we need to keep the degree of is_valid and is_load to 1
@@ -77,6 +78,10 @@ pub struct LoadStoreCoreAir<const NUM_CELLS: usize> {
 impl<F: Field, const NUM_CELLS: usize> BaseAir<F> for LoadStoreCoreAir<NUM_CELLS> {
     fn width(&self) -> usize {
         LoadStoreCoreCols::<F, NUM_CELLS>::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        LoadStoreCoreCols::<F, NUM_CELLS>::struct_reflection()
     }
 }
 

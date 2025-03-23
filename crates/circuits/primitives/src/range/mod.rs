@@ -24,14 +24,15 @@ mod bus;
 pub mod tests;
 
 pub use bus::*;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
-#[derive(Default, AlignedBorrow, Copy, Clone)]
+#[derive(Default, AlignedBorrow, Copy, Clone, StructReflection)]
 #[repr(C)]
 pub struct RangeCols<T> {
     pub mult: T,
 }
 
-#[derive(Default, AlignedBorrow, Copy, Clone)]
+#[derive(Default, AlignedBorrow, Copy, Clone, StructReflection)]
 #[repr(C)]
 pub struct RangePreprocessedCols<T> {
     pub counter: T,
@@ -56,6 +57,10 @@ impl<F: Field> PartitionedBaseAir<F> for RangeCheckerAir {}
 impl<F: Field> BaseAir<F> for RangeCheckerAir {
     fn width(&self) -> usize {
         NUM_RANGE_COLS
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        RangeCols::<F>::struct_reflection()
     }
 
     fn preprocessed_trace(&self) -> Option<RowMajorMatrix<F>> {

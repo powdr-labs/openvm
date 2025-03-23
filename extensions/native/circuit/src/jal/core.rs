@@ -14,9 +14,10 @@ use openvm_stark_backend::{
     rap::BaseAirWithPublicValues,
 };
 use serde::{Deserialize, Serialize};
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct JalCoreCols<T> {
     pub imm: T,
     pub is_valid: T,
@@ -28,6 +29,10 @@ pub struct JalCoreAir {}
 impl<F: Field> BaseAir<F> for JalCoreAir {
     fn width(&self) -> usize {
         JalCoreCols::<F>::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        JalCoreCols::<F>::struct_reflection()
     }
 }
 

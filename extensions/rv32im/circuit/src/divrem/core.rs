@@ -25,10 +25,11 @@ use openvm_stark_backend::{
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_big_array::BigArray;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 use strum::IntoEnumIterator;
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct DivRemCoreCols<T, const NUM_LIMBS: usize, const LIMB_BITS: usize> {
     // b = c * q + r for some 0 <= |r| < |c| and sign(r) = sign(b).
     pub b: [T; NUM_LIMBS],
@@ -74,6 +75,10 @@ impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAir<F>
 {
     fn width(&self) -> usize {
         DivRemCoreCols::<F, NUM_LIMBS, LIMB_BITS>::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        DivRemCoreCols::<F, NUM_LIMBS, LIMB_BITS>::struct_reflection()
     }
 }
 impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAirWithPublicValues<F>

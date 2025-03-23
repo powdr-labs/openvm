@@ -26,6 +26,7 @@ use openvm_stark_backend::{
 };
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use crate::system::memory::{OfflineMemory, RecordId};
 
@@ -85,21 +86,21 @@ impl<F: Field, const W: usize> NativeWriteRecord<F, W> {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct NativeAdapterReadCols<T> {
     pub address: MemoryAddress<T, T>,
     pub read_aux: MemoryReadOrImmediateAuxCols<T>,
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct NativeAdapterWriteCols<T> {
     pub address: MemoryAddress<T, T>,
     pub write_aux: MemoryWriteAuxCols<T, 1>,
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct NativeAdapterCols<T, const R: usize, const W: usize> {
     pub from_state: ExecutionState<T>,
     pub reads_aux: [NativeAdapterReadCols<T>; R],
@@ -115,6 +116,10 @@ pub struct NativeAdapterAir<const R: usize, const W: usize> {
 impl<F: Field, const R: usize, const W: usize> BaseAir<F> for NativeAdapterAir<R, W> {
     fn width(&self) -> usize {
         NativeAdapterCols::<F, R, W>::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        NativeAdapterCols::<F, R, W>::struct_reflection()
     }
 }
 

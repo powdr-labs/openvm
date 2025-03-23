@@ -27,6 +27,7 @@ use openvm_stark_backend::{
 };
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct VectorReadRecord<const NUM_READS: usize, const READ_SIZE: usize> {
@@ -66,7 +67,7 @@ impl<F: PrimeField32, const READ_SIZE: usize, const WRITE_SIZE: usize>
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct ConvertAdapterCols<T, const READ_SIZE: usize, const WRITE_SIZE: usize> {
     pub from_state: ExecutionState<T>,
     pub a_pointer: T,
@@ -86,6 +87,10 @@ impl<F: Field, const READ_SIZE: usize, const WRITE_SIZE: usize> BaseAir<F>
 {
     fn width(&self) -> usize {
         ConvertAdapterCols::<F, READ_SIZE, WRITE_SIZE>::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        ConvertAdapterCols::<F, READ_SIZE, WRITE_SIZE>::struct_reflection()
     }
 }
 

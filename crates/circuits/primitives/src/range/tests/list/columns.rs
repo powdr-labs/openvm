@@ -2,8 +2,9 @@ use core::mem::{size_of, transmute};
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_stark_backend::p3_util::indices_arr;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
-#[derive(Default, AlignedBorrow)]
+#[derive(Default, AlignedBorrow, StructReflection)]
 pub struct ListCols<T> {
     pub val: T,
 }

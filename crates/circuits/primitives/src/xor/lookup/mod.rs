@@ -18,6 +18,7 @@ use openvm_stark_backend::{
     rap::{get_air_name, BaseAirWithPublicValues, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter,
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use super::bus::XorBus;
 
@@ -25,7 +26,7 @@ use super::bus::XorBus;
 mod tests;
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, AlignedBorrow)]
+#[derive(Copy, Clone, Debug, AlignedBorrow, StructReflection)]
 pub struct XorLookupCols<T> {
     pub mult: T,
 }
@@ -52,6 +53,10 @@ impl<F: Field, const M: usize> PartitionedBaseAir<F> for XorLookupAir<M> {}
 impl<F: Field, const M: usize> BaseAir<F> for XorLookupAir<M> {
     fn width(&self) -> usize {
         NUM_XOR_LOOKUP_COLS
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        XorLookupCols::<F>::struct_reflection()
     }
 
     fn preprocessed_trace(&self) -> Option<RowMajorMatrix<F>> {

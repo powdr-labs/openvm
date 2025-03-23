@@ -27,6 +27,7 @@ use rand::{
     prelude::{SliceRandom, StdRng},
     Rng,
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use super::{merkle::DirectCompressionBus, MemoryController};
 use crate::{
@@ -48,7 +49,7 @@ const MAX: usize = 64;
 const RANGE_CHECKER_BUS: usize = 3;
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 struct MemoryRequesterCols<T> {
     address_space: T,
     pointer: T,
@@ -77,6 +78,10 @@ impl<T> PartitionedBaseAir<T> for MemoryRequesterAir {}
 impl<T> BaseAir<T> for MemoryRequesterAir {
     fn width(&self) -> usize {
         MemoryRequesterCols::<T>::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        MemoryRequesterCols::<T>::struct_reflection()
     }
 }
 

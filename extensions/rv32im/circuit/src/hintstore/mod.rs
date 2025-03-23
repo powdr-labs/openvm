@@ -41,6 +41,7 @@ use openvm_stark_backend::{
     Chip, ChipUsageGetter, Stateful,
 };
 use serde::{Deserialize, Serialize};
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use crate::adapters::{compose, decompose};
 
@@ -48,7 +49,7 @@ use crate::adapters::{compose, decompose};
 mod tests;
 
 #[repr(C)]
-#[derive(AlignedBorrow, Debug)]
+#[derive(AlignedBorrow, Debug, StructReflection)]
 pub struct Rv32HintStoreCols<T> {
     // common
     pub is_single: T,
@@ -81,6 +82,10 @@ pub struct Rv32HintStoreAir {
 impl<F: Field> BaseAir<F> for Rv32HintStoreAir {
     fn width(&self) -> usize {
         Rv32HintStoreCols::<F>::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        Rv32HintStoreCols::<F>::struct_reflection()
     }
 }
 

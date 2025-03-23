@@ -42,6 +42,10 @@ impl<F: Field> BaseAir<F> for PublicValuesCoreAir {
     fn width(&self) -> usize {
         3 + self.encoder.width()
     }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        todo!("Vec<T> does not implement StructReflection (PublicValuesCoreCols)")
+    }
 }
 
 impl<F: Field> BaseAirWithPublicValues<F> for PublicValuesCoreAir {
