@@ -7,10 +7,11 @@ use openvm_stark_backend::{
     p3_matrix::Matrix,
     rap::{BaseAirWithPublicValues, PartitionedBaseAir},
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use crate::system::memory::{offline_checker::MemoryBus, MemoryAddress};
 
-#[derive(Clone, Copy, Debug, AlignedBorrow, derive_new::new)]
+#[derive(Clone, Copy, Debug, AlignedBorrow, derive_new::new, StructReflection)]
 #[repr(C)]
 pub struct DummyMemoryInteractionCols<T, const BLOCK_SIZE: usize> {
     pub address: MemoryAddress<T, T>,
@@ -30,6 +31,10 @@ impl<const BLOCK_SIZE: usize, F> PartitionedBaseAir<F> for MemoryDummyAir<BLOCK_
 impl<const BLOCK_SIZE: usize, F> BaseAir<F> for MemoryDummyAir<BLOCK_SIZE> {
     fn width(&self) -> usize {
         size_of::<DummyMemoryInteractionCols<u8, BLOCK_SIZE>>()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        DummyMemoryInteractionCols::<F, BLOCK_SIZE>::struct_reflection()
     }
 }
 

@@ -39,6 +39,10 @@ impl<F: Field> BaseAir<F> for Sha256TestAir {
     fn width(&self) -> usize {
         <Sha256Air as BaseAir<F>>::width(&self.sub_air)
     }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        None
+    }
 }
 
 impl<AB: InteractionBuilder> Air<AB> for Sha256TestAir {

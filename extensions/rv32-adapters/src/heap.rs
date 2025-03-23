@@ -29,6 +29,7 @@ use openvm_stark_backend::{
     p3_air::BaseAir,
     p3_field::{Field, PrimeField32},
 };
+use struct_reflection::StructReflectionHelper;
 
 use super::{
     vec_heap_generate_trace_row_impl, Rv32VecHeapAdapterAir, Rv32VecHeapAdapterCols,
@@ -59,6 +60,10 @@ impl<F: Field, const NUM_READS: usize, const READ_SIZE: usize, const WRITE_SIZE:
 {
     fn width(&self) -> usize {
         Rv32VecHeapAdapterCols::<F, NUM_READS, 1, 1, READ_SIZE, WRITE_SIZE>::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        Rv32VecHeapAdapterCols::<F, NUM_READS, 1, 1, READ_SIZE, WRITE_SIZE>::struct_reflection()
     }
 }
 

@@ -22,10 +22,11 @@ use openvm_stark_backend::{
 };
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 use strum::IntoEnumIterator;
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct BranchLessThanCoreCols<T, const NUM_LIMBS: usize, const LIMB_BITS: usize> {
     pub a: [T; NUM_LIMBS],
     pub b: [T; NUM_LIMBS],
@@ -64,6 +65,10 @@ impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAir<F>
 {
     fn width(&self) -> usize {
         BranchLessThanCoreCols::<F, NUM_LIMBS, LIMB_BITS>::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        BranchLessThanCoreCols::<F, NUM_LIMBS, LIMB_BITS>::struct_reflection()
     }
 }
 impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAirWithPublicValues<F>

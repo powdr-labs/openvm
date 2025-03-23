@@ -47,6 +47,10 @@ impl<F> BaseAir<F> for Sha256Air {
             Sha256DigestCols::<F>::width(),
         )
     }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        None
+    }
 }
 
 impl<AB: InteractionBuilder> SubAir<AB> for Sha256Air {

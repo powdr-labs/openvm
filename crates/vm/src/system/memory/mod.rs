@@ -1,4 +1,5 @@
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 mod adapter;
 mod controller;
@@ -25,7 +26,7 @@ pub enum OpType {
 
 /// The full pointer to a location in memory consists of an address space and a pointer within
 /// the address space.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, AlignedBorrow)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, AlignedBorrow, StructReflection)]
 #[repr(C)]
 pub struct MemoryAddress<S, T> {
     pub address_space: S,

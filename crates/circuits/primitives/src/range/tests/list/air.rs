@@ -7,6 +7,7 @@ use openvm_stark_backend::{
     p3_matrix::Matrix,
     rap::{BaseAirWithPublicValues, PartitionedBaseAir},
 };
+use struct_reflection::StructReflectionHelper;
 
 use super::columns::{ListCols, NUM_LIST_COLS};
 use crate::range::bus::RangeCheckBus;
@@ -22,6 +23,10 @@ impl<F: Field> PartitionedBaseAir<F> for ListAir {}
 impl<F: Field> BaseAir<F> for ListAir {
     fn width(&self) -> usize {
         NUM_LIST_COLS
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        ListCols::<F>::struct_reflection()
     }
 }
 

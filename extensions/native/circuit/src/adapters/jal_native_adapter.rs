@@ -26,6 +26,7 @@ use openvm_stark_backend::{
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 #[derive(Debug)]
 pub struct JalNativeAdapterChip<F: Field> {
@@ -50,7 +51,7 @@ impl<F: PrimeField32> JalNativeAdapterChip<F> {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct JalNativeAdapterCols<T> {
     pub from_state: ExecutionState<T>,
     pub a_pointer: T,
@@ -66,6 +67,10 @@ pub struct JalNativeAdapterAir {
 impl<F: Field> BaseAir<F> for JalNativeAdapterAir {
     fn width(&self) -> usize {
         JalNativeAdapterCols::<F>::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        JalNativeAdapterCols::<F>::struct_reflection()
     }
 }
 

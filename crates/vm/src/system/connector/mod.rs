@@ -20,6 +20,7 @@ use openvm_stark_backend::{
     AirRef, Chip, ChipUsageGetter,
 };
 use serde::{Deserialize, Serialize};
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use crate::{
     arch::{instructions::SystemOpcode::TERMINATE, ExecutionBus, ExecutionState},
@@ -68,6 +69,10 @@ impl<F: Field> BaseAir<F> for VmConnectorAir {
         5
     }
 
+    fn columns(&self) -> Option<Vec<String>> {
+        ConnectorCols::<F>::struct_reflection()
+    }
+
     fn preprocessed_trace(&self) -> Option<RowMajorMatrix<F>> {
         Some(RowMajorMatrix::new_col(vec![F::ZERO, F::ONE]))
     }
@@ -85,7 +90,7 @@ impl VmConnectorAir {
     }
 }
 
-#[derive(Debug, Copy, Clone, AlignedBorrow, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, AlignedBorrow, Serialize, Deserialize, StructReflection)]
 #[repr(C)]
 pub struct ConnectorCols<T> {
     pub pc: T,

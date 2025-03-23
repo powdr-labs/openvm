@@ -19,10 +19,11 @@ use openvm_stark_backend::{
 };
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 use strum::IntoEnumIterator;
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct BranchEqualCoreCols<T, const NUM_LIMBS: usize> {
     pub a: [T; NUM_LIMBS],
     pub b: [T; NUM_LIMBS],
@@ -46,6 +47,10 @@ pub struct BranchEqualCoreAir<const NUM_LIMBS: usize> {
 impl<F: Field, const NUM_LIMBS: usize> BaseAir<F> for BranchEqualCoreAir<NUM_LIMBS> {
     fn width(&self) -> usize {
         BranchEqualCoreCols::<F, NUM_LIMBS>::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        BranchEqualCoreCols::<F, NUM_LIMBS>::struct_reflection()
     }
 }
 impl<F: Field, const NUM_LIMBS: usize> BaseAirWithPublicValues<F>

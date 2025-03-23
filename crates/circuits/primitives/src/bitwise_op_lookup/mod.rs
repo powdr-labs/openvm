@@ -15,6 +15,7 @@ use openvm_stark_backend::{
     rap::{get_air_name, BaseAirWithPublicValues, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter,
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 mod bus;
 #[cfg(test)]
@@ -22,7 +23,7 @@ mod tests;
 
 pub use bus::*;
 
-#[derive(Default, AlignedBorrow, Copy, Clone)]
+#[derive(Default, AlignedBorrow, Copy, Clone, StructReflection)]
 #[repr(C)]
 pub struct BitwiseOperationLookupCols<T> {
     /// Number of range check operations requested for each (x, y) pair
@@ -31,7 +32,7 @@ pub struct BitwiseOperationLookupCols<T> {
     pub mult_xor: T,
 }
 
-#[derive(Default, AlignedBorrow, Copy, Clone)]
+#[derive(Default, AlignedBorrow, Copy, Clone, StructReflection)]
 #[repr(C)]
 pub struct BitwiseOperationLookupPreprocessedCols<T> {
     pub x: T,
@@ -60,6 +61,10 @@ impl<F: Field, const NUM_BITS: usize> PartitionedBaseAir<F>
 impl<F: Field, const NUM_BITS: usize> BaseAir<F> for BitwiseOperationLookupAir<NUM_BITS> {
     fn width(&self) -> usize {
         NUM_BITWISE_OP_LOOKUP_COLS
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        BitwiseOperationLookupCols::<F>::struct_reflection()
     }
 
     fn preprocessed_trace(&self) -> Option<RowMajorMatrix<F>> {

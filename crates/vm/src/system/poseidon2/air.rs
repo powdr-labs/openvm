@@ -39,6 +39,10 @@ impl<F: Field, const SBOX_REGISTERS: usize> BaseAir<F>
     fn width(&self) -> usize {
         Poseidon2PeripheryCols::<F, SBOX_REGISTERS>::width()
     }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        None
+    }
 }
 
 impl<AB: InteractionBuilder, const SBOX_REGISTERS: usize> Air<AB>

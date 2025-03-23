@@ -18,13 +18,14 @@ use openvm_stark_sdk::{
     p3_baby_bear::BabyBear, utils::create_seeded_rng,
 };
 use rand::Rng;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 use test_case::test_case;
 
 use super::{IsEqArrayAuxCols, IsEqArrayIo, IsEqArraySubAir};
 use crate::{SubAir, TraceSubRowGenerator};
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct IsEqArrayCols<T, const N: usize> {
     x: [T; N],
     y: [T; N],
@@ -40,6 +41,10 @@ impl<F: Field, const N: usize> PartitionedBaseAir<F> for IsEqArrayTestAir<N> {}
 impl<F: Field, const N: usize> BaseAir<F> for IsEqArrayTestAir<N> {
     fn width(&self) -> usize {
         IsEqArrayCols::<F, N>::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        IsEqArrayCols::<F, N>::struct_reflection()
     }
 }
 impl<AB: AirBuilder, const N: usize> Air<AB> for IsEqArrayTestAir<N> {

@@ -20,6 +20,7 @@ use openvm_stark_backend::{
     rap::{get_air_name, BaseAirWithPublicValues, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter,
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 use tracing::instrument;
 
 mod bus;
@@ -28,14 +29,14 @@ pub mod tests;
 
 pub use bus::*;
 
-#[derive(Default, AlignedBorrow, Copy, Clone)]
+#[derive(Default, AlignedBorrow, Copy, Clone, StructReflection)]
 #[repr(C)]
 pub struct VariableRangeCols<T> {
     /// Number of range checks requested for each (value, max_bits) pair
     pub mult: T,
 }
 
-#[derive(Default, AlignedBorrow, Copy, Clone)]
+#[derive(Default, AlignedBorrow, Copy, Clone, StructReflection)]
 #[repr(C)]
 pub struct VariableRangePreprocessedCols<T> {
     /// The value being range checked
@@ -64,6 +65,10 @@ impl<F: Field> PartitionedBaseAir<F> for VariableRangeCheckerAir {}
 impl<F: Field> BaseAir<F> for VariableRangeCheckerAir {
     fn width(&self) -> usize {
         NUM_VARIABLE_RANGE_COLS
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        VariableRangeCols::<F>::struct_reflection()
     }
 
     fn preprocessed_trace(&self) -> Option<RowMajorMatrix<F>> {

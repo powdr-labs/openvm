@@ -12,6 +12,7 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra, PrimeField32},
 };
 use serde::{Deserialize, Serialize};
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use crate::{
     arch::{
@@ -131,7 +132,7 @@ pub struct TestAdapterAir {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct TestAdapterCols<T> {
     pub from_pc: T,
     pub operands: [T; 7],
@@ -140,6 +141,10 @@ pub struct TestAdapterCols<T> {
 impl<F: Field> BaseAir<F> for TestAdapterAir {
     fn width(&self) -> usize {
         TestAdapterCols::<F>::width()
+    }
+
+    fn columns(&self) -> Option<Vec<String>> {
+        TestAdapterCols::<F>::struct_reflection()
     }
 }
 
