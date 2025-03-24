@@ -49,10 +49,6 @@ impl<F> BaseAir<F> for KeccakVmAir {
     fn width(&self) -> usize {
         NUM_KECCAK_VM_COLS
     }
-
-    fn columns(&self) -> Option<Vec<String>> {
-        todo!("KeccakPermCols does not implement StructReflection");
-    }
 }
 
 impl<AB: InteractionBuilder> Air<AB> for KeccakVmAir {

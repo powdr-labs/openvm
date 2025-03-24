@@ -229,10 +229,6 @@ impl<F: Field> BaseAir<F> for FriReducedOpeningAir {
     fn width(&self) -> usize {
         OVERALL_WIDTH
     }
-
-    fn columns(&self) -> Option<Vec<String>> {
-        None
-    }
 }
 
 impl<F: Field> BaseAirWithPublicValues<F> for FriReducedOpeningAir {}
