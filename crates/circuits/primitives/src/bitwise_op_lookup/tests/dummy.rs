@@ -25,10 +25,6 @@ impl<F: Field> BaseAir<F> for DummyAir {
         4
     }
 
-    fn columns(&self) -> Option<Vec<String>> {
-        todo!()
-    }
-
     fn preprocessed_trace(&self) -> Option<RowMajorMatrix<F>> {
         None
     }

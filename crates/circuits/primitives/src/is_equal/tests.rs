@@ -13,14 +13,13 @@ use openvm_stark_backend::{
 use openvm_stark_sdk::{
     any_rap_arc_vec, config::baby_bear_poseidon2::BabyBearPoseidon2Engine, engine::StarkFriEngine,
 };
-use struct_reflection::{StructReflection, StructReflectionHelper};
 use test_case::test_matrix;
 
 use super::{IsEqSubAir, IsEqualIo};
 use crate::{SubAir, TraceSubRowGenerator};
 
 #[repr(C)]
-#[derive(AlignedBorrow, StructReflection)]
+#[derive(AlignedBorrow)]
 pub struct IsEqualCols<T> {
     pub x: T,
     pub y: T,
@@ -36,10 +35,6 @@ impl<F: Field> PartitionedBaseAir<F> for IsEqTestAir {}
 impl<F: Field> BaseAir<F> for IsEqTestAir {
     fn width(&self) -> usize {
         IsEqualCols::<F>::width()
-    }
-
-    fn columns(&self) -> Option<Vec<String>> {
-        IsEqualCols::<F>::struct_reflection()
     }
 }
 impl<AB: AirBuilder> Air<AB> for IsEqTestAir {

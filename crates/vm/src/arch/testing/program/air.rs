@@ -20,10 +20,6 @@ impl<F: Field> BaseAir<F> for ProgramDummyAir {
     fn width(&self) -> usize {
         ProgramTester::<F>::width()
     }
-
-    fn columns(&self) -> Option<Vec<String>> {
-        None
-    }
 }
 
 impl<AB: InteractionBuilder> Air<AB> for ProgramDummyAir {
