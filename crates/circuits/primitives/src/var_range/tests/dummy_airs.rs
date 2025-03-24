@@ -26,10 +26,6 @@ impl<F: Field> BaseAir<F> for TestSendAir {
         2
     }
 
-    fn columns(&self) -> Option<Vec<String>> {
-        Some(vec!["value".to_string(), "max_bits".to_string()])
-    }
-
     fn preprocessed_trace(&self) -> Option<RowMajorMatrix<F>> {
         None
     }
@@ -61,10 +57,6 @@ impl<F: Field> PartitionedBaseAir<F> for TestRangeCheckAir {}
 impl<F: Field> BaseAir<F> for TestRangeCheckAir {
     fn width(&self) -> usize {
         1
-    }
-
-    fn columns(&self) -> Option<Vec<String>> {
-        Some(vec!["value".to_string()])
     }
 
     fn preprocessed_trace(&self) -> Option<RowMajorMatrix<F>> {

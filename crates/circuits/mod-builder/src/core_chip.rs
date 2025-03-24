@@ -92,10 +92,6 @@ impl<F: Field> BaseAir<F> for FieldExpressionCoreAir {
     fn width(&self) -> usize {
         BaseAir::<F>::width(&self.expr)
     }
-
-    fn columns(&self) -> Option<Vec<String>> {
-        None
-    }
 }
 
 impl<F: Field> BaseAirWithPublicValues<F> for FieldExpressionCoreAir {}
