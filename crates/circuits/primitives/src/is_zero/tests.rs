@@ -14,14 +14,13 @@ use openvm_stark_sdk::{
     any_rap_arc_vec, config::baby_bear_poseidon2::BabyBearPoseidon2Engine, engine::StarkFriEngine,
     p3_baby_bear::BabyBear,
 };
-use struct_reflection::{StructReflection, StructReflectionHelper};
 use test_case::test_case;
 
 use super::{IsZeroIo, IsZeroSubAir};
 use crate::{SubAir, TraceSubRowGenerator};
 
 #[repr(C)]
-#[derive(AlignedBorrow, StructReflection)]
+#[derive(AlignedBorrow)]
 pub struct IsZeroCols<T> {
     pub x: T,
     pub out: T,
@@ -36,10 +35,6 @@ impl<F: Field> PartitionedBaseAir<F> for IsZeroTestAir {}
 impl<F: Field> BaseAir<F> for IsZeroTestAir {
     fn width(&self) -> usize {
         IsZeroCols::<F>::width()
-    }
-
-    fn columns(&self) -> Option<Vec<String>> {
-        IsZeroCols::<F>::struct_reflection()
     }
 }
 impl<AB: AirBuilder> Air<AB> for IsZeroTestAir {
