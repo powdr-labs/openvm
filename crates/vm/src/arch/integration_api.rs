@@ -356,15 +356,11 @@ where
     }
 
     fn columns(&self) -> Option<Vec<String>> {
-        let combined_columns = self
-            .adapter
-            .columns()
-            .into_iter()
-            .flatten()
-            .chain(self.core.columns().into_iter().flatten())
-            .collect::<Vec<_>>();
-
-        (!combined_columns.is_empty()).then_some(combined_columns)
+        if let (Some(adapter_columns), Some(core_columns)) = (self.adapter.columns(), self.core.columns()) {
+            Some(adapter_columns.into_iter().chain(core_columns).collect())
+        } else {
+            None
+        }
     }
 }
 
