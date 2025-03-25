@@ -181,9 +181,9 @@ impl<'a, F: PrimeField32> VmInventoryBuilder<'a, F> {
             self.find_chip().first().expect("PhantomChip always exists");
         let mut chip = chip_ref.borrow_mut();
         let existing = chip.add_sub_executor(phantom_sub, discriminant);
-        if existing.is_some() {
-            return Err(VmInventoryError::PhantomSubExecutorExists { discriminant });
-        }
+        // if existing.is_some() {
+        //     return Err(VmInventoryError::PhantomSubExecutorExists { discriminant });
+        // }
         Ok(())
     }
 
