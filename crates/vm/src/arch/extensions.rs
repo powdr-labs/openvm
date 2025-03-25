@@ -207,7 +207,7 @@ impl<'a, F: PrimeField32> VmInventoryBuilder<'a, F> {
 #[derive(Clone, Debug)]
 pub struct VmInventory<E, P> {
     /// Lookup table to executor ID. We store executors separately due to mutable borrow issues.
-    instruction_lookup: FxHashMap<VmOpcode, ExecutorId>,
+    pub instruction_lookup: FxHashMap<VmOpcode, ExecutorId>,
     pub executors: Vec<E>,
     pub(super) periphery: Vec<P>,
     /// Order of insertion. The reverse of this will be the order the chips are destroyed
