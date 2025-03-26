@@ -16,7 +16,7 @@ use openvm_stark_backend::{
     p3_air::{Air, BaseAir, PairBuilder},
     p3_field::Field,
     p3_matrix::{dense::RowMajorMatrix, Matrix},
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
 
 mod bus;
@@ -62,14 +62,16 @@ impl<F: Field> BaseAir<F> for RangeCheckerAir {
         NUM_RANGE_COLS
     }
 
-    fn columns(&self) -> Option<Vec<String>> {
-        RangeCols::<F>::struct_reflection()
-    }
-
     fn preprocessed_trace(&self) -> Option<RowMajorMatrix<F>> {
         // Create lookup table with all values 0..range_max
         let column = (0..self.range_max()).map(F::from_canonical_u32).collect();
         Some(RowMajorMatrix::new_col(column))
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for RangeCheckerAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        RangeCols::<F>::struct_reflection()
     }
 }
 

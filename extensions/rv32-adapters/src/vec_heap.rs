@@ -35,6 +35,7 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::ColumnsAir,
 };
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -189,7 +190,18 @@ impl<
             WRITE_SIZE,
         >::width()
     }
+}
 
+impl<
+        F: Field,
+        const NUM_READS: usize,
+        const BLOCKS_PER_READ: usize,
+        const BLOCKS_PER_WRITE: usize,
+        const READ_SIZE: usize,
+        const WRITE_SIZE: usize,
+    > ColumnsAir<F>
+    for Rv32VecHeapAdapterAir<NUM_READS, BLOCKS_PER_READ, BLOCKS_PER_WRITE, READ_SIZE, WRITE_SIZE>
+{
     fn columns(&self) -> Option<Vec<String>> {
         Rv32VecHeapAdapterCols::<
             F,

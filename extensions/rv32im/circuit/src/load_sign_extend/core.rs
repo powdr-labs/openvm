@@ -17,7 +17,7 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
-    rap::BaseAirWithPublicValues,
+    rap::{BaseAirWithPublicValues, ColumnsAir},
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_big_array::BigArray;
@@ -71,7 +71,11 @@ impl<F: Field, const NUM_CELLS: usize, const LIMB_BITS: usize> BaseAir<F>
     fn width(&self) -> usize {
         LoadSignExtendCoreCols::<F, NUM_CELLS>::width()
     }
+}
 
+impl<F: Field, const NUM_CELLS: usize, const LIMB_BITS: usize> ColumnsAir<F>
+    for LoadSignExtendCoreAir<NUM_CELLS, LIMB_BITS>
+{
     fn columns(&self) -> Option<Vec<String>> {
         LoadSignExtendCoreCols::<F, NUM_CELLS>::struct_reflection()
     }

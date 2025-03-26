@@ -20,7 +20,7 @@ use openvm_stark_backend::{
     p3_field::Field,
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     prover::types::AirProofInput,
-    rap::{get_air_name, BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{get_air_name, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter,
 };
 use struct_reflection::{StructReflection, StructReflectionHelper};
@@ -81,6 +81,12 @@ impl<F: Field, const M: usize> BaseAir<F> for XorLookupAir<M> {
             .collect();
 
         Some(RowMajorMatrix::new(rows, NUM_XOR_LOOKUP_PREPROCESSED_COLS))
+    }
+}
+
+impl<F: Field, const M: usize> ColumnsAir<F> for XorLookupAir<M> {
+    fn columns(&self) -> Option<Vec<String>> {
+        XorLookupCols::<F>::struct_reflection()
     }
 }
 

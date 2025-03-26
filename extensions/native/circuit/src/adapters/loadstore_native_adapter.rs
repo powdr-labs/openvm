@@ -26,6 +26,7 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::ColumnsAir,
 };
 use serde::{Deserialize, Serialize};
 use struct_reflection::{StructReflection, StructReflectionHelper};
@@ -123,7 +124,9 @@ impl<F: Field, const NUM_CELLS: usize> BaseAir<F> for NativeLoadStoreAdapterAir<
     fn width(&self) -> usize {
         NativeLoadStoreAdapterCols::<F, NUM_CELLS>::width()
     }
+}
 
+impl<F: Field, const NUM_CELLS: usize> ColumnsAir<F> for NativeLoadStoreAdapterAir<NUM_CELLS> {
     fn columns(&self) -> Option<Vec<String>> {
         NativeLoadStoreAdapterCols::<F, NUM_CELLS>::struct_reflection()
     }

@@ -16,7 +16,7 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_util::indices_arr,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
 use struct_reflection::{StructReflection, StructReflectionHelper};
 
@@ -57,7 +57,9 @@ impl<F: Field> BaseAir<F> for RangeCheckerGateAir {
     fn width(&self) -> usize {
         NUM_RANGE_GATE_COLS
     }
+}
 
+impl<F: Field> ColumnsAir<F> for RangeCheckerGateAir {
     fn columns(&self) -> Option<Vec<String>> {
         RangeGateCols::<F>::struct_reflection()
     }

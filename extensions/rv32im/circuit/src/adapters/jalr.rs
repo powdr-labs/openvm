@@ -26,6 +26,7 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::ColumnsAir,
 };
 use serde::{Deserialize, Serialize};
 use struct_reflection::{StructReflection, StructReflectionHelper};
@@ -90,7 +91,9 @@ impl<F: Field> BaseAir<F> for Rv32JalrAdapterAir {
     fn width(&self) -> usize {
         Rv32JalrAdapterCols::<F>::width()
     }
+}
 
+impl<F: Field> ColumnsAir<F> for Rv32JalrAdapterAir {
     fn columns(&self) -> Option<Vec<String>> {
         Rv32JalrAdapterCols::<F>::struct_reflection()
     }

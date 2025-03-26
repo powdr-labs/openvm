@@ -17,8 +17,8 @@ use openvm_stark_backend::{
     p3_field::{Field, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     prover::types::AirProofInput,
-    rap::{get_air_name, BaseAirWithPublicValues, PartitionedBaseAir},
-    AirRef, Chip, ChipUsageGetter,
+    rap::{get_air_name, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
+    AirRef, Chip, ChipUsageGetter, Stateful,
 };
 use struct_reflection::{StructReflection, StructReflectionHelper};
 
@@ -62,10 +62,6 @@ impl<F: Field, const N: usize> BaseAir<F> for RangeTupleCheckerAir<N> {
         NUM_RANGE_TUPLE_COLS
     }
 
-    fn columns(&self) -> Option<Vec<String>> {
-        RangeTupleCols::<F>::struct_reflection()
-    }
-
     fn preprocessed_trace(&self) -> Option<RowMajorMatrix<F>> {
         let mut unrolled_matrix = Vec::with_capacity((self.height() as usize) * N);
         let mut row = [0u32; N];
@@ -86,6 +82,12 @@ impl<F: Field, const N: usize> BaseAir<F> for RangeTupleCheckerAir<N> {
                 .collect(),
             N,
         ))
+    }
+}
+
+impl<F: Field, const N: usize> ColumnsAir<F> for RangeTupleCheckerAir<N> {
+    fn columns(&self) -> Option<Vec<String>> {
+        RangeTupleCols::<F>::struct_reflection()
     }
 }
 
