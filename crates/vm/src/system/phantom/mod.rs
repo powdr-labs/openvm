@@ -16,7 +16,7 @@ use openvm_stark_backend::{
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
     prover::types::AirProofInput,
-    rap::{get_air_name, BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{get_air_name, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter, Stateful,
 };
 use rustc_hash::FxHashMap;
@@ -60,11 +60,14 @@ impl<F: Field> BaseAir<F> for PhantomAir {
     fn width(&self) -> usize {
         PhantomCols::<F>::width()
     }
+}
 
+impl<F: Field> ColumnsAir<F> for PhantomAir {
     fn columns(&self) -> Option<Vec<String>> {
         PhantomCols::<F>::struct_reflection()
     }
 }
+
 impl<F: Field> PartitionedBaseAir<F> for PhantomAir {}
 impl<F: Field> BaseAirWithPublicValues<F> for PhantomAir {}
 

@@ -16,7 +16,7 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     prover::types::AirProofInput,
-    rap::{get_air_name, BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{get_air_name, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter, Stateful,
 };
 use struct_reflection::{StructReflection, StructReflectionHelper};
@@ -64,10 +64,6 @@ impl<F: Field, const NUM_BITS: usize> BaseAir<F> for BitwiseOperationLookupAir<N
         NUM_BITWISE_OP_LOOKUP_COLS
     }
 
-    fn columns(&self) -> Option<Vec<String>> {
-        BitwiseOperationLookupCols::<F>::struct_reflection()
-    }
-
     fn preprocessed_trace(&self) -> Option<RowMajorMatrix<F>> {
         let rows: Vec<F> = (0..(1 << NUM_BITS))
             .flat_map(|x: u32| {
@@ -84,6 +80,12 @@ impl<F: Field, const NUM_BITS: usize> BaseAir<F> for BitwiseOperationLookupAir<N
             rows,
             NUM_BITWISE_OP_LOOKUP_PREPROCESSED_COLS,
         ))
+    }
+}
+
+impl<F: Field, const NUM_BITS: usize> ColumnsAir<F> for BitwiseOperationLookupAir<NUM_BITS> {
+    fn columns(&self) -> Option<Vec<String>> {
+        BitwiseOperationLookupCols::<F>::struct_reflection()
     }
 }
 

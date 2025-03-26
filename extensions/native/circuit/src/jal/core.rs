@@ -11,7 +11,7 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
-    rap::BaseAirWithPublicValues,
+    rap::{BaseAirWithPublicValues, ColumnsAir},
 };
 use serde::{Deserialize, Serialize};
 use struct_reflection::{StructReflection, StructReflectionHelper};
@@ -30,7 +30,9 @@ impl<F: Field> BaseAir<F> for JalCoreAir {
     fn width(&self) -> usize {
         JalCoreCols::<F>::width()
     }
+}
 
+impl<F: Field> ColumnsAir<F> for JalCoreAir {
     fn columns(&self) -> Option<Vec<String>> {
         JalCoreCols::<F>::struct_reflection()
     }

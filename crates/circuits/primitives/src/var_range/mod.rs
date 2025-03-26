@@ -20,7 +20,7 @@ use openvm_stark_backend::{
     p3_field::{Field, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     prover::types::AirProofInput,
-    rap::{get_air_name, BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{get_air_name, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter, Stateful,
 };
 use struct_reflection::{StructReflection, StructReflectionHelper};
@@ -67,10 +67,6 @@ impl<F: Field> BaseAir<F> for VariableRangeCheckerAir {
         NUM_VARIABLE_RANGE_COLS
     }
 
-    fn columns(&self) -> Option<Vec<String>> {
-        VariableRangeCols::<F>::struct_reflection()
-    }
-
     fn preprocessed_trace(&self) -> Option<RowMajorMatrix<F>> {
         let rows: Vec<F> = [F::ZERO; NUM_VARIABLE_RANGE_PREPROCESSED_COLS]
             .into_iter()
@@ -84,6 +80,12 @@ impl<F: Field> BaseAir<F> for VariableRangeCheckerAir {
             rows,
             NUM_VARIABLE_RANGE_PREPROCESSED_COLS,
         ))
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for VariableRangeCheckerAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        VariableRangeCols::<F>::struct_reflection()
     }
 }
 

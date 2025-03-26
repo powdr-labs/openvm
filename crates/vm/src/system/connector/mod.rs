@@ -13,7 +13,7 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     prover::types::AirProofInput,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter, Stateful,
 };
 use serde::{Deserialize, Serialize};
@@ -63,12 +63,14 @@ impl<F: Field> BaseAir<F> for VmConnectorAir {
         4
     }
 
-    fn columns(&self) -> Option<Vec<String>> {
-        ConnectorCols::<F>::struct_reflection()
-    }
-
     fn preprocessed_trace(&self) -> Option<RowMajorMatrix<F>> {
         Some(RowMajorMatrix::new_col(vec![F::ZERO, F::ONE]))
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for VmConnectorAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        ConnectorCols::<F>::struct_reflection()
     }
 }
 

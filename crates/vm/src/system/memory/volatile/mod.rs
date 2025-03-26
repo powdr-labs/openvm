@@ -20,7 +20,7 @@ use openvm_stark_backend::{
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
     prover::types::AirProofInput,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter,
 };
 use struct_reflection::{StructReflection, StructReflectionHelper};
@@ -81,7 +81,9 @@ impl<F: Field> BaseAir<F> for VolatileBoundaryAir {
     fn width(&self) -> usize {
         VolatileBoundaryCols::<F>::width()
     }
+}
 
+impl<F: Field> ColumnsAir<F> for VolatileBoundaryAir {
     fn columns(&self) -> Option<Vec<String>> {
         VolatileBoundaryCols::<F>::struct_reflection()
     }

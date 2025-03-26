@@ -25,6 +25,7 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::ColumnsAir,
 };
 use struct_reflection::{StructReflection, StructReflectionHelper};
 
@@ -74,7 +75,9 @@ impl<F: Field> BaseAir<F> for BranchNativeAdapterAir {
     fn width(&self) -> usize {
         BranchNativeAdapterCols::<F>::width()
     }
+}
 
+impl<F: Field> ColumnsAir<F> for BranchNativeAdapterAir {
     fn columns(&self) -> Option<Vec<String>> {
         BranchNativeAdapterCols::<F>::struct_reflection()
     }

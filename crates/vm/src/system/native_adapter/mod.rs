@@ -23,6 +23,7 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::ColumnsAir,
 };
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
@@ -117,7 +118,9 @@ impl<F: Field, const R: usize, const W: usize> BaseAir<F> for NativeAdapterAir<R
     fn width(&self) -> usize {
         NativeAdapterCols::<F, R, W>::width()
     }
+}
 
+impl<F: Field, const R: usize, const W: usize> ColumnsAir<F> for NativeAdapterAir<R, W> {
     fn columns(&self) -> Option<Vec<String>> {
         NativeAdapterCols::<F, R, W>::struct_reflection()
     }

@@ -10,7 +10,7 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField32},
-    rap::BaseAirWithPublicValues,
+    rap::{BaseAirWithPublicValues, ColumnsAir},
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_big_array::BigArray;
@@ -79,7 +79,9 @@ impl<F: Field, const NUM_CELLS: usize> BaseAir<F> for LoadStoreCoreAir<NUM_CELLS
     fn width(&self) -> usize {
         LoadStoreCoreCols::<F, NUM_CELLS>::width()
     }
+}
 
+impl<F: Field, const NUM_CELLS: usize> ColumnsAir<F> for LoadStoreCoreAir<NUM_CELLS> {
     fn columns(&self) -> Option<Vec<String>> {
         LoadStoreCoreCols::<F, NUM_CELLS>::struct_reflection()
     }
