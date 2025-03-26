@@ -21,7 +21,7 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField32},
-    rap::BaseAirWithPublicValues,
+    rap::{BaseAirWithPublicValues, ColumnsAir},
 };
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
@@ -99,11 +99,16 @@ impl<F: Field, const READ_LIMBS: usize, const WRITE_LIMBS: usize, const LIMB_BIT
     fn width(&self) -> usize {
         ModularIsEqualCoreCols::<F, READ_LIMBS>::width()
     }
+}
 
+impl<F: Field, const READ_LIMBS: usize, const WRITE_LIMBS: usize, const LIMB_BITS: usize>
+    ColumnsAir<F> for ModularIsEqualCoreAir<READ_LIMBS, WRITE_LIMBS, LIMB_BITS>
+{
     fn columns(&self) -> Option<Vec<String>> {
         ModularIsEqualCoreCols::<F, READ_LIMBS>::struct_reflection()
     }
 }
+
 impl<F: Field, const READ_LIMBS: usize, const WRITE_LIMBS: usize, const LIMB_BITS: usize>
     BaseAirWithPublicValues<F> for ModularIsEqualCoreAir<READ_LIMBS, WRITE_LIMBS, LIMB_BITS>
 {

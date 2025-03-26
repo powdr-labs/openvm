@@ -36,6 +36,7 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::ColumnsAir,
 };
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
@@ -71,7 +72,11 @@ impl<F: Field, const NUM_READS: usize, const READ_SIZE: usize> BaseAir<F>
     fn width(&self) -> usize {
         Rv32HeapBranchAdapterCols::<F, NUM_READS, READ_SIZE>::width()
     }
+}
 
+impl<F: Field, const NUM_READS: usize, const READ_SIZE: usize> ColumnsAir<F>
+    for Rv32HeapBranchAdapterAir<NUM_READS, READ_SIZE>
+{
     fn columns(&self) -> Option<Vec<String>> {
         Rv32HeapBranchAdapterCols::<F, NUM_READS, READ_SIZE>::struct_reflection()
     }

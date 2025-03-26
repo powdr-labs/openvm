@@ -47,12 +47,6 @@ impl<F: Field, const SBOX_REGISTERS: usize> BaseAir<F> for Poseidon2SubAir<F, SB
             Self::BabyBearMds(air) => air.width(),
         }
     }
-
-    fn columns(&self) -> Option<Vec<String>> {
-        match self {
-            Self::BabyBearMds(air) => air.columns(),
-        }
-    }
 }
 
 impl<F: Field, const SBOX_REGISTERS: usize> BaseAirWithPublicValues<F>

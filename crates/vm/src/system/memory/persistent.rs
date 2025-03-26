@@ -14,7 +14,7 @@ use openvm_stark_backend::{
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
     prover::types::AirProofInput,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter,
 };
 use rustc_hash::FxHashSet;
@@ -63,7 +63,9 @@ impl<const CHUNK: usize, F> BaseAir<F> for PersistentBoundaryAir<CHUNK> {
     fn width(&self) -> usize {
         PersistentBoundaryCols::<F, CHUNK>::width()
     }
+}
 
+impl<const CHUNK: usize, F> ColumnsAir<F> for PersistentBoundaryAir<CHUNK> {
     fn columns(&self) -> Option<Vec<String>> {
         PersistentBoundaryCols::<F, CHUNK>::struct_reflection()
     }

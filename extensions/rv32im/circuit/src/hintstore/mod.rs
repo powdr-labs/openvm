@@ -37,8 +37,8 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     prover::types::AirProofInput,
-    rap::{AnyRap, BaseAirWithPublicValues, PartitionedBaseAir},
-    Chip, ChipUsageGetter,
+    rap::{AnyRap, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
+    Chip, ChipUsageGetter, Stateful,
 };
 use serde::{Deserialize, Serialize};
 use struct_reflection::{StructReflection, StructReflectionHelper};
@@ -84,7 +84,9 @@ impl<F: Field> BaseAir<F> for Rv32HintStoreAir {
     fn width(&self) -> usize {
         Rv32HintStoreCols::<F>::width()
     }
+}
 
+impl<F: Field> ColumnsAir<F> for Rv32HintStoreAir {
     fn columns(&self) -> Option<Vec<String>> {
         Rv32HintStoreCols::<F>::struct_reflection()
     }

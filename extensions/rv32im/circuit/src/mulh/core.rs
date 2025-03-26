@@ -18,7 +18,7 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField32},
-    rap::BaseAirWithPublicValues,
+    rap::{BaseAirWithPublicValues, ColumnsAir},
 };
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
@@ -53,11 +53,16 @@ impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAir<F>
     fn width(&self) -> usize {
         MulHCoreCols::<F, NUM_LIMBS, LIMB_BITS>::width()
     }
+}
 
+impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> ColumnsAir<F>
+    for MulHCoreAir<NUM_LIMBS, LIMB_BITS>
+{
     fn columns(&self) -> Option<Vec<String>> {
         MulHCoreCols::<F, NUM_LIMBS, LIMB_BITS>::struct_reflection()
     }
 }
+
 impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAirWithPublicValues<F>
     for MulHCoreAir<NUM_LIMBS, LIMB_BITS>
 {

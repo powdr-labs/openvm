@@ -28,6 +28,7 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, PrimeField32},
+    rap::ColumnsAir,
 };
 use struct_reflection::StructReflectionHelper;
 
@@ -61,7 +62,11 @@ impl<F: Field, const NUM_READS: usize, const READ_SIZE: usize, const WRITE_SIZE:
     fn width(&self) -> usize {
         Rv32VecHeapAdapterCols::<F, NUM_READS, 1, 1, READ_SIZE, WRITE_SIZE>::width()
     }
+}
 
+impl<F: Field, const NUM_READS: usize, const READ_SIZE: usize, const WRITE_SIZE: usize>
+    ColumnsAir<F> for Rv32HeapAdapterAir<NUM_READS, READ_SIZE, WRITE_SIZE>
+{
     fn columns(&self) -> Option<Vec<String>> {
         Rv32VecHeapAdapterCols::<F, NUM_READS, 1, 1, READ_SIZE, WRITE_SIZE>::struct_reflection()
     }

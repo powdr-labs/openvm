@@ -5,7 +5,7 @@ use openvm_stark_backend::{
     p3_air::{Air, BaseAir},
     p3_field::Field,
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
 use struct_reflection::{StructReflection, StructReflectionHelper};
 
@@ -51,7 +51,9 @@ impl<F: Field> BaseAir<F> for ProgramAir {
     fn width(&self) -> usize {
         ProgramCols::<F>::width()
     }
+}
 
+impl<F: Field> ColumnsAir<F> for ProgramAir {
     fn columns(&self) -> Option<Vec<String>> {
         ProgramCols::<F>::struct_reflection()
     }
