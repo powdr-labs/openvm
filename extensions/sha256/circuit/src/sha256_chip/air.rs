@@ -54,7 +54,7 @@ impl<F: Field> BaseAir<F> for Sha256VmAir {
 
 impl<F: Field> ColumnsAir<F> for Sha256VmAir {
     fn columns(&self) -> Option<Vec<String>> {
-        todo!()
+        None
     }
 }
 

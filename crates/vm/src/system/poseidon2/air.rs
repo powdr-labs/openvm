@@ -45,7 +45,7 @@ impl<F: Field, const SBOX_REGISTERS: usize> ColumnsAir<F>
     for Poseidon2PeripheryAir<F, SBOX_REGISTERS>
 {
     fn columns(&self) -> Option<Vec<String>> {
-        todo!()
+        None
     }
 }
 

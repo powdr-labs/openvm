@@ -233,7 +233,7 @@ impl<F: Field> BaseAir<F> for FriReducedOpeningAir {
 
 impl<F: Field> ColumnsAir<F> for FriReducedOpeningAir {
     fn columns(&self) -> Option<Vec<String>> {
-        todo!()
+        None
     }
 }
 

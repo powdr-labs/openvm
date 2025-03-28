@@ -257,9 +257,9 @@ num-traits = { version = "0.2.19", default-features = false }
 # p3-bn254-fr = { path = "../Plonky3/bn254-fr" }
 # p3-monty-31 = { path = "../Plonky3/monty-31" }
 
-[patch."https://github.com/powdr-labs/stark-backend.git"]
-openvm-stark-sdk = { path = "../stark-backend/crates/stark-sdk", default-features = false }
-openvm-stark-backend = { path = "../stark-backend/crates/stark-backend", default-features = false }
+# [patch."https://github.com/powdr-labs/stark-backend.git"]
+# openvm-stark-sdk = { path = "../stark-backend/crates/stark-sdk", default-features = false }
+# openvm-stark-backend = { path = "../stark-backend/crates/stark-backend", default-features = false }
 
 # [patch."https://github.com/gzanitti/struct-reflection-rs.git"]
 # struct-reflection = { path = "../struct-reflection-rs" }

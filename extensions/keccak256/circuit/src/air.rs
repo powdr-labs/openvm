@@ -53,7 +53,7 @@ impl<F> BaseAir<F> for KeccakVmAir {
 
 impl<F> ColumnsAir<F> for KeccakVmAir {
     fn columns(&self) -> Option<Vec<String>> {
-        todo!()
+        None
     }
 }
 

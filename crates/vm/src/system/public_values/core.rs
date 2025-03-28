@@ -46,7 +46,7 @@ impl<F: Field> BaseAir<F> for PublicValuesCoreAir {
 
 impl<F: Field> ColumnsAir<F> for PublicValuesCoreAir {
     fn columns(&self) -> Option<Vec<String>> {
-        todo!()
+        None
     }
 }
 
