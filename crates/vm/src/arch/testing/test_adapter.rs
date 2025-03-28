@@ -18,7 +18,7 @@ use crate::{
         AdapterAirContext, AdapterRuntimeContext, DynAdapterInterface, DynArray, ExecutionBridge,
         ExecutionState, MinimalInstruction, Result, VmAdapterAir, VmAdapterChip,
     },
-    system::memory::{MemoryController, MemoryControllerI, OfflineMemory},
+    system::memory::{MemoryControllerI, OfflineMemory},
 };
 
 // Replaces A: VmAdapterChip while testing VmCoreChip functionality, as it has no

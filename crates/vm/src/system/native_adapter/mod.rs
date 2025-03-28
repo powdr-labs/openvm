@@ -12,7 +12,7 @@ use openvm_circuit::{
     system::{
         memory::{
             offline_checker::{MemoryBridge, MemoryReadOrImmediateAuxCols, MemoryWriteAuxCols},
-            MemoryAddress, MemoryController,
+            MemoryAddress,
         },
         program::ProgramBus,
     },
