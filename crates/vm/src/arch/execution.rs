@@ -9,7 +9,10 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::Streams;
-use crate::system::{memory::MemoryController, program::ProgramBus};
+use crate::system::{
+    memory::{MemoryController, MemoryControllerI},
+    program::ProgramBus,
+};
 
 pub type Result<T> = std::result::Result<T, ExecutionError>;
 
@@ -70,7 +73,7 @@ pub trait InstructionExecutor<F> {
     /// current instance. May internally store records of this call for later trace generation.
     fn execute(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
     ) -> Result<ExecutionState<u32>>;
@@ -83,7 +86,7 @@ pub trait InstructionExecutor<F> {
 impl<F, C: InstructionExecutor<F>> InstructionExecutor<F> for RefCell<C> {
     fn execute(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
         prev_state: ExecutionState<u32>,
     ) -> Result<ExecutionState<u32>> {
@@ -98,7 +101,7 @@ impl<F, C: InstructionExecutor<F>> InstructionExecutor<F> for RefCell<C> {
 impl<F, C: InstructionExecutor<F>> InstructionExecutor<F> for Rc<RefCell<C>> {
     fn execute(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
         prev_state: ExecutionState<u32>,
     ) -> Result<ExecutionState<u32>> {
