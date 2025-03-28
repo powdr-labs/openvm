@@ -33,12 +33,6 @@ impl<const BLOCK_SIZE: usize, F> BaseAir<F> for MemoryDummyAir<BLOCK_SIZE> {
     }
 }
 
-impl<const BLOCK_SIZE: usize> ColumnsAir for MemoryDummyAir<BLOCK_SIZE> {
-    fn columns(&self) -> Option<Vec<String>> {
-        todo!()
-    }
-}
-
 impl<const BLOCK_SIZE: usize, AB: InteractionBuilder> Air<AB> for MemoryDummyAir<BLOCK_SIZE> {
     fn eval(&self, builder: &mut AB) {
         let main = builder.main();

@@ -96,7 +96,7 @@ impl<F: Field> BaseAir<F> for FieldExpressionCoreAir {
 
 impl<F: Field> ColumnsAir<F> for FieldExpressionCoreAir {
     fn columns(&self) -> Option<Vec<String>> {
-        todo!()
+        None
     }
 }
 
