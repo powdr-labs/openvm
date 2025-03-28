@@ -5,7 +5,7 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{Air, BaseAir},
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
 
 use crate::system::memory::{offline_checker::MemoryBus, MemoryAddress};
@@ -30,6 +30,12 @@ impl<const BLOCK_SIZE: usize, F> PartitionedBaseAir<F> for MemoryDummyAir<BLOCK_
 impl<const BLOCK_SIZE: usize, F> BaseAir<F> for MemoryDummyAir<BLOCK_SIZE> {
     fn width(&self) -> usize {
         size_of::<DummyMemoryInteractionCols<u8, BLOCK_SIZE>>()
+    }
+}
+
+impl<const BLOCK_SIZE: usize> ColumnsAir for MemoryDummyAir<BLOCK_SIZE> {
+    fn columns(&self) -> Option<Vec<String>> {
+        todo!()
     }
 }
 

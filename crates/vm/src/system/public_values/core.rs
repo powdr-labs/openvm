@@ -8,7 +8,7 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{AirBuilder, AirBuilderWithPublicValues, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField32},
-    rap::BaseAirWithPublicValues,
+    rap::{BaseAirWithPublicValues, ColumnsAir},
 };
 use serde::{Deserialize, Serialize};
 
@@ -41,6 +41,12 @@ impl PublicValuesCoreAir {
 impl<F: Field> BaseAir<F> for PublicValuesCoreAir {
     fn width(&self) -> usize {
         3 + self.encoder.width()
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for PublicValuesCoreAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        todo!()
     }
 }
 
