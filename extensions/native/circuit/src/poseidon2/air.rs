@@ -50,7 +50,7 @@ impl<F: Field, const SBOX_REGISTERS: usize> ColumnsAir<F>
     for NativePoseidon2Air<F, SBOX_REGISTERS>
 {
     fn columns(&self) -> Option<Vec<String>> {
-        todo!()
+        None
     }
 }
 
