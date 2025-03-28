@@ -28,7 +28,10 @@ pub use air::KeccakVmAir;
 use openvm_circuit::{
     arch::{ExecutionBridge, ExecutionBus, ExecutionError, ExecutionState, InstructionExecutor},
     system::{
-        memory::{offline_checker::MemoryBridge, MemoryController, OfflineMemory, RecordId},
+        memory::{
+            offline_checker::MemoryBridge, MemoryController, MemoryControllerI, OfflineMemory,
+            RecordId,
+        },
         program::ProgramBus,
     },
 };
@@ -134,7 +137,7 @@ impl<F: PrimeField32> KeccakVmChip<F> {
 impl<F: PrimeField32> InstructionExecutor<F> for KeccakVmChip<F> {
     fn execute(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
     ) -> Result<ExecutionState<u32>, ExecutionError> {

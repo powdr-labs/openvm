@@ -38,7 +38,7 @@ use crate::{
     system::{
         memory::{
             offline_checker::{MemoryBridge, MemoryBus},
-            MemoryController, OfflineMemory,
+            MemoryController, MemoryControllerI, OfflineMemory,
         },
         poseidon2::Poseidon2PeripheryChip,
         program::ProgramBus,
