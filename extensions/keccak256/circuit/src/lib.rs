@@ -28,10 +28,7 @@ pub use air::KeccakVmAir;
 use openvm_circuit::{
     arch::{ExecutionBridge, ExecutionBus, ExecutionError, ExecutionState, InstructionExecutor},
     system::{
-        memory::{
-            offline_checker::MemoryBridge, MemoryController, MemoryControllerI, OfflineMemory,
-            RecordId,
-        },
+        memory::{offline_checker::MemoryBridge, MemoryControllerI, OfflineMemory, RecordId},
         program::ProgramBus,
     },
 };

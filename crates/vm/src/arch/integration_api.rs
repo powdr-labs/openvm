@@ -22,7 +22,7 @@ use openvm_stark_backend::{
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use super::{ExecutionState, InstructionExecutor, Result};
-use crate::system::memory::{MemoryController, MemoryControllerI, OfflineMemory};
+use crate::system::memory::{MemoryControllerI, OfflineMemory};
 
 /// The interface between primitive AIR and machine adapter AIR.
 pub trait VmAdapterInterface<T> {

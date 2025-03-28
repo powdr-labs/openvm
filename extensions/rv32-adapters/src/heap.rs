@@ -11,9 +11,7 @@ use openvm_circuit::{
         VmAdapterInterface,
     },
     system::{
-        memory::{
-            offline_checker::MemoryBridge, MemoryController, MemoryControllerI, OfflineMemory,
-        },
+        memory::{offline_checker::MemoryBridge, MemoryControllerI, OfflineMemory},
         program::ProgramBus,
     },
 };

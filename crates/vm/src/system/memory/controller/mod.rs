@@ -845,7 +845,7 @@ mod tests {
     use super::MemoryController;
     use crate::{
         arch::{testing::MEMORY_BUS, MemoryConfig},
-        system::memory::offline_checker::MemoryBus,
+        system::memory::{offline_checker::MemoryBus, MemoryControllerI},
     };
 
     const RANGE_CHECKER_BUS: BusIndex = 3;

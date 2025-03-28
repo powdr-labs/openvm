@@ -32,7 +32,7 @@ mod trace;
 
 pub use air::*;
 pub use columns::*;
-use openvm_circuit::system::memory::{MemoryController, OfflineMemory, RecordId};
+use openvm_circuit::system::memory::{OfflineMemory, RecordId};
 
 #[cfg(test)]
 mod tests;
