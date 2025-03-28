@@ -17,7 +17,7 @@ use openvm_stark_backend::{
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra},
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
 
 use crate::{
@@ -43,6 +43,14 @@ pub struct NativePoseidon2Air<F: Field, const SBOX_REGISTERS: usize> {
 impl<F: Field, const SBOX_REGISTERS: usize> BaseAir<F> for NativePoseidon2Air<F, SBOX_REGISTERS> {
     fn width(&self) -> usize {
         NativePoseidon2Cols::<F, SBOX_REGISTERS>::width()
+    }
+}
+
+impl<F: Field, const SBOX_REGISTERS: usize> ColumnsAir<F>
+    for NativePoseidon2Air<F, SBOX_REGISTERS>
+{
+    fn columns(&self) -> Option<Vec<String>> {
+        todo!()
     }
 }
 

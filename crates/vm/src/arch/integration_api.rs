@@ -272,13 +272,13 @@ where
     A: VmAdapterChip<Val<SC>> + Send + Sync,
     C: VmCoreChip<Val<SC>, A::Interface> + Send + Sync,
     A::Air: Send + Sync + 'static,
-    A::Air: VmAdapterAir<SymbolicRapBuilder<Val<SC>>>,
+    A::Air: VmAdapterAir<SymbolicRapBuilder<Val<SC>>> + ColumnsAir<Val<SC>>,
     A::Air: for<'a> VmAdapterAir<DebugConstraintBuilder<'a, SC>>,
     C::Air: Send + Sync + 'static,
     C::Air: VmCoreAir<
-        SymbolicRapBuilder<Val<SC>>,
-        <A::Air as VmAdapterAir<SymbolicRapBuilder<Val<SC>>>>::Interface,
-    >,
+            SymbolicRapBuilder<Val<SC>>,
+            <A::Air as VmAdapterAir<SymbolicRapBuilder<Val<SC>>>>::Interface,
+        > + ColumnsAir<Val<SC>>,
     C::Air: for<'a> VmCoreAir<
         DebugConstraintBuilder<'a, SC>,
         <A::Air as VmAdapterAir<DebugConstraintBuilder<'a, SC>>>::Interface,
