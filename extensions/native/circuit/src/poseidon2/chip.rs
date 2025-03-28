@@ -4,7 +4,7 @@ use openvm_circuit::{
     arch::{
         ExecutionBridge, ExecutionError, ExecutionState, InstructionExecutor, Streams, SystemPort,
     },
-    system::memory::{MemoryController, MemoryControllerI, OfflineMemory, RecordId},
+    system::memory::{MemoryControllerI, OfflineMemory, RecordId},
 };
 use openvm_instructions::{instruction::Instruction, program::DEFAULT_PC_STEP, LocalOpcode};
 use openvm_native_compiler::{
