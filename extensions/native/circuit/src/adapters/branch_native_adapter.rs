@@ -12,7 +12,7 @@ use openvm_circuit::{
     system::{
         memory::{
             offline_checker::{MemoryBridge, MemoryReadOrImmediateAuxCols},
-            MemoryAddress, MemoryController, OfflineMemory,
+            MemoryAddress, MemoryControllerI, OfflineMemory,
         },
         native_adapter::NativeReadRecord,
         program::ProgramBus,
@@ -153,7 +153,7 @@ impl<F: PrimeField32> VmAdapterChip<F> for BranchNativeAdapterChip<F> {
 
     fn preprocess(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
     ) -> Result<(
         <Self::Interface as VmAdapterInterface<F>>::Reads,
@@ -174,7 +174,7 @@ impl<F: PrimeField32> VmAdapterChip<F> for BranchNativeAdapterChip<F> {
 
     fn postprocess(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         _instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
         output: AdapterRuntimeContext<F, Self::Interface>,

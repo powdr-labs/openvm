@@ -10,7 +10,7 @@ use openvm_circuit::{
     system::{
         memory::{
             offline_checker::{MemoryBridge, MemoryReadAuxCols, MemoryWriteAuxCols},
-            MemoryAddress, MemoryAuxColsFactory, MemoryController, OfflineMemory, RecordId,
+            MemoryAddress, MemoryAuxColsFactory, MemoryControllerI, OfflineMemory, RecordId,
         },
         program::ProgramBus,
     },
@@ -283,7 +283,7 @@ impl<F: PrimeField32> Rv32HintStoreChip<F> {
 impl<F: PrimeField32> InstructionExecutor<F> for Rv32HintStoreChip<F> {
     fn execute(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
     ) -> Result<ExecutionState<u32>, ExecutionError> {

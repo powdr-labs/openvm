@@ -198,13 +198,13 @@ pub trait VmAdapterChip<F: Field> {
 
     fn preprocess(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
     ) -> Result<(<Self::Interface as VmAdapterInterface<F>>::Reads, Self::ReadRecord)>;
 
     fn postprocess(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
         ctx: AdapterRuntimeContext<F, Self::Interface<F>>,

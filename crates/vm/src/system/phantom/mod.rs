@@ -23,7 +23,7 @@ use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
 
-use super::memory::MemoryController;
+use super::memory::MemoryControllerI;
 use crate::{
     arch::{
         ExecutionBridge, ExecutionBus, ExecutionError, ExecutionState, InstructionExecutor,
@@ -125,7 +125,7 @@ impl<F> PhantomChip<F> {
 impl<F: PrimeField32> InstructionExecutor<F> for PhantomChip<F> {
     fn execute(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
     ) -> Result<ExecutionState<u32>, ExecutionError> {
@@ -146,11 +146,11 @@ impl<F: PrimeField32> InstructionExecutor<F> for PhantomChip<F> {
                     pc: from_state.pc,
                     discriminant,
                 })?;
-            let mut streams = self.streams.get().unwrap().lock().unwrap();
+            let streams = self.streams.get().unwrap().lock().unwrap();
             sub_executor
                 .as_mut()
                 .phantom_execute(
-                    memory,
+                    unimplemented!(),
                     &mut streams,
                     discriminant,
                     a,

@@ -12,7 +12,7 @@ use openvm_circuit::{
     system::{
         memory::{
             offline_checker::{MemoryBridge, MemoryReadOrImmediateAuxCols, MemoryWriteAuxCols},
-            MemoryAddress, MemoryController,
+            MemoryAddress,
         },
         program::ProgramBus,
     },
@@ -27,6 +27,7 @@ use openvm_stark_backend::{
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
 
+use super::memory::MemoryControllerI;
 use crate::system::memory::{OfflineMemory, RecordId};
 
 /// R reads(R<=2), W writes(W<=1).
@@ -213,7 +214,7 @@ impl<F: PrimeField32, const R: usize, const W: usize> VmAdapterChip<F>
 
     fn preprocess(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
     ) -> Result<(
         <Self::Interface as VmAdapterInterface<F>>::Reads,
@@ -241,7 +242,7 @@ impl<F: PrimeField32, const R: usize, const W: usize> VmAdapterChip<F>
 
     fn postprocess(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
         output: AdapterRuntimeContext<F, Self::Interface>,

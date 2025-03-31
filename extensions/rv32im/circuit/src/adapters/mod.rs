@@ -1,6 +1,6 @@
 use std::ops::Mul;
 
-use openvm_circuit::system::memory::{MemoryController, RecordId};
+use openvm_circuit::system::memory::{MemoryController, MemoryControllerI, RecordId};
 use openvm_stark_backend::p3_field::{FieldAlgebra, PrimeField32};
 
 mod alu;
@@ -50,7 +50,7 @@ pub fn decompose<F: PrimeField32>(value: u32) -> [F; RV32_REGISTER_NUM_LIMBS] {
 /// Returns the read record and the register value as u32.
 /// Does not make any range check calls.
 pub fn read_rv32_register<F: PrimeField32>(
-    memory: &mut MemoryController<F>,
+    memory: &mut impl MemoryControllerI<F>,
     address_space: F,
     pointer: F,
 ) -> (RecordId, u32) {
