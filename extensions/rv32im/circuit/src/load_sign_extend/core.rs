@@ -17,10 +17,11 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
-    rap::BaseAirWithPublicValues,
+    rap::{BaseAirWithPublicValues, ColumnsAir},
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_big_array::BigArray;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use crate::adapters::LoadStoreInstruction;
 
@@ -30,7 +31,7 @@ use crate::adapters::LoadStoreInstruction;
 /// shifted_read_data is the read_data shifted by (shift_amount & 2), this reduces the number of opcode flags needed
 /// using this shifted data we can generate the write_data as if the shift_amount was 0 for loadh and 0 or 1 for loadb
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, AlignedBorrow, StructReflection)]
 pub struct LoadSignExtendCoreCols<T, const NUM_CELLS: usize> {
     /// This chip treats loadb with 0 shift and loadb with 1 shift as different instructions
     pub opcode_loadb_flag0: T,
@@ -67,6 +68,14 @@ impl<F: Field, const NUM_CELLS: usize, const LIMB_BITS: usize> BaseAir<F>
 {
     fn width(&self) -> usize {
         LoadSignExtendCoreCols::<F, NUM_CELLS>::width()
+    }
+}
+
+impl<F: Field, const NUM_CELLS: usize, const LIMB_BITS: usize> ColumnsAir<F>
+    for LoadSignExtendCoreAir<NUM_CELLS, LIMB_BITS>
+{
+    fn columns(&self) -> Option<Vec<String>> {
+        LoadSignExtendCoreCols::<F, NUM_CELLS>::struct_reflection()
     }
 }
 

@@ -193,6 +193,7 @@ snark-verifier-sdk = { git = "https://github.com/axiom-crypto/snark-verifier", b
 ] }
 zkhash = { git = "https://github.com/HorizenLabs/poseidon2.git", rev = "bb476b9" }
 halo2curves-axiom = "0.5.3"
+struct-reflection = { git = "https://github.com/gzanitti/struct-reflection-rs.git" }
 
 rayon = "1.10"
 tracing = "0.1.40"

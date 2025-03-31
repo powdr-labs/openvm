@@ -26,8 +26,10 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::ColumnsAir,
 };
 use serde::{Deserialize, Serialize};
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use super::RV32_REGISTER_NUM_LIMBS;
 
@@ -81,7 +83,7 @@ pub struct Rv32RdWriteWriteRecord {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, AlignedBorrow, StructReflection)]
 pub struct Rv32RdWriteAdapterCols<T> {
     pub from_state: ExecutionState<T>,
     pub rd_ptr: T,
@@ -89,7 +91,7 @@ pub struct Rv32RdWriteAdapterCols<T> {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, AlignedBorrow, StructReflection)]
 pub struct Rv32CondRdWriteAdapterCols<T> {
     inner: Rv32RdWriteAdapterCols<T>,
     pub needs_write: T,
@@ -112,9 +114,21 @@ impl<F: Field> BaseAir<F> for Rv32RdWriteAdapterAir {
     }
 }
 
+impl<F: Field> ColumnsAir<F> for Rv32RdWriteAdapterAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        Rv32RdWriteAdapterCols::<F>::struct_reflection()
+    }
+}
+
 impl<F: Field> BaseAir<F> for Rv32CondRdWriteAdapterAir {
     fn width(&self) -> usize {
         Rv32CondRdWriteAdapterCols::<F>::width()
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for Rv32CondRdWriteAdapterAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        Rv32CondRdWriteAdapterCols::<F>::struct_reflection()
     }
 }
 

@@ -11,6 +11,7 @@ license.workspace = true
 [dependencies]
 openvm-stark-backend = { workspace = true }
 openvm-circuit-primitives-derive = { workspace = true }
+struct-reflection = { workspace = true }
 
 rand.workspace = true
 derive-new.workspace = true

@@ -32,6 +32,7 @@ eyre.workspace = true
 serde.workspace = true
 serde-big-array.workspace = true
 bitcode.workspace = true
+struct-reflection.workspace = true
 
 [dev-dependencies]
 openvm-stark-sdk = { workspace = true }

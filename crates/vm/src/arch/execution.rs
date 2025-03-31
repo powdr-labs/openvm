@@ -6,6 +6,7 @@ use openvm_instructions::{
 };
 use openvm_stark_backend::{interaction::InteractionBuilder, p3_field::FieldAlgebra};
 use serde::{Deserialize, Serialize};
+use struct_reflection::{StructReflection, StructReflectionHelper};
 use thiserror::Error;
 
 use super::Streams;
@@ -113,7 +114,9 @@ impl<F, C: InstructionExecutor<F>> InstructionExecutor<F> for Rc<RefCell<C>> {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Default, AlignedBorrow, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Default, AlignedBorrow, Serialize, Deserialize, StructReflection,
+)]
 #[repr(C)]
 pub struct ExecutionState<T> {
     pub pc: T,

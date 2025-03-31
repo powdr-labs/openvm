@@ -15,9 +15,10 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
-    rap::BaseAirWithPublicValues,
+    rap::{BaseAirWithPublicValues, ColumnsAir},
 };
 use serde::{Deserialize, Serialize};
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 // LIMB_BITS is the size of the limbs in bits.
 pub(crate) const LIMB_BITS: usize = 8;
@@ -25,7 +26,7 @@ pub(crate) const LIMB_BITS: usize = 8;
 pub(crate) const FINAL_LIMB_BITS: usize = 6;
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct CastFCoreCols<T> {
     pub in_val: T,
     pub out_val: [T; RV32_REGISTER_NUM_LIMBS],
@@ -40,6 +41,12 @@ pub struct CastFCoreAir {
 impl<F: Field> BaseAir<F> for CastFCoreAir {
     fn width(&self) -> usize {
         CastFCoreCols::<F>::width()
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for CastFCoreAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        CastFCoreCols::<F>::struct_reflection()
     }
 }
 

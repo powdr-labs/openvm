@@ -18,6 +18,7 @@ openvm-circuit-primitives-derive = { workspace = true }
 openvm-circuit-derive = { workspace = true }
 openvm-instructions = { workspace = true }
 openvm-stark-sdk = { workspace = true, optional = true }
+struct-reflection = { workspace = true }
 
 bitcode.workspace = true
 itertools.workspace = true

@@ -24,8 +24,10 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::ColumnsAir,
 };
 use serde::{Deserialize, Serialize};
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -63,7 +65,7 @@ pub struct NativeVectorizedWriteRecord<const N: usize> {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct NativeVectorizedAdapterCols<T, const N: usize> {
     pub from_state: ExecutionState<T>,
     pub a_pointer: T,
@@ -82,6 +84,12 @@ pub struct NativeVectorizedAdapterAir<const N: usize> {
 impl<F: Field, const N: usize> BaseAir<F> for NativeVectorizedAdapterAir<N> {
     fn width(&self) -> usize {
         NativeVectorizedAdapterCols::<F, N>::width()
+    }
+}
+
+impl<F: Field, const N: usize> ColumnsAir<F> for NativeVectorizedAdapterAir<N> {
+    fn columns(&self) -> Option<Vec<String>> {
+        NativeVectorizedAdapterCols::<F, N>::struct_reflection()
     }
 }
 

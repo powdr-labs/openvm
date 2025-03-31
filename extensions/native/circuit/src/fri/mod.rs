@@ -31,7 +31,7 @@ use openvm_stark_backend::{
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
     prover::types::AirProofInput,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter, Stateful,
 };
 use serde::{Deserialize, Serialize};
@@ -174,6 +174,12 @@ struct FriReducedOpeningAir {
 impl<F: Field> BaseAir<F> for FriReducedOpeningAir {
     fn width(&self) -> usize {
         OVERALL_WIDTH
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for FriReducedOpeningAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        None
     }
 }
 

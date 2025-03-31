@@ -21,7 +21,7 @@ use openvm_stark_backend::{
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra},
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
 
 use super::{
@@ -46,6 +46,12 @@ impl<F: Field> PartitionedBaseAir<F> for Sha256VmAir {}
 impl<F: Field> BaseAir<F> for Sha256VmAir {
     fn width(&self) -> usize {
         SHA256VM_WIDTH
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for Sha256VmAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        None
     }
 }
 
