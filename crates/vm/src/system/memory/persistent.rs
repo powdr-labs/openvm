@@ -14,10 +14,11 @@ use openvm_stark_backend::{
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
     prover::types::AirProofInput,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter,
 };
 use rustc_hash::FxHashSet;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use super::merkle::{DirectCompressionBus, SerialReceiver};
 use crate::{
@@ -31,7 +32,7 @@ use crate::{
 /// The values describe aligned chunk of memory of size `CHUNK`---the data together with the last
 /// accessed timestamp---in either the initial or final memory state.
 #[repr(C)]
-#[derive(Debug, AlignedBorrow)]
+#[derive(Debug, AlignedBorrow, StructReflection)]
 pub struct PersistentBoundaryCols<T, const CHUNK: usize> {
     // `expand_direction` =  1 corresponds to initial memory state
     // `expand_direction` = -1 corresponds to final memory state
@@ -61,6 +62,12 @@ pub struct PersistentBoundaryAir<const CHUNK: usize> {
 impl<const CHUNK: usize, F> BaseAir<F> for PersistentBoundaryAir<CHUNK> {
     fn width(&self) -> usize {
         PersistentBoundaryCols::<F, CHUNK>::width()
+    }
+}
+
+impl<const CHUNK: usize, F> ColumnsAir<F> for PersistentBoundaryAir<CHUNK> {
+    fn columns(&self) -> Option<Vec<String>> {
+        PersistentBoundaryCols::<F, CHUNK>::struct_reflection()
     }
 }
 

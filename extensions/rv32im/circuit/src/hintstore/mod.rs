@@ -10,7 +10,7 @@ use openvm_circuit::{
     system::{
         memory::{
             offline_checker::{MemoryBridge, MemoryReadAuxCols, MemoryWriteAuxCols},
-            MemoryAddress, MemoryAuxColsFactory, MemoryController, OfflineMemory, RecordId,
+            MemoryAddress, MemoryAuxColsFactory, MemoryControllerI, OfflineMemory, RecordId,
         },
         program::ProgramBus,
     },
@@ -37,10 +37,11 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     prover::types::AirProofInput,
-    rap::{AnyRap, BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{AnyRap, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     Chip, ChipUsageGetter, Stateful,
 };
 use serde::{Deserialize, Serialize};
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use crate::adapters::{compose, decompose};
 
@@ -48,7 +49,7 @@ use crate::adapters::{compose, decompose};
 mod tests;
 
 #[repr(C)]
-#[derive(AlignedBorrow, Debug)]
+#[derive(AlignedBorrow, Debug, StructReflection)]
 pub struct Rv32HintStoreCols<T> {
     // common
     pub is_single: T,
@@ -81,6 +82,12 @@ pub struct Rv32HintStoreAir {
 impl<F: Field> BaseAir<F> for Rv32HintStoreAir {
     fn width(&self) -> usize {
         Rv32HintStoreCols::<F>::width()
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for Rv32HintStoreAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        Rv32HintStoreCols::<F>::struct_reflection()
     }
 }
 
@@ -283,7 +290,7 @@ impl<F: PrimeField32> Rv32HintStoreChip<F> {
 impl<F: PrimeField32> InstructionExecutor<F> for Rv32HintStoreChip<F> {
     fn execute(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
     ) -> Result<ExecutionState<u32>, ExecutionError> {

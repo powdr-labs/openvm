@@ -14,7 +14,7 @@ use openvm_stark_backend::{
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
-    rap::BaseAirWithPublicValues,
+    rap::{BaseAirWithPublicValues, ColumnsAir},
 };
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
@@ -91,6 +91,12 @@ impl FieldExpressionCoreAir {
 impl<F: Field> BaseAir<F> for FieldExpressionCoreAir {
     fn width(&self) -> usize {
         BaseAir::<F>::width(&self.expr)
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for FieldExpressionCoreAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        None
     }
 }
 

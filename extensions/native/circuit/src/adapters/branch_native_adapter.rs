@@ -12,7 +12,7 @@ use openvm_circuit::{
     system::{
         memory::{
             offline_checker::{MemoryBridge, MemoryReadOrImmediateAuxCols},
-            MemoryAddress, MemoryController, OfflineMemory,
+            MemoryAddress, MemoryControllerI, OfflineMemory,
         },
         native_adapter::NativeReadRecord,
         program::ProgramBus,
@@ -25,7 +25,9 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::ColumnsAir,
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 #[derive(Debug)]
 pub struct BranchNativeAdapterChip<F: Field> {
@@ -50,14 +52,14 @@ impl<F: PrimeField32> BranchNativeAdapterChip<F> {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct BranchNativeAdapterReadCols<T> {
     pub address: MemoryAddress<T, T>,
     pub read_aux: MemoryReadOrImmediateAuxCols<T>,
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct BranchNativeAdapterCols<T> {
     pub from_state: ExecutionState<T>,
     pub reads_aux: [BranchNativeAdapterReadCols<T>; 2],
@@ -72,6 +74,12 @@ pub struct BranchNativeAdapterAir {
 impl<F: Field> BaseAir<F> for BranchNativeAdapterAir {
     fn width(&self) -> usize {
         BranchNativeAdapterCols::<F>::width()
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for BranchNativeAdapterAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        BranchNativeAdapterCols::<F>::struct_reflection()
     }
 }
 
@@ -153,7 +161,7 @@ impl<F: PrimeField32> VmAdapterChip<F> for BranchNativeAdapterChip<F> {
 
     fn preprocess(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
     ) -> Result<(
         <Self::Interface as VmAdapterInterface<F>>::Reads,
@@ -174,7 +182,7 @@ impl<F: PrimeField32> VmAdapterChip<F> for BranchNativeAdapterChip<F> {
 
     fn postprocess(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         _instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
         output: AdapterRuntimeContext<F, Self::Interface>,

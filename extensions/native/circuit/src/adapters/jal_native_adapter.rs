@@ -12,7 +12,7 @@ use openvm_circuit::{
     system::{
         memory::{
             offline_checker::{MemoryBridge, MemoryWriteAuxCols},
-            MemoryAddress, MemoryController, OfflineMemory,
+            MemoryAddress, MemoryControllerI, OfflineMemory,
         },
         native_adapter::NativeWriteRecord,
         program::ProgramBus,
@@ -25,7 +25,9 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::ColumnsAir,
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 #[derive(Debug)]
 pub struct JalNativeAdapterChip<F: Field> {
@@ -50,7 +52,7 @@ impl<F: PrimeField32> JalNativeAdapterChip<F> {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct JalNativeAdapterCols<T> {
     pub from_state: ExecutionState<T>,
     pub a_pointer: T,
@@ -66,6 +68,12 @@ pub struct JalNativeAdapterAir {
 impl<F: Field> BaseAir<F> for JalNativeAdapterAir {
     fn width(&self) -> usize {
         JalNativeAdapterCols::<F>::width()
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for JalNativeAdapterAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        JalNativeAdapterCols::<F>::struct_reflection()
     }
 }
 
@@ -127,7 +135,7 @@ impl<F: PrimeField32> VmAdapterChip<F> for JalNativeAdapterChip<F> {
 
     fn preprocess(
         &mut self,
-        _memory: &mut MemoryController<F>,
+        _memory: &mut impl MemoryControllerI<F>,
         _instruction: &Instruction<F>,
     ) -> Result<(
         <Self::Interface as VmAdapterInterface<F>>::Reads,
@@ -138,7 +146,7 @@ impl<F: PrimeField32> VmAdapterChip<F> for JalNativeAdapterChip<F> {
 
     fn postprocess(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         _instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
         output: AdapterRuntimeContext<F, Self::Interface>,

@@ -15,16 +15,17 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
-    rap::BaseAirWithPublicValues,
+    rap::{BaseAirWithPublicValues, ColumnsAir},
 };
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 use strum::IntoEnumIterator;
 
 use super::super::adapters::loadstore_native_adapter::NativeLoadStoreInstruction;
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct NativeLoadStoreCoreCols<T, const NUM_CELLS: usize> {
     pub is_loadw: T,
     pub is_storew: T,
@@ -54,6 +55,12 @@ pub struct NativeLoadStoreCoreAir<const NUM_CELLS: usize> {
 impl<F: Field, const NUM_CELLS: usize> BaseAir<F> for NativeLoadStoreCoreAir<NUM_CELLS> {
     fn width(&self) -> usize {
         NativeLoadStoreCoreCols::<F, NUM_CELLS>::width()
+    }
+}
+
+impl<F: Field, const NUM_CELLS: usize> ColumnsAir<F> for NativeLoadStoreCoreAir<NUM_CELLS> {
+    fn columns(&self) -> Option<Vec<String>> {
+        NativeLoadStoreCoreCols::<F, NUM_CELLS>::struct_reflection()
     }
 }
 

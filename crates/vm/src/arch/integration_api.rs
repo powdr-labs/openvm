@@ -16,13 +16,13 @@ use openvm_stark_backend::{
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
     prover::types::AirProofInput,
-    rap::{get_air_name, BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{get_air_name, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter, Stateful,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use super::{ExecutionState, InstructionExecutor, Result};
-use crate::system::memory::{MemoryController, OfflineMemory};
+use crate::system::memory::{MemoryControllerI, OfflineMemory};
 
 /// The interface between primitive AIR and machine adapter AIR.
 pub trait VmAdapterInterface<T> {
@@ -57,7 +57,7 @@ pub trait VmAdapterChip<F> {
     #[allow(clippy::type_complexity)]
     fn preprocess(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
     ) -> Result<(
         <Self::Interface as VmAdapterInterface<F>>::Reads,
@@ -68,7 +68,7 @@ pub trait VmAdapterChip<F> {
     /// of the full adapter record for this instruction. This is guaranteed to be called after `preprocess`.
     fn postprocess(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
         output: AdapterRuntimeContext<F, Self::Interface>,
@@ -245,7 +245,7 @@ where
 {
     fn execute(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
     ) -> Result<ExecutionState<u32>> {
@@ -278,13 +278,13 @@ where
     A: VmAdapterChip<Val<SC>> + Send + Sync,
     C: VmCoreChip<Val<SC>, A::Interface> + Send + Sync,
     A::Air: Send + Sync + 'static,
-    A::Air: VmAdapterAir<SymbolicRapBuilder<Val<SC>>>,
+    A::Air: VmAdapterAir<SymbolicRapBuilder<Val<SC>>> + ColumnsAir<Val<SC>>,
     A::Air: for<'a> VmAdapterAir<DebugConstraintBuilder<'a, SC>>,
     C::Air: Send + Sync + 'static,
     C::Air: VmCoreAir<
-        SymbolicRapBuilder<Val<SC>>,
-        <A::Air as VmAdapterAir<SymbolicRapBuilder<Val<SC>>>>::Interface,
-    >,
+            SymbolicRapBuilder<Val<SC>>,
+            <A::Air as VmAdapterAir<SymbolicRapBuilder<Val<SC>>>>::Interface,
+        > + ColumnsAir<Val<SC>>,
     C::Air: for<'a> VmCoreAir<
         DebugConstraintBuilder<'a, SC>,
         <A::Air as VmAdapterAir<DebugConstraintBuilder<'a, SC>>>::Interface,
@@ -359,6 +359,22 @@ where
 {
     fn width(&self) -> usize {
         self.adapter.width() + self.core.width()
+    }
+}
+
+impl<F, A, C> ColumnsAir<F> for VmAirWrapper<A, C>
+where
+    A: ColumnsAir<F>,
+    C: ColumnsAir<F>,
+{
+    fn columns(&self) -> Option<Vec<String>> {
+        if let (Some(adapter_columns), Some(core_columns)) =
+            (self.adapter.columns(), self.core.columns())
+        {
+            Some(adapter_columns.into_iter().chain(core_columns).collect())
+        } else {
+            None
+        }
     }
 }
 

@@ -16,14 +16,15 @@ use openvm_stark_backend::{
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
     prover::types::AirProofInput,
-    rap::{get_air_name, BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{get_air_name, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter, Stateful,
 };
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
-use super::memory::MemoryController;
+use super::memory::MemoryControllerI;
 use crate::{
     arch::{
         ExecutionBridge, ExecutionBus, ExecutionError, ExecutionState, InstructionExecutor,
@@ -46,7 +47,7 @@ pub struct PhantomAir {
     pub phantom_opcode: VmOpcode,
 }
 
-#[derive(AlignedBorrow, Copy, Clone, Serialize, Deserialize)]
+#[derive(AlignedBorrow, Copy, Clone, Serialize, Deserialize, StructReflection)]
 pub struct PhantomCols<T> {
     pub pc: T,
     #[serde(with = "BigArray")]
@@ -60,6 +61,13 @@ impl<F: Field> BaseAir<F> for PhantomAir {
         PhantomCols::<F>::width()
     }
 }
+
+impl<F: Field> ColumnsAir<F> for PhantomAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        PhantomCols::<F>::struct_reflection()
+    }
+}
+
 impl<F: Field> PartitionedBaseAir<F> for PhantomAir {}
 impl<F: Field> BaseAirWithPublicValues<F> for PhantomAir {}
 
@@ -125,7 +133,7 @@ impl<F> PhantomChip<F> {
 impl<F: PrimeField32> InstructionExecutor<F> for PhantomChip<F> {
     fn execute(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
     ) -> Result<ExecutionState<u32>, ExecutionError> {
@@ -146,11 +154,11 @@ impl<F: PrimeField32> InstructionExecutor<F> for PhantomChip<F> {
                     pc: from_state.pc,
                     discriminant,
                 })?;
-            let mut streams = self.streams.get().unwrap().lock().unwrap();
+            let streams = self.streams.get().unwrap().lock().unwrap();
             sub_executor
                 .as_mut()
                 .phantom_execute(
-                    memory,
+                    unimplemented!(),
                     &mut streams,
                     discriminant,
                     a,

@@ -228,7 +228,7 @@ pub(crate) mod phantom {
     use num_traits::One;
     use openvm_circuit::{
         arch::{PhantomSubExecutor, Streams},
-        system::memory::MemoryController,
+        system::memory::{MemoryController, MemoryControllerI},
     };
     use openvm_instructions::{riscv::RV32_MEMORY_AS, PhantomDiscriminant};
     use openvm_rv32im_circuit::adapters::unsafe_read_rv32_register;

@@ -12,7 +12,7 @@ use openvm_circuit::{
         VmInventoryTraceHeights,
     },
     system::{
-        memory::{MemoryTraceHeights, VolatileMemoryTraceHeights, CHUNK},
+        memory::{MemoryControllerI, MemoryTraceHeights, VolatileMemoryTraceHeights, CHUNK},
         program::trace::VmCommittedExe,
     },
     utils::{air_test, air_test_with_min_segments},

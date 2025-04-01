@@ -20,9 +20,10 @@ use openvm_stark_backend::{
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
     prover::types::AirProofInput,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter,
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use super::TimestampedEquipartition;
 use crate::system::memory::{
@@ -37,7 +38,7 @@ mod tests;
 const ADDR_ELTS: usize = 2;
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, AlignedBorrow)]
+#[derive(Clone, Copy, Debug, AlignedBorrow, StructReflection)]
 pub struct VolatileBoundaryCols<T> {
     pub addr_space: T,
     pub pointer: T,
@@ -79,6 +80,12 @@ impl<F: Field> PartitionedBaseAir<F> for VolatileBoundaryAir {}
 impl<F: Field> BaseAir<F> for VolatileBoundaryAir {
     fn width(&self) -> usize {
         VolatileBoundaryCols::<F>::width()
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for VolatileBoundaryAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        VolatileBoundaryCols::<F>::struct_reflection()
     }
 }
 

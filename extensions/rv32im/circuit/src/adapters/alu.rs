@@ -12,7 +12,7 @@ use openvm_circuit::{
     system::{
         memory::{
             offline_checker::{MemoryBridge, MemoryReadAuxCols, MemoryWriteAuxCols},
-            MemoryAddress, MemoryController, OfflineMemory, RecordId,
+            MemoryAddress, MemoryControllerI, OfflineMemory, RecordId,
         },
         program::ProgramBus,
     },
@@ -28,8 +28,10 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::ColumnsAir,
 };
 use serde::{Deserialize, Serialize};
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use super::{RV32_CELL_BITS, RV32_REGISTER_NUM_LIMBS};
 
@@ -80,7 +82,7 @@ pub struct Rv32BaseAluWriteRecord<F: Field> {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct Rv32BaseAluAdapterCols<T> {
     pub from_state: ExecutionState<T>,
     pub rd_ptr: T,
@@ -103,6 +105,12 @@ pub struct Rv32BaseAluAdapterAir {
 impl<F: Field> BaseAir<F> for Rv32BaseAluAdapterAir {
     fn width(&self) -> usize {
         Rv32BaseAluAdapterCols::<F>::width()
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for Rv32BaseAluAdapterAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        Rv32BaseAluAdapterCols::<F>::struct_reflection()
     }
 }
 
@@ -210,7 +218,7 @@ impl<F: PrimeField32> VmAdapterChip<F> for Rv32BaseAluAdapterChip<F> {
 
     fn preprocess(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
     ) -> Result<(
         <Self::Interface as VmAdapterInterface<F>>::Reads,
@@ -256,7 +264,7 @@ impl<F: PrimeField32> VmAdapterChip<F> for Rv32BaseAluAdapterChip<F> {
 
     fn postprocess(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
         output: AdapterRuntimeContext<F, Self::Interface>,

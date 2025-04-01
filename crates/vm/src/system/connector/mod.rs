@@ -13,10 +13,11 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     prover::types::AirProofInput,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter, Stateful,
 };
 use serde::{Deserialize, Serialize};
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use crate::{
     arch::{instructions::SystemOpcode::TERMINATE, ExecutionBus, ExecutionState},
@@ -67,7 +68,13 @@ impl<F: Field> BaseAir<F> for VmConnectorAir {
     }
 }
 
-#[derive(Debug, Copy, Clone, AlignedBorrow, Serialize, Deserialize)]
+impl<F: Field> ColumnsAir<F> for VmConnectorAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        ConnectorCols::<F>::struct_reflection()
+    }
+}
+
+#[derive(Debug, Copy, Clone, AlignedBorrow, Serialize, Deserialize, StructReflection)]
 #[repr(C)]
 pub struct ConnectorCols<T> {
     pub pc: T,

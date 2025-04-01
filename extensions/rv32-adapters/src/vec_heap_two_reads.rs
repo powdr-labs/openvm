@@ -14,7 +14,7 @@ use openvm_circuit::{
     system::{
         memory::{
             offline_checker::{MemoryBridge, MemoryReadAuxCols, MemoryWriteAuxCols},
-            MemoryAddress, MemoryController, OfflineMemory, RecordId,
+            MemoryAddress, MemoryControllerI, OfflineMemory, RecordId,
         },
         program::ProgramBus,
     },
@@ -35,9 +35,11 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::ColumnsAir,
 };
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 /// This adapter reads from 2 pointers and writes to 1 pointer.
 /// * The data is read from the heap (address space 2), and the pointers
@@ -139,7 +141,7 @@ pub struct Rv32VecHeapTwoReadsWriteRecord<const BLOCKS_PER_WRITE: usize, const W
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct Rv32VecHeapTwoReadsAdapterCols<
     T,
     const BLOCKS_PER_READ1: usize,
@@ -208,6 +210,34 @@ impl<
             READ_SIZE,
             WRITE_SIZE,
         >::width()
+    }
+}
+
+impl<
+        F: Field,
+        const BLOCKS_PER_READ1: usize,
+        const BLOCKS_PER_READ2: usize,
+        const BLOCKS_PER_WRITE: usize,
+        const READ_SIZE: usize,
+        const WRITE_SIZE: usize,
+    > ColumnsAir<F>
+    for Rv32VecHeapTwoReadsAdapterAir<
+        BLOCKS_PER_READ1,
+        BLOCKS_PER_READ2,
+        BLOCKS_PER_WRITE,
+        READ_SIZE,
+        WRITE_SIZE,
+    >
+{
+    fn columns(&self) -> Option<Vec<String>> {
+        Rv32VecHeapTwoReadsAdapterCols::<
+            F,
+            BLOCKS_PER_READ1,
+            BLOCKS_PER_READ2,
+            BLOCKS_PER_WRITE,
+            READ_SIZE,
+            WRITE_SIZE,
+        >::struct_reflection()
     }
 }
 
@@ -407,7 +437,7 @@ impl<
 
     fn preprocess(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
     ) -> Result<(
         <Self::Interface as VmAdapterInterface<F>>::Reads,
@@ -448,7 +478,7 @@ impl<
 
     fn postprocess(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
         output: AdapterRuntimeContext<F, Self::Interface>,

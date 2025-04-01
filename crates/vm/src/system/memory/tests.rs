@@ -28,7 +28,7 @@ use rand::{
     Rng,
 };
 
-use super::{merkle::DirectCompressionBus, MemoryController};
+use super::{merkle::DirectCompressionBus, MemoryController, MemoryControllerI};
 use crate::{
     arch::{
         testing::{memory::gen_pointer, MEMORY_BUS, MEMORY_MERKLE_BUS, POSEIDON2_DIRECT_BUS},

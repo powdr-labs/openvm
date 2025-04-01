@@ -4,7 +4,7 @@ use openvm_circuit::{
     arch::{
         ExecutionBridge, ExecutionError, ExecutionState, InstructionExecutor, Streams, SystemPort,
     },
-    system::memory::{MemoryController, OfflineMemory, RecordId},
+    system::memory::{MemoryControllerI, OfflineMemory, RecordId},
 };
 use openvm_instructions::{instruction::Instruction, program::DEFAULT_PC_STEP, LocalOpcode};
 use openvm_native_compiler::{
@@ -198,7 +198,7 @@ impl<F: PrimeField32, const SBOX_REGISTERS: usize> InstructionExecutor<F>
 {
     fn execute(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
     ) -> Result<ExecutionState<u32>, ExecutionError> {

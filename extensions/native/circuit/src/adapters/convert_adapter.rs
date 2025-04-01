@@ -12,7 +12,7 @@ use openvm_circuit::{
     system::{
         memory::{
             offline_checker::{MemoryBridge, MemoryReadAuxCols, MemoryWriteAuxCols},
-            MemoryAddress, MemoryController, OfflineMemory, RecordId,
+            MemoryAddress, MemoryControllerI, OfflineMemory, RecordId,
         },
         program::ProgramBus,
     },
@@ -24,9 +24,11 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::ColumnsAir,
 };
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct VectorReadRecord<const NUM_READS: usize, const READ_SIZE: usize> {
@@ -66,7 +68,7 @@ impl<F: PrimeField32, const READ_SIZE: usize, const WRITE_SIZE: usize>
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct ConvertAdapterCols<T, const READ_SIZE: usize, const WRITE_SIZE: usize> {
     pub from_state: ExecutionState<T>,
     pub a_pointer: T,
@@ -86,6 +88,14 @@ impl<F: Field, const READ_SIZE: usize, const WRITE_SIZE: usize> BaseAir<F>
 {
     fn width(&self) -> usize {
         ConvertAdapterCols::<F, READ_SIZE, WRITE_SIZE>::width()
+    }
+}
+
+impl<F: Field, const READ_SIZE: usize, const WRITE_SIZE: usize> ColumnsAir<F>
+    for ConvertAdapterAir<READ_SIZE, WRITE_SIZE>
+{
+    fn columns(&self) -> Option<Vec<String>> {
+        ConvertAdapterCols::<F, READ_SIZE, WRITE_SIZE>::struct_reflection()
     }
 }
 
@@ -163,7 +173,7 @@ impl<F: PrimeField32, const READ_SIZE: usize, const WRITE_SIZE: usize> VmAdapter
 
     fn preprocess(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
     ) -> Result<(
         <Self::Interface as VmAdapterInterface<F>>::Reads,
@@ -178,7 +188,7 @@ impl<F: PrimeField32, const READ_SIZE: usize, const WRITE_SIZE: usize> VmAdapter
 
     fn postprocess(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
         output: AdapterRuntimeContext<F, Self::Interface>,

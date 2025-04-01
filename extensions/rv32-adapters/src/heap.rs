@@ -11,7 +11,7 @@ use openvm_circuit::{
         VmAdapterInterface,
     },
     system::{
-        memory::{offline_checker::MemoryBridge, MemoryController, OfflineMemory},
+        memory::{offline_checker::MemoryBridge, MemoryControllerI, OfflineMemory},
         program::ProgramBus,
     },
 };
@@ -28,7 +28,9 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, PrimeField32},
+    rap::ColumnsAir,
 };
+use struct_reflection::StructReflectionHelper;
 
 use super::{
     vec_heap_generate_trace_row_impl, Rv32VecHeapAdapterAir, Rv32VecHeapAdapterCols,
@@ -59,6 +61,14 @@ impl<F: Field, const NUM_READS: usize, const READ_SIZE: usize, const WRITE_SIZE:
 {
     fn width(&self) -> usize {
         Rv32VecHeapAdapterCols::<F, NUM_READS, 1, 1, READ_SIZE, WRITE_SIZE>::width()
+    }
+}
+
+impl<F: Field, const NUM_READS: usize, const READ_SIZE: usize, const WRITE_SIZE: usize>
+    ColumnsAir<F> for Rv32HeapAdapterAir<NUM_READS, READ_SIZE, WRITE_SIZE>
+{
+    fn columns(&self) -> Option<Vec<String>> {
+        Rv32VecHeapAdapterCols::<F, NUM_READS, 1, 1, READ_SIZE, WRITE_SIZE>::struct_reflection()
     }
 }
 
@@ -151,7 +161,7 @@ impl<F: PrimeField32, const NUM_READS: usize, const READ_SIZE: usize, const WRIT
 
     fn preprocess(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
     ) -> Result<(
         <Self::Interface as VmAdapterInterface<F>>::Reads,
@@ -189,7 +199,7 @@ impl<F: PrimeField32, const NUM_READS: usize, const READ_SIZE: usize, const WRIT
 
     fn postprocess(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
         output: AdapterRuntimeContext<F, Self::Interface>,
