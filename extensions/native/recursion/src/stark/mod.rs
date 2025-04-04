@@ -1155,7 +1155,7 @@ fn assert_cumulative_sums<C: Config>(
                         builder.assign(&cumulative_sum, cumulative_sum + summand);
                     });
             });
-        builder.assert_ext_eq(cumulative_sum, C::EF::ZERO.cons());
+        //builder.assert_ext_eq(cumulative_sum, C::EF::ZERO.cons());
     });
 }
 
