@@ -38,7 +38,7 @@ use openvm_stark_backend::{
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     prover::types::AirProofInput,
     rap::{AnyRap, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
-    Chip, ChipUsageGetter, Stateful,
+    Chip, ChipUsageGetter,
 };
 use serde::{Deserialize, Serialize};
 use struct_reflection::{StructReflection, StructReflectionHelper};

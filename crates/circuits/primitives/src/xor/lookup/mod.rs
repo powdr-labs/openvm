@@ -65,10 +65,6 @@ impl<F: Field, const M: usize> BaseAir<F> for XorLookupAir<M> {
         NUM_XOR_LOOKUP_COLS
     }
 
-    fn columns(&self) -> Option<Vec<String>> {
-        XorLookupCols::<F>::struct_reflection()
-    }
-
     /// Generates a preprocessed table with a row for each possible triple (x, y, x^y)
     fn preprocessed_trace(&self) -> Option<RowMajorMatrix<F>> {
         let rows: Vec<_> = (0..(1 << M) * (1 << M))
