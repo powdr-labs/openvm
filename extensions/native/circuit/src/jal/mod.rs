@@ -8,7 +8,7 @@ use openvm_circuit::{
     arch::{ExecutionBridge, ExecutionError, ExecutionState, InstructionExecutor, PcIncOrSet},
     system::memory::{
         offline_checker::{MemoryBridge, MemoryWriteAuxCols},
-        MemoryAddress, MemoryAuxColsFactory, MemoryController, OfflineMemory, RecordId,
+        MemoryAddress, MemoryAuxColsFactory, MemoryControllerI, OfflineMemory, RecordId,
     },
 };
 use openvm_circuit_primitives::{
@@ -28,7 +28,7 @@ use openvm_stark_backend::{
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
     prover::types::AirProofInput,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, PartitionedBaseAir, ColumnsAir},
     AirRef, Chip, ChipUsageGetter,
 };
 use serde::{Deserialize, Serialize};
@@ -67,6 +67,12 @@ pub struct JalRangeCheckAir {
 impl<F: Field> BaseAir<F> for JalRangeCheckAir {
     fn width(&self) -> usize {
         OVERALL_WIDTH
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for JalRangeCheckAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        None
     }
 }
 
@@ -196,7 +202,7 @@ impl<F: PrimeField32> JalRangeCheckChip<F> {
 impl<F: PrimeField32> InstructionExecutor<F> for JalRangeCheckChip<F> {
     fn execute(
         &mut self,
-        memory: &mut MemoryController<F>,
+        memory: &mut impl MemoryControllerI<F>,
         instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
     ) -> Result<ExecutionState<u32>, ExecutionError> {

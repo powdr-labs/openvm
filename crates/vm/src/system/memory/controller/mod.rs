@@ -88,7 +88,6 @@ pub type TimestampedEquipartition<F, const N: usize> =
 /// If a key is not present in the map, then the block is uninitialized (and therefore zero).
 pub type Equipartition<F, const N: usize> = BTreeMap<(u32, u32), [F; N]>;
 
-#[derive(Getters, MutGetters)]
 pub trait MemoryControllerI<F> {
     fn read<const N: usize>(&mut self, address_space: F, pointer: F) -> (RecordId, [F; N]);
     fn write<const N: usize>(
@@ -166,7 +165,7 @@ impl<F: PrimeField32> MemoryControllerI<F> for MemoryController<F> {
     }
 }
 
-#[derive(Getters)]
+#[derive(Getters, MutGetters)]
 pub struct MemoryController<F> {
     pub memory_bus: MemoryBus,
     pub interface_chip: MemoryInterface<F>,

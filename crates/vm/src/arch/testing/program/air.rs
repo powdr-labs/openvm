@@ -3,7 +3,7 @@ use openvm_stark_backend::{
     p3_air::{Air, BaseAir},
     p3_field::Field,
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, PartitionedBaseAir, ColumnsAir},
 };
 
 use super::ProgramTester;
@@ -32,5 +32,11 @@ impl<AB: InteractionBuilder> Air<AB> for ProgramDummyAir {
             local[..local.len() - 1].iter().cloned(),
             local[local.len() - 1].clone(),
         );
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for ProgramDummyAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        None
     }
 }

@@ -6,7 +6,7 @@ use openvm_stark_backend::{
     p3_air::{Air, BaseAir},
     p3_field::Field,
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, PartitionedBaseAir, ColumnsAir},
 };
 
 use crate::arch::{ExecutionBus, ExecutionState};
@@ -40,5 +40,11 @@ impl<AB: InteractionBuilder> Air<AB> for ExecutionDummyAir {
         let local: &DummyExecutionInteractionCols<AB::Var> = (*local).borrow();
         self.bus
             .execute(builder, local.count, local.initial_state, local.final_state);
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for ExecutionDummyAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        None
     }
 }

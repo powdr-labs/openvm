@@ -44,3 +44,9 @@ impl<const BLOCK_SIZE: usize, AB: InteractionBuilder> Air<AB> for MemoryDummyAir
             .eval(builder, local.count);
     }
 }
+
+impl<const BLOCK_SIZE: usize, F> ColumnsAir<F> for MemoryDummyAir<BLOCK_SIZE> {
+    fn columns(&self) -> Option<Vec<String>> {
+        None
+    }
+}

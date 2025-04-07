@@ -31,7 +31,7 @@ use openvm_stark_backend::{
     p3_maybe_rayon::prelude::*,
     prover::types::AirProofInput,
     rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
-    AirRef, Chip, ChipUsageGetter, Stateful,
+    AirRef, Chip, ChipUsageGetter,
 };
 use serde::{Deserialize, Serialize};
 use static_assertions::const_assert_eq;
