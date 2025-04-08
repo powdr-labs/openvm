@@ -154,7 +154,7 @@ impl<F: PrimeField32> InstructionExecutor<F> for PhantomChip<F> {
                     pc: from_state.pc,
                     discriminant,
                 })?;
-            let streams = self.streams.get().unwrap().lock().unwrap();
+            let mut streams = self.streams.get().unwrap().lock().unwrap();
             sub_executor
                 .as_mut()
                 .phantom_execute(

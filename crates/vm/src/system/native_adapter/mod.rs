@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
 use struct_reflection::{StructReflection, StructReflectionHelper};
 
-use crate::system::memory::{OfflineMemory, RecordId};
+use crate::system::memory::{MemoryController, OfflineMemory, RecordId};
 
 /// R reads(R<=2), W writes(W<=1).
 /// Operands: b for the first read, c for the second read, a for the first write.
