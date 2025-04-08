@@ -471,7 +471,7 @@ mod phantom {
     use eyre::bail;
     use openvm_circuit::{
         arch::{PhantomSubExecutor, Streams},
-        system::memory::{MemoryController, MemoryControllerI},
+        system::memory::MemoryController,
     };
     use openvm_instructions::PhantomDiscriminant;
     use openvm_stark_backend::p3_field::{Field, PrimeField32};

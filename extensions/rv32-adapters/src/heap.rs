@@ -11,7 +11,7 @@ use openvm_circuit::{
         VmAdapterInterface,
     },
     system::{
-        memory::{offline_checker::MemoryBridge, MemoryControllerI, OfflineMemory},
+        memory::{offline_checker::MemoryBridge, MemoryController, OfflineMemory},
         program::ProgramBus,
     },
 };
@@ -161,7 +161,7 @@ impl<F: PrimeField32, const NUM_READS: usize, const READ_SIZE: usize, const WRIT
 
     fn preprocess(
         &mut self,
-        memory: &mut impl MemoryControllerI<F>,
+        memory: &mut MemoryController<F>,
         instruction: &Instruction<F>,
     ) -> Result<(
         <Self::Interface as VmAdapterInterface<F>>::Reads,
@@ -199,7 +199,7 @@ impl<F: PrimeField32, const NUM_READS: usize, const READ_SIZE: usize, const WRIT
 
     fn postprocess(
         &mut self,
-        memory: &mut impl MemoryControllerI<F>,
+        memory: &mut MemoryController<F>,
         instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
         output: AdapterRuntimeContext<F, Self::Interface>,
