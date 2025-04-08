@@ -101,7 +101,7 @@ pub(crate) mod phantom {
     use eyre::bail;
     use openvm_circuit::{
         arch::{PhantomSubExecutor, Streams},
-        system::memory::{MemoryController, MemoryControllerI},
+        system::memory::MemoryController,
     };
     use openvm_ecc_guest::{algebra::field::FieldExtension, halo2curves::ff, AffinePoint};
     use openvm_instructions::{

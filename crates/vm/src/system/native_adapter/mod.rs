@@ -29,7 +29,6 @@ use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
 use struct_reflection::{StructReflection, StructReflectionHelper};
 
-use super::memory::MemoryControllerI;
 use crate::system::memory::{OfflineMemory, RecordId};
 
 /// R reads(R<=2), W writes(W<=1).
@@ -224,7 +223,7 @@ impl<F: PrimeField32, const R: usize, const W: usize> VmAdapterChip<F>
 
     fn preprocess(
         &mut self,
-        memory: &mut impl MemoryControllerI<F>,
+        memory: &mut MemoryController<F>,
         instruction: &Instruction<F>,
     ) -> Result<(
         <Self::Interface as VmAdapterInterface<F>>::Reads,
@@ -252,7 +251,7 @@ impl<F: PrimeField32, const R: usize, const W: usize> VmAdapterChip<F>
 
     fn postprocess(
         &mut self,
-        memory: &mut impl MemoryControllerI<F>,
+        memory: &mut MemoryController<F>,
         instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
         output: AdapterRuntimeContext<F, Self::Interface>,

@@ -236,7 +236,7 @@ pub(crate) mod phantom {
     use num_traits::{FromPrimitive, One};
     use openvm_circuit::{
         arch::{PhantomSubExecutor, Streams},
-        system::memory::{MemoryController, MemoryControllerI},
+        system::memory::MemoryController,
     };
     use openvm_ecc_guest::weierstrass::DecompressionHint;
     use openvm_instructions::{riscv::RV32_MEMORY_AS, PhantomDiscriminant};

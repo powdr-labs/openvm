@@ -37,7 +37,7 @@ pub fn instruction_executor_derive(input: TokenStream) -> TokenStream {
                 impl #impl_generics ::openvm_circuit::arch::InstructionExecutor<F> for #name #ty_generics #where_clause {
                     fn execute(
                         &mut self,
-                        memory: &mut impl ::openvm_circuit::system::memory::MemoryControllerI<F>,
+                        memory: &mut ::openvm_circuit::system::memory::MemoryController<F>,
                         instruction: &::openvm_circuit::arch::instructions::instruction::Instruction<F>,
                         from_state: ::openvm_circuit::arch::ExecutionState<u32>,
                     ) -> ::openvm_circuit::arch::Result<::openvm_circuit::arch::ExecutionState<u32>> {
@@ -91,7 +91,7 @@ pub fn instruction_executor_derive(input: TokenStream) -> TokenStream {
                 impl #impl_generics ::openvm_circuit::arch::InstructionExecutor<#first_ty_generic> for #name #ty_generics {
                     fn execute(
                         &mut self,
-                        memory: &mut impl ::openvm_circuit::system::memory::MemoryControllerI<#first_ty_generic>,
+                        memory: &mut ::openvm_circuit::system::memory::MemoryController<#first_ty_generic>,
                         instruction: &::openvm_circuit::arch::instructions::instruction::Instruction<#first_ty_generic>,
                         from_state: ::openvm_circuit::arch::ExecutionState<u32>,
                     ) -> ::openvm_circuit::arch::Result<::openvm_circuit::arch::ExecutionState<u32>> {

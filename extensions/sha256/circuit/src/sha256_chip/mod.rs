@@ -6,9 +6,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use openvm_circuit::{
-    arch::{ExecutionBridge, ExecutionError, ExecutionState, InstructionExecutor, SystemPort},
-    system::memory::MemoryControllerI,
+use openvm_circuit::arch::{
+    ExecutionBridge, ExecutionError, ExecutionState, InstructionExecutor, SystemPort,
 };
 use openvm_circuit_primitives::{
     bitwise_op_lookup::SharedBitwiseOperationLookupChip, encoder::Encoder,
@@ -102,7 +101,7 @@ impl<F: PrimeField32> Sha256VmChip<F> {
 impl<F: PrimeField32> InstructionExecutor<F> for Sha256VmChip<F> {
     fn execute(
         &mut self,
-        memory: &mut impl MemoryControllerI<F>,
+        memory: &mut MemoryController<F>,
         instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
     ) -> Result<ExecutionState<u32>, ExecutionError> {
