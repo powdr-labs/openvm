@@ -6,8 +6,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use openvm_circuit::arch::{
-    ExecutionBridge, ExecutionError, ExecutionState, InstructionExecutor, SystemPort,
+use openvm_circuit::{
+    arch::{ExecutionBridge, ExecutionError, ExecutionState, InstructionExecutor, SystemPort},
+    system::memory::MemoryController,
 };
 use openvm_circuit_primitives::{
     bitwise_op_lookup::SharedBitwiseOperationLookupChip, encoder::Encoder,
