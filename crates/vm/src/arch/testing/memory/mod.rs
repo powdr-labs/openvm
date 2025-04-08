@@ -1,7 +1,7 @@
 use std::{array::from_fn, borrow::BorrowMut as _, cell::RefCell, mem::size_of, rc::Rc, sync::Arc};
 
 use air::{DummyMemoryInteractionCols, MemoryDummyAir};
-use openvm_circuit::system::memory::{MemoryController, MemoryControllerI};
+use openvm_circuit::system::memory::MemoryController;
 use openvm_stark_backend::{
     config::{StarkGenericConfig, Val},
     p3_field::{FieldAlgebra, PrimeField32},

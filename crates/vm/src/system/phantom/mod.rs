@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
 use struct_reflection::{StructReflection, StructReflectionHelper};
 
-use super::memory::MemoryControllerI;
+use super::memory::MemoryController;
 use crate::{
     arch::{
         ExecutionBridge, ExecutionBus, ExecutionError, ExecutionState, InstructionExecutor,
@@ -133,7 +133,7 @@ impl<F> PhantomChip<F> {
 impl<F: PrimeField32> InstructionExecutor<F> for PhantomChip<F> {
     fn execute(
         &mut self,
-        memory: &mut impl MemoryControllerI<F>,
+        memory: &mut MemoryController<F>,
         instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
     ) -> Result<ExecutionState<u32>, ExecutionError> {
@@ -154,11 +154,11 @@ impl<F: PrimeField32> InstructionExecutor<F> for PhantomChip<F> {
                     pc: from_state.pc,
                     discriminant,
                 })?;
-            let streams = self.streams.get().unwrap().lock().unwrap();
+            let mut streams = self.streams.get().unwrap().lock().unwrap();
             sub_executor
                 .as_mut()
                 .phantom_execute(
-                    unimplemented!(),
+                    memory,
                     &mut streams,
                     discriminant,
                     a,
