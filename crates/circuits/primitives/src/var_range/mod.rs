@@ -150,7 +150,7 @@ impl VariableRangeCheckerChip {
             self.count.len()
         );
         let val_atomic = &self.count[idx];
-        println!("before add, multiplicity for {value} {max_bits}: {}", val_atomic.load(Ordering::Relaxed));
+        println!("before add to {}, multiplicity for {value} {max_bits}: {}", std::ptr::addr_of!(self), val_atomic.load(Ordering::Relaxed));
         val_atomic.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     }
 
@@ -165,7 +165,7 @@ impl VariableRangeCheckerChip {
             self.count.len()
         );
         let val_atomic = &self.count[idx];
-        println!("before remove, multiplicity for {value} {max_bits}: {}", val_atomic.load(Ordering::Relaxed));
+        println!("before remove from {}, multiplicity for {value} {max_bits}: {}", std::ptr::addr_of!(self), val_atomic.load(Ordering::Relaxed));
         val_atomic.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
     }
 
