@@ -80,7 +80,7 @@ impl<F: PrimeField32> VmChipTestBuilder<F> {
         program_bus: ProgramBus,
         rng: StdRng,
     ) -> Self {
-        setup_tracing_with_log_level(Level::WARN);
+        setup_tracing_with_log_level(Level::INFO);
         Self {
             memory: MemoryTester::new(memory_controller),
             execution: ExecutionTester::new(execution_bus),

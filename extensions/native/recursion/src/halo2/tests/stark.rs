@@ -30,7 +30,7 @@ fn test_interactions() {
 }
 
 fn run_recursive_test(mut test_proof_input: ProofInputForTest<BabyBearPoseidon2RootConfig>) {
-    setup_tracing_with_log_level(Level::WARN);
+    setup_tracing_with_log_level(Level::INFO);
     test_proof_input.sort_chips();
     let vparams = test_proof_input
         .run_test(&BabyBearPoseidon2RootEngine::new(
