@@ -43,6 +43,8 @@ use struct_reflection::{StructReflection, StructReflectionHelper};
 use super::{compose, RV32_REGISTER_NUM_LIMBS};
 use crate::adapters::RV32_CELL_BITS;
 
+use std::sync::atomic::Ordering;
+
 /// LoadStore Adapter handles all memory and register operations, so it must be aware
 /// of the instruction type, specifically whether it is a load or store
 /// LoadStore Adapter handles 4 byte aligned lw, sw instructions,
