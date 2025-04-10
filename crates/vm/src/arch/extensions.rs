@@ -212,7 +212,7 @@ pub struct VmInventory<E, P> {
     pub(super) periphery: Vec<P>,
     /// Order of insertion. The reverse of this will be the order the chips are destroyed
     /// to generate trace.
-    insertion_order: Vec<ChipId>,
+    pub insertion_order: Vec<ChipId>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
