@@ -1082,13 +1082,13 @@ impl<F: PrimeField32, E, P> VmChipComplex<F, E, P> {
             let air_proof_input = match chip_id {
                 ChipId::Executor(id) => {
                     let chip = self.inventory.executors.pop().unwrap();
-                    println!("ChipId: {:?}; Chip name", id, chip.air_name());
+                    println!("ChipId: {:?}; Chip name: {}", id, chip.air_name());
                     assert_eq!(id, self.inventory.executors.len());
                     generate_air_proof_input(chip, height)
                 }
                 ChipId::Periphery(id) => {
                     let chip = self.inventory.periphery.pop().unwrap();
-                    println!("ChipId: {:?}; Chip name", id, chip.air_name());
+                    println!("ChipId: {:?}; Chip name: {}", id, chip.air_name());
                     assert_eq!(id, self.inventory.periphery.len());
                     generate_air_proof_input(chip, height)
                 }
