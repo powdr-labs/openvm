@@ -3,7 +3,7 @@ mod config;
 /// Execution bus and interface.
 mod execution;
 /// Traits and builders to compose collections of chips into a virtual machine.
-mod extensions;
+pub mod extensions;
 /// Traits and wrappers to facilitate VM chip integration
 mod integration_api;
 /// Runtime execution and segmentation
