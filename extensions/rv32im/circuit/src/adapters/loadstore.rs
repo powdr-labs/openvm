@@ -464,6 +464,7 @@ impl<F: PrimeField32> VmAdapterChip<F> for Rv32LoadStoreAdapterChip<F> {
         memory: &OfflineMemory<F>,
     ) {
         println!("1");
+        println!("add_count args: {}, {}", (read_record.mem_ptr_limbs[0] - read_record.shift_amount) / 4, RV32_CELL_BITS * 2 - 2);
         self.range_checker_chip.add_count(
             (read_record.mem_ptr_limbs[0] - read_record.shift_amount) / 4,
             RV32_CELL_BITS * 2 - 2,
