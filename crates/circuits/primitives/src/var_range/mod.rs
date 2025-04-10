@@ -150,7 +150,6 @@ impl VariableRangeCheckerChip {
             self.count.len()
         );
         let val_atomic = &self.count[idx];
-        println!("before add to {}, multiplicity for {value} {max_bits}: {}", std::ptr::addr_of!(self) as usize, val_atomic.load(Ordering::Relaxed));
         val_atomic.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     }
 
@@ -165,7 +164,6 @@ impl VariableRangeCheckerChip {
             self.count.len()
         );
         let val_atomic = &self.count[idx];
-        println!("before remove from {}, multiplicity for {value} {max_bits}: {}", std::ptr::addr_of!(self) as usize, val_atomic.load(Ordering::Relaxed));
         val_atomic.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
     }
 
@@ -227,14 +225,20 @@ impl SharedVariableRangeCheckerChip {
     }
 
     pub fn add_count(&self, value: u32, max_bits: usize) {
+        let id = Arc::as_ptr(&self.0) as usize;
+        println!("add to {:#x}", id);
         self.0.add_count(value, max_bits)
     }
 
     pub fn remove_count(&self, value: u32, max_bits: usize) {
+        let id = Arc::as_ptr(&self.0) as usize;
+        println!("remove from {:#x}", id);
         self.0.remove_count(value, max_bits)
     }
 
     pub fn clear(&self) {
+        let id = Arc::as_ptr(&self.0) as usize;
+        println!("clear {:#x}", id);
         self.0.clear()
     }
 
