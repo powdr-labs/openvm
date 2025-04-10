@@ -1074,6 +1074,7 @@ impl<F: PrimeField32, E, P> VmChipComplex<F, E, P> {
         insertion_order.reverse();
         let mut non_sys_inputs = Vec::with_capacity(insertion_order.len());
         for chip_id in insertion_order {
+            let start_chip = std::time::Instant::now();
             let mut height = None;
             if let Some(overridden_heights) = self.overridden_inventory_heights.as_ref() {
                 height = overridden_heights.chips.get(&chip_id).copied();
@@ -1090,6 +1091,12 @@ impl<F: PrimeField32, E, P> VmChipComplex<F, E, P> {
                     generate_air_proof_input(chip, height)
                 }
             };
+            let time_elapsed_chip = start_chip.elapsed();
+            tracing::info!(
+                "Chip {:?} proof input in {:?}",
+                chip_id,
+                time_elapsed_chip
+            );
             if has_pv_chip && chip_id == ChipId::Executor(Self::PV_EXECUTOR_IDX) {
                 public_values_input = Some(air_proof_input);
             } else {
