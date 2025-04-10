@@ -151,6 +151,7 @@ impl VariableRangeCheckerChip {
         );
         let val_atomic = &self.count[idx];
         val_atomic.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        println!("multiplicity for {value} {max_bits} is {}", val_atomic.load(Ordering::Relaxed));
     }
 
     pub fn remove_count(&self, value: u32, max_bits: usize) {
