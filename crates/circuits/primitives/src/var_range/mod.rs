@@ -106,11 +106,11 @@ impl<AB: InteractionBuilder + PairBuilder> Air<AB> for VariableRangeCheckerAir {
 
 pub struct VariableRangeCheckerChip {
     pub air: VariableRangeCheckerAir,
-    count: Vec<AtomicU32>,
+    pub count: Vec<AtomicU32>,
 }
 
 #[derive(Clone)]
-pub struct SharedVariableRangeCheckerChip(Arc<VariableRangeCheckerChip>);
+pub struct SharedVariableRangeCheckerChip(pub Arc<VariableRangeCheckerChip>);
 
 impl VariableRangeCheckerChip {
     pub fn new(bus: VariableRangeCheckerBus) -> Self {

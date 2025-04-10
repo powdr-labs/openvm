@@ -466,11 +466,19 @@ impl<F: PrimeField32> VmAdapterChip<F> for Rv32LoadStoreAdapterChip<F> {
             (read_record.mem_ptr_limbs[0] - read_record.shift_amount) / 4,
             RV32_CELL_BITS * 2 - 2,
         );
+        
+        let val_atomic = &self.range_checker_chip.0.count[1 << 14 + 251];
+        println!("multiplicity for 251 14 is {} (LoadStoreAdapterChip's range checker)", val_atomic.load(Ordering::Relaxed));
+        
         println!("2");
         self.range_checker_chip.add_count(
             read_record.mem_ptr_limbs[1],
             self.air.pointer_max_bits - RV32_CELL_BITS * 2,
         );
+        
+        let val_atomic = &self.range_checker_chip.0.count[1 << 14 + 251];
+        println!("multiplicity for 251 14 is {} (LoadStoreAdapterChip's range checker)", val_atomic.load(Ordering::Relaxed));
+
         println!("3");
 
         let aux_cols_factory = memory.aux_cols_factory();
@@ -478,20 +486,36 @@ impl<F: PrimeField32> VmAdapterChip<F> for Rv32LoadStoreAdapterChip<F> {
         adapter_cols.from_state = write_record.from_state.map(F::from_canonical_u32);
         let rs1 = memory.record_by_id(read_record.rs1_record);
         adapter_cols.rs1_data.copy_from_slice(rs1.data_slice());
+
+        let val_atomic = &self.range_checker_chip.0.count[1 << 14 + 251];
+        println!("multiplicity for 251 14 is {} (LoadStoreAdapterChip's range checker)", val_atomic.load(Ordering::Relaxed));
+
         println!("4");
         aux_cols_factory.generate_read_aux(rs1, &mut adapter_cols.rs1_aux_cols);
         adapter_cols.rs1_ptr = read_record.rs1_ptr;
         adapter_cols.rd_rs2_ptr = write_record.rd_rs2_ptr;
         let read = memory.record_by_id(read_record.read);
+
+        let val_atomic = &self.range_checker_chip.0.count[1 << 14 + 251];
+        println!("multiplicity for 251 14 is {} (LoadStoreAdapterChip's range checker)", val_atomic.load(Ordering::Relaxed));
+
         println!("5");
         aux_cols_factory.generate_read_aux(read, &mut adapter_cols.read_data_aux);
         adapter_cols.imm = read_record.imm;
         adapter_cols.imm_sign = F::from_bool(read_record.imm_sign);
         adapter_cols.mem_ptr_limbs = read_record.mem_ptr_limbs.map(F::from_canonical_u32);
         let write = memory.record_by_id(write_record.write_id);
+
+        let val_atomic = &self.range_checker_chip.0.count[1 << 14 + 251];
+        println!("multiplicity for 251 14 is {} (LoadStoreAdapterChip's range checker)", val_atomic.load(Ordering::Relaxed));
+
         println!("6");
         aux_cols_factory.generate_base_aux(write, &mut adapter_cols.write_base_aux);
         adapter_cols.mem_as = read_record.mem_as;
+
+        let val_atomic = &self.range_checker_chip.0.count[1 << 14 + 251];
+        println!("multiplicity for 251 14 is {} (LoadStoreAdapterChip's range checker)", val_atomic.load(Ordering::Relaxed));
+
     }
 
     fn air(&self) -> &Self::Air {
