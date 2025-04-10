@@ -186,7 +186,7 @@ impl VariableRangeCheckerChip {
     /// Range checks that `value` is `bits` bits by decomposing into `limbs` where all but
     /// last limb is `range_max_bits` bits. Assumes there are enough limbs.
     pub(crate) fn decompose<F: Field>(&self, mut value: u32, bits: usize, limbs: &mut [F]) {
-        println!("before decompose from {}, multiplicity for {value} {bits}", std::ptr::addr_of!(self) as usize);
+        println!("When decomposing, 251 14 has multiplicity {}", &self.count[(1 << 14) + (251 as usize)]);
         debug_assert!(
             limbs.len() <= bits.div_ceil(self.range_max_bits()),
             "Not enough limbs: len {}",
