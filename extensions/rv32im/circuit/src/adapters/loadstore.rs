@@ -472,6 +472,8 @@ impl<F: PrimeField32> VmAdapterChip<F> for Rv32LoadStoreAdapterChip<F> {
         
         let val_atomic = &self.range_checker_chip.0.count[1 << 14 + 251];
         println!("multiplicity for 251 14 is {} (LoadStoreAdapterChip's range checker)", val_atomic.load(Ordering::Relaxed));
+        let val_atomic = &self.range_checker_chip.0.count[1 << 14 + 2706];
+        println!("multiplicity for 2706 14 is {} (LoadStoreAdapterChip's range checker)", val_atomic.load(Ordering::Relaxed));
         
         println!("2");
         self.range_checker_chip.add_count(
