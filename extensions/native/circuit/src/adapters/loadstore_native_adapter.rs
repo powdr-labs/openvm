@@ -26,8 +26,10 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::ColumnsAir,
 };
 use serde::{Deserialize, Serialize};
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 pub struct NativeLoadStoreInstruction<T> {
     pub is_valid: T,
@@ -98,7 +100,7 @@ pub struct NativeLoadStoreWriteRecord<F: Field, const NUM_CELLS: usize> {
 }
 
 #[repr(C)]
-#[derive(Clone, Debug, AlignedBorrow)]
+#[derive(Clone, Debug, AlignedBorrow, StructReflection)]
 pub struct NativeLoadStoreAdapterCols<T, const NUM_CELLS: usize> {
     pub from_state: ExecutionState<T>,
     pub a: T,
@@ -121,6 +123,12 @@ pub struct NativeLoadStoreAdapterAir<const NUM_CELLS: usize> {
 impl<F: Field, const NUM_CELLS: usize> BaseAir<F> for NativeLoadStoreAdapterAir<NUM_CELLS> {
     fn width(&self) -> usize {
         NativeLoadStoreAdapterCols::<F, NUM_CELLS>::width()
+    }
+}
+
+impl<F: Field, const NUM_CELLS: usize> ColumnsAir<F> for NativeLoadStoreAdapterAir<NUM_CELLS> {
+    fn columns(&self) -> Option<Vec<String>> {
+        NativeLoadStoreAdapterCols::<F, NUM_CELLS>::struct_reflection()
     }
 }
 
