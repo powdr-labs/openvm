@@ -25,8 +25,10 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::ColumnsAir,
 };
 use serde::{Deserialize, Serialize};
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use super::RV32_REGISTER_NUM_LIMBS;
 
@@ -71,7 +73,7 @@ pub struct Rv32MultWriteRecord {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct Rv32MultAdapterCols<T> {
     pub from_state: ExecutionState<T>,
     pub rd_ptr: T,
@@ -90,6 +92,12 @@ pub struct Rv32MultAdapterAir {
 impl<F: Field> BaseAir<F> for Rv32MultAdapterAir {
     fn width(&self) -> usize {
         Rv32MultAdapterCols::<F>::width()
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for Rv32MultAdapterAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        Rv32MultAdapterCols::<F>::struct_reflection()
     }
 }
 

@@ -16,12 +16,13 @@ use openvm_stark_backend::{
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
     prover::types::AirProofInput,
-    rap::{get_air_name, BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{get_air_name, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter,
 };
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use super::memory::MemoryController;
 use crate::{
@@ -48,7 +49,7 @@ pub struct PhantomAir {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow, Copy, Clone, Serialize, Deserialize)]
+#[derive(AlignedBorrow, Copy, Clone, Serialize, Deserialize, StructReflection)]
 pub struct PhantomCols<T> {
     pub pc: T,
     #[serde(with = "BigArray")]
@@ -62,6 +63,13 @@ impl<F: Field> BaseAir<F> for PhantomAir {
         PhantomCols::<F>::width()
     }
 }
+
+impl<F: Field> ColumnsAir<F> for PhantomAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        PhantomCols::<F>::struct_reflection()
+    }
+}
+
 impl<F: Field> PartitionedBaseAir<F> for PhantomAir {}
 impl<F: Field> BaseAirWithPublicValues<F> for PhantomAir {}
 

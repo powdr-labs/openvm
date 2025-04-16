@@ -28,7 +28,7 @@ use openvm_stark_backend::{
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
     prover::types::AirProofInput,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, PartitionedBaseAir, ColumnsAir},
     AirRef, Chip, ChipUsageGetter,
 };
 use serde::{Deserialize, Serialize};
@@ -67,6 +67,12 @@ pub struct JalRangeCheckAir {
 impl<F: Field> BaseAir<F> for JalRangeCheckAir {
     fn width(&self) -> usize {
         OVERALL_WIDTH
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for JalRangeCheckAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        None
     }
 }
 

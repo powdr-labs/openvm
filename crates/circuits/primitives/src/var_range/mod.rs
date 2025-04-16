@@ -17,9 +17,10 @@ use openvm_stark_backend::{
     p3_field::{Field, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     prover::types::AirProofInput,
-    rap::{get_air_name, BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{get_air_name, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter,
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 use tracing::instrument;
 
 mod bus;
@@ -28,14 +29,14 @@ pub mod tests;
 
 pub use bus::*;
 
-#[derive(Default, AlignedBorrow, Copy, Clone)]
+#[derive(Default, AlignedBorrow, Copy, Clone, StructReflection)]
 #[repr(C)]
 pub struct VariableRangeCols<T> {
     /// Number of range checks requested for each (value, max_bits) pair
     pub mult: T,
 }
 
-#[derive(Default, AlignedBorrow, Copy, Clone)]
+#[derive(Default, AlignedBorrow, Copy, Clone, StructReflection)]
 #[repr(C)]
 pub struct VariableRangePreprocessedCols<T> {
     /// The value being range checked
@@ -79,6 +80,12 @@ impl<F: Field> BaseAir<F> for VariableRangeCheckerAir {
             rows,
             NUM_VARIABLE_RANGE_PREPROCESSED_COLS,
         ))
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for VariableRangeCheckerAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        VariableRangeCols::<F>::struct_reflection()
     }
 }
 
