@@ -5,7 +5,7 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{Air, BaseAir},
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
 
 use crate::system::memory::{offline_checker::MemoryBus, MemoryAddress};
@@ -42,5 +42,11 @@ impl<const BLOCK_SIZE: usize, AB: InteractionBuilder> Air<AB> for MemoryDummyAir
         self.bus
             .send(local.address, local.data.to_vec(), local.timestamp)
             .eval(builder, local.count);
+    }
+}
+
+impl<const BLOCK_SIZE: usize, F> ColumnsAir<F> for MemoryDummyAir<BLOCK_SIZE> {
+    fn columns(&self) -> Option<Vec<String>> {
+        None
     }
 }

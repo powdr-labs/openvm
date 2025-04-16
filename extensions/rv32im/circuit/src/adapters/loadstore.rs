@@ -35,8 +35,10 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::ColumnsAir,
 };
 use serde::{Deserialize, Serialize};
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use super::{compose, RV32_REGISTER_NUM_LIMBS};
 use crate::adapters::RV32_CELL_BITS;
@@ -152,7 +154,7 @@ pub struct Rv32LoadStoreWriteRecord<F: Field> {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, AlignedBorrow, StructReflection)]
 pub struct Rv32LoadStoreAdapterCols<T> {
     pub from_state: ExecutionState<T>,
     pub rs1_ptr: T,
@@ -189,6 +191,12 @@ pub struct Rv32LoadStoreAdapterAir {
 impl<F: Field> BaseAir<F> for Rv32LoadStoreAdapterAir {
     fn width(&self) -> usize {
         Rv32LoadStoreAdapterCols::<F>::width()
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for Rv32LoadStoreAdapterAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        Rv32LoadStoreAdapterCols::<F>::struct_reflection()
     }
 }
 

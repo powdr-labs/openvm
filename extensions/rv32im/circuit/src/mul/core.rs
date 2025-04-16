@@ -15,13 +15,14 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
-    rap::BaseAirWithPublicValues,
+    rap::{BaseAirWithPublicValues, ColumnsAir},
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_big_array::BigArray;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct MultiplicationCoreCols<T, const NUM_LIMBS: usize, const LIMB_BITS: usize> {
     pub a: [T; NUM_LIMBS],
     pub b: [T; NUM_LIMBS],
@@ -42,6 +43,15 @@ impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAir<F>
         MultiplicationCoreCols::<F, NUM_LIMBS, LIMB_BITS>::width()
     }
 }
+
+impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> ColumnsAir<F>
+    for MultiplicationCoreAir<NUM_LIMBS, LIMB_BITS>
+{
+    fn columns(&self) -> Option<Vec<String>> {
+        MultiplicationCoreCols::<F, NUM_LIMBS, LIMB_BITS>::struct_reflection()
+    }
+}
+
 impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAirWithPublicValues<F>
     for MultiplicationCoreAir<NUM_LIMBS, LIMB_BITS>
 {
