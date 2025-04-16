@@ -5,19 +5,20 @@ use openvm_stark_backend::{
     p3_air::{Air, BaseAir},
     p3_field::Field,
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use super::ProgramBus;
 
-#[derive(Copy, Clone, Debug, AlignedBorrow, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, AlignedBorrow, PartialEq, Eq, StructReflection)]
 #[repr(C)]
 pub struct ProgramCols<T> {
     pub exec: ProgramExecutionCols<T>,
     pub exec_freq: T,
 }
 
-#[derive(Copy, Clone, Debug, AlignedBorrow, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, AlignedBorrow, PartialEq, Eq, StructReflection)]
 #[repr(C)]
 pub struct ProgramExecutionCols<T> {
     pub pc: T,
@@ -49,6 +50,12 @@ impl<F: Field> PartitionedBaseAir<F> for ProgramAir {
 impl<F: Field> BaseAir<F> for ProgramAir {
     fn width(&self) -> usize {
         ProgramCols::<F>::width()
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for ProgramAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        ProgramCols::<F>::struct_reflection()
     }
 }
 
