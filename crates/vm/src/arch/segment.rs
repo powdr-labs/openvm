@@ -24,7 +24,7 @@ use super::{
 use crate::metrics::VmMetrics;
 use crate::{
     arch::{instructions::*, ExecutionState, InstructionExecutor},
-    system::memory::{MemoryControllerI, MemoryImage},
+    system::memory::MemoryImage,
 };
 
 /// Check segment every 100 instructions.

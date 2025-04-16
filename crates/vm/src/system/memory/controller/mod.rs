@@ -88,83 +88,6 @@ pub type TimestampedEquipartition<F, const N: usize> =
 /// If a key is not present in the map, then the block is uninitialized (and therefore zero).
 pub type Equipartition<F, const N: usize> = BTreeMap<(u32, u32), [F; N]>;
 
-pub trait MemoryControllerI<F> {
-    fn read<const N: usize>(&mut self, address_space: F, pointer: F) -> (RecordId, [F; N]);
-    fn write<const N: usize>(
-        &mut self,
-        address_space: F,
-        pointer: F,
-        data: [F; N],
-    ) -> (RecordId, [F; N]);
-    fn increment_timestamp(&mut self);
-    fn increment_timestamp_by(&mut self, change: u32);
-    fn timestamp(&self) -> u32;
-    /// Reads a word directly from memory without updating internal state.
-    ///
-    /// Any value returned is unconstrained.
-    fn unsafe_read_cell(&self, addr_space: F, ptr: F) -> F;
-    fn read_cell(&mut self, address_space: F, pointer: F) -> (RecordId, F);
-    /// Writes `data` to the given cell.
-    ///
-    /// Returns the `RecordId` and previous data.
-    fn write_cell(&mut self, address_space: F, pointer: F, data: F) -> (RecordId, F);
-}
-
-impl<F: PrimeField32> MemoryControllerI<F> for MemoryController<F> {
-    fn read<const N: usize>(&mut self, address_space: F, pointer: F) -> (RecordId, [F; N]) {
-        let address_space_u32 = address_space.as_canonical_u32();
-        let ptr_u32 = pointer.as_canonical_u32();
-        assert!(
-            address_space == F::ZERO || ptr_u32 < (1 << self.mem_config.pointer_max_bits),
-            "memory out of bounds: {ptr_u32:?}",
-        );
-
-        let (record_id, values) = self.memory.read::<N>(address_space_u32, ptr_u32);
-
-        (record_id, values)
-    }
-
-    fn increment_timestamp(&mut self) {
-        self.memory.increment_timestamp_by(1);
-    }
-
-    fn increment_timestamp_by(&mut self, change: u32) {
-        self.memory.increment_timestamp_by(change);
-    }
-
-    fn timestamp(&self) -> u32 {
-        self.memory.timestamp()
-    }
-
-    fn write<const N: usize>(
-        &mut self,
-        address_space: F,
-        pointer: F,
-        data: [F; N],
-    ) -> (RecordId, [F; N]) {
-        assert_ne!(address_space, F::ZERO);
-        let address_space_u32 = address_space.as_canonical_u32();
-        let ptr_u32 = pointer.as_canonical_u32();
-        assert!(
-            ptr_u32 < (1 << self.mem_config.pointer_max_bits),
-            "memory out of bounds: {ptr_u32:?}",
-        );
-
-        self.memory.write(address_space_u32, ptr_u32, data)
-    }
-    fn unsafe_read_cell(&self, addr_space: F, ptr: F) -> F {
-        self.unsafe_read::<1>(addr_space, ptr)[0]
-    }
-    fn read_cell(&mut self, address_space: F, pointer: F) -> (RecordId, F) {
-        let (record_id, [data]) = self.read(address_space, pointer);
-        (record_id, data)
-    }
-    fn write_cell(&mut self, address_space: F, pointer: F, data: F) -> (RecordId, F) {
-        let (record_id, [data]) = self.write(address_space, pointer, [data]);
-        (record_id, data)
-    }
-}
-
 #[derive(Getters, MutGetters)]
 pub struct MemoryController<F> {
     pub memory_bus: MemoryBus,
@@ -451,6 +374,31 @@ impl<F: PrimeField32> MemoryController<F> {
         )
     }
 
+    pub fn read_cell(&mut self, address_space: F, pointer: F) -> (RecordId, F) {
+        let (record_id, [data]) = self.read(address_space, pointer);
+        (record_id, data)
+    }
+
+    pub fn read<const N: usize>(&mut self, address_space: F, pointer: F) -> (RecordId, [F; N]) {
+        let address_space_u32 = address_space.as_canonical_u32();
+        let ptr_u32 = pointer.as_canonical_u32();
+        assert!(
+            address_space == F::ZERO || ptr_u32 < (1 << self.mem_config.pointer_max_bits),
+            "memory out of bounds: {ptr_u32:?}",
+        );
+
+        let (record_id, values) = self.memory.read::<N>(address_space_u32, ptr_u32);
+
+        (record_id, values)
+    }
+
+    /// Reads a word directly from memory without updating internal state.
+    ///
+    /// Any value returned is unconstrained.
+    pub fn unsafe_read_cell(&self, addr_space: F, ptr: F) -> F {
+        self.unsafe_read::<1>(addr_space, ptr)[0]
+    }
+
     /// Reads a word directly from memory without updating internal state.
     ///
     /// Any value returned is unconstrained.
@@ -460,6 +408,31 @@ impl<F: PrimeField32> MemoryController<F> {
         array::from_fn(|i| self.memory.get(addr_space, ptr + i as u32))
     }
 
+    /// Writes `data` to the given cell.
+    ///
+    /// Returns the `RecordId` and previous data.
+    pub fn write_cell(&mut self, address_space: F, pointer: F, data: F) -> (RecordId, F) {
+        let (record_id, [data]) = self.write(address_space, pointer, [data]);
+        (record_id, data)
+    }
+
+    pub fn write<const N: usize>(
+        &mut self,
+        address_space: F,
+        pointer: F,
+        data: [F; N],
+    ) -> (RecordId, [F; N]) {
+        assert_ne!(address_space, F::ZERO);
+        let address_space_u32 = address_space.as_canonical_u32();
+        let ptr_u32 = pointer.as_canonical_u32();
+        assert!(
+            ptr_u32 < (1 << self.mem_config.pointer_max_bits),
+            "memory out of bounds: {ptr_u32:?}",
+        );
+
+        self.memory.write(address_space_u32, ptr_u32, data)
+    }
+
     pub fn aux_cols_factory(&self) -> MemoryAuxColsFactory<F> {
         let range_bus = self.range_checker.bus();
         MemoryAuxColsFactory {
@@ -467,6 +440,18 @@ impl<F: PrimeField32> MemoryController<F> {
             timestamp_lt_air: AssertLtSubAir::new(range_bus, self.mem_config.clk_max_bits),
             _marker: Default::default(),
         }
+    }
+
+    pub fn increment_timestamp(&mut self) {
+        self.memory.increment_timestamp_by(1);
+    }
+
+    pub fn increment_timestamp_by(&mut self, change: u32) {
+        self.memory.increment_timestamp_by(change);
+    }
+
+    pub fn timestamp(&self) -> u32 {
+        self.memory.timestamp()
     }
 
     fn replay_access_log(&mut self) {

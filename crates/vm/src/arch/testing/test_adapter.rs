@@ -18,7 +18,7 @@ use crate::{
         AdapterAirContext, AdapterRuntimeContext, DynAdapterInterface, DynArray, ExecutionBridge,
         ExecutionState, MinimalInstruction, Result, VmAdapterAir, VmAdapterChip,
     },
-    system::memory::{MemoryControllerI, OfflineMemory},
+    system::memory::{MemoryController, OfflineMemory},
 };
 
 // Replaces A: VmAdapterChip while testing VmCoreChip functionality, as it has no
@@ -61,7 +61,7 @@ impl<F: PrimeField32> VmAdapterChip<F> for TestAdapterChip<F> {
 
     fn preprocess(
         &mut self,
-        _memory: &mut impl MemoryControllerI<F>,
+        _memory: &mut MemoryController<F>,
         _instruction: &Instruction<F>,
     ) -> Result<(DynArray<F>, Self::ReadRecord)> {
         Ok((
@@ -75,7 +75,7 @@ impl<F: PrimeField32> VmAdapterChip<F> for TestAdapterChip<F> {
 
     fn postprocess(
         &mut self,
-        memory: &mut impl MemoryControllerI<F>,
+        memory: &mut MemoryController<F>,
         instruction: &Instruction<F>,
         from_state: ExecutionState<u32>,
         _output: AdapterRuntimeContext<F, Self::Interface>,
