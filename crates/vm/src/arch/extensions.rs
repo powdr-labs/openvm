@@ -1084,6 +1084,7 @@ impl<F: PrimeField32, E, P> VmChipComplex<F, E, P> {
                     assert_eq!(id, self.inventory.executors.len());
                     let start_chip = std::time::Instant::now();
                     let air = generate_air_proof_input(chip, height);
+                    let time_elapsed_chip = start_chip.elapsed();
                     tracing::info!(
                         "Chip {:?} proof input in {:?}",
                         chip_id,
@@ -1096,6 +1097,7 @@ impl<F: PrimeField32, E, P> VmChipComplex<F, E, P> {
                     assert_eq!(id, self.inventory.periphery.len());
                     let start_chip = std::time::Instant::now();
                     let air = generate_air_proof_input(chip, height);
+                    let time_elapsed_chip = start_chip.elapsed();
                     tracing::info!(
                         "Chip {:?} proof input in {:?}",
                         chip_id,
@@ -1104,7 +1106,6 @@ impl<F: PrimeField32, E, P> VmChipComplex<F, E, P> {
                     air
                 }
             };
-            let time_elapsed_chip = start_chip.elapsed();
             if has_pv_chip && chip_id == ChipId::Executor(Self::PV_EXECUTOR_IDX) {
                 public_values_input = Some(air_proof_input);
             } else {
