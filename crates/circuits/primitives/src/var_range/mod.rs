@@ -151,7 +151,6 @@ impl VariableRangeCheckerChip {
         );
         let val_atomic = &self.count[idx];
         val_atomic.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        println!("multiplicity for {value} {max_bits} is {}", val_atomic.load(Ordering::Relaxed));
     }
 
     pub fn remove_count(&self, value: u32, max_bits: usize) {
@@ -166,7 +165,6 @@ impl VariableRangeCheckerChip {
         );
         let val_atomic = &self.count[idx];
         val_atomic.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
-        println!("multiplicity for {value} {max_bits} is {}", val_atomic.load(Ordering::Relaxed));
     }
 
     pub fn clear(&self) {
@@ -188,7 +186,6 @@ impl VariableRangeCheckerChip {
     /// Range checks that `value` is `bits` bits by decomposing into `limbs` where all but
     /// last limb is `range_max_bits` bits. Assumes there are enough limbs.
     pub(crate) fn decompose<F: Field>(&self, mut value: u32, bits: usize, limbs: &mut [F]) {
-        println!("When decomposing, 251 14 has multiplicity {}", &self.count[(1 << 14) + (251 as usize)].load(Ordering::Relaxed));
         debug_assert!(
             limbs.len() <= bits.div_ceil(self.range_max_bits()),
             "Not enough limbs: len {}",
@@ -228,13 +225,11 @@ impl SharedVariableRangeCheckerChip {
 
     pub fn add_count(&self, value: u32, max_bits: usize) {
         let id = Arc::as_ptr(&self.0) as usize;
-        println!("add to {:#x}", id);
         self.0.add_count(value, max_bits)
     }
 
     pub fn remove_count(&self, value: u32, max_bits: usize) {
         let id = Arc::as_ptr(&self.0) as usize;
-        println!("remove from {:#x}", id);
         self.0.remove_count(value, max_bits)
     }
 
