@@ -3950,6 +3950,7 @@ dependencies = [
  "serde",
  "serde-big-array",
  "serde_with",
+ "struct-reflection",
  "strum",
 ]
 
@@ -4190,6 +4191,7 @@ dependencies = [
  "serde",
  "serde-big-array",
  "static_assertions",
+ "struct-reflection",
  "test-log",
  "thiserror 1.0.69",
  "tracing",
@@ -4216,6 +4218,7 @@ dependencies = [
  "openvm-stark-backend",
  "openvm-stark-sdk",
  "rand",
+ "struct-reflection",
  "test-case",
  "tracing",
 ]
@@ -4399,6 +4402,7 @@ dependencies = [
  "rand",
  "serde",
  "serde-big-array",
+ "struct-reflection",
  "strum",
  "tiny-keccak",
  "tracing",
@@ -4489,6 +4493,7 @@ dependencies = [
  "serde",
  "serde-big-array",
  "static_assertions",
+ "struct-reflection",
  "strum",
  "tracing",
 ]
@@ -4718,6 +4723,7 @@ dependencies = [
  "serde",
  "serde-big-array",
  "serde_with",
+ "struct-reflection",
 ]
 
 [[package]]
@@ -4740,6 +4746,7 @@ dependencies = [
  "rand",
  "serde",
  "serde-big-array",
+ "struct-reflection",
  "strum",
 ]
 
@@ -4908,7 +4915,7 @@ dependencies = [
 [[package]]
 name = "openvm-stark-backend"
 version = "1.0.0"
-source = "git+https://github.com/openvm-org/stark-backend.git?tag=v1.0.0#884f8e6aabf72bde00dc51f1f1121277bff73b1e"
+source = "git+https://github.com/powdr-labs/stark-backend.git?branch=main#dacb25f01db5bd6c6a5011a27bed29788b3f1a69"
 dependencies = [
  "bitcode",
  "cfg-if",
@@ -4936,7 +4943,7 @@ dependencies = [
 [[package]]
 name = "openvm-stark-sdk"
 version = "1.0.0"
-source = "git+https://github.com/openvm-org/stark-backend.git?tag=v1.0.0#884f8e6aabf72bde00dc51f1f1121277bff73b1e"
+source = "git+https://github.com/powdr-labs/stark-backend.git?branch=main#dacb25f01db5bd6c6a5011a27bed29788b3f1a69"
 dependencies = [
  "derivative",
  "derive_more 0.99.19",
@@ -4953,6 +4960,7 @@ dependencies = [
  "p3-fri",
  "p3-goldilocks",
  "p3-keccak",
+ "p3-koala-bear",
  "p3-merkle-tree",
  "p3-poseidon",
  "p3-poseidon2",
@@ -5228,6 +5236,20 @@ dependencies = [
  "p3-util",
  "rand",
  "tracing",
+]
+
+[[package]]
+name = "p3-koala-bear"
+version = "0.1.0"
+source = "git+https://github.com/Plonky3/Plonky3.git?rev=1ba4e5c#1ba4e5c40417f4f7aae86bcca56b6484b4b2490b"
+dependencies = [
+ "p3-field",
+ "p3-mds",
+ "p3-monty-31",
+ "p3-poseidon2",
+ "p3-symmetric",
+ "rand",
+ "serde",
 ]
 
 [[package]]
@@ -6869,6 +6891,24 @@ name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
+
+[[package]]
+name = "struct-reflection"
+version = "0.1.0"
+source = "git+https://github.com/gzanitti/struct-reflection-rs.git#e9743fbb4aace944bc7a5cf2ee32f1c02719d9cc"
+dependencies = [
+ "struct-reflection-derive",
+]
+
+[[package]]
+name = "struct-reflection-derive"
+version = "0.1.0"
+source = "git+https://github.com/gzanitti/struct-reflection-rs.git#e9743fbb4aace944bc7a5cf2ee32f1c02719d9cc"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.98",
+]
 
 [[package]]
 name = "strum"
