@@ -244,6 +244,7 @@ impl<F: PrimeField32, VC: VmConfig<F>> ExecutionSegment<F, VC> {
                 // tracing::trace!("pc: {pc:#x} | time: {timestamp} | {:?}", instruction);
                 // update the trace event for logging instructions in execution order in our profiler via a custom subscriber
                 tracing::trace!(
+                    pc     = pc,
                     opcode = instruction.opcode.0,
                     a      = instruction.a.to_unique_u32(),
                     b      = instruction.b.to_unique_u32(),
