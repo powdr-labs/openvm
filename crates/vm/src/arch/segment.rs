@@ -241,7 +241,19 @@ impl<F: PrimeField32, VC: VmConfig<F>> ExecutionSegment<F, VC> {
                 } = &mut chip_complex.base;
 
                 let (instruction, debug_info) = program_chip.get_instruction(pc)?;
-                tracing::trace!("pc: {pc:#x} | time: {timestamp} | {:?}", instruction);
+                // tracing::trace!("pc: {pc:#x} | time: {timestamp} | {:?}", instruction);
+                // update the trace event for logging instructions in execution order in our profiler via a custom subscriber
+                tracing::trace!(
+                    opcode = instruction.opcode.0,
+                    a      = instruction.a.to_unique_u32(),
+                    b      = instruction.b.to_unique_u32(),
+                    c      = instruction.c.to_unique_u32(),
+                    d      = instruction.d.to_unique_u32(),
+                    e      = instruction.e.to_unique_u32(),
+                    f      = instruction.f.to_unique_u32(),
+                    g      = instruction.g.to_unique_u32(),
+                    "executing instruction",
+                  );
 
                 #[allow(unused_variables)]
                 let (dsl_instr, trace) = debug_info.as_ref().map_or(
