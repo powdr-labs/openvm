@@ -54,7 +54,7 @@ impl<F: PrimeField64> ProgramChip<F> {
         self.program = program;
     }
 
-    pub fn get_pc_index(&self, pc: u32) -> Result<usize, ExecutionError> {
+    fn get_pc_index(&self, pc: u32) -> Result<usize, ExecutionError> {
         let step = self.program.step;
         let pc_base = self.program.pc_base;
         let pc_index = ((pc - pc_base) / step) as usize;

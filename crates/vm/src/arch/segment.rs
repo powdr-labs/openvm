@@ -224,7 +224,7 @@ impl<F: PrimeField32, VC: VmConfig<F>> ExecutionSegment<F, VC> {
             .begin(ExecutionState::new(pc, timestamp));
 
         let mut did_terminate = false;
-        
+
         loop {
             #[allow(unused_variables)]
             let (opcode, dsl_instr) = {
