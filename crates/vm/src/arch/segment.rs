@@ -230,7 +230,7 @@ impl<F: PrimeField32, VC: VmConfig<F>> ExecutionSegment<F, VC> {
             let pc_base = self.chip_complex.base.program_chip.program.pc_base;
             let step = self.chip_complex.base.program_chip.program.step;
             let pc = pc_base + (step * (index as u32));
-            tracing::debug!("pc: {pc:#x} | {instruction:?}");
+            tracing::debug!("pc: {pc:#x} | index: {index} | instruction: {instruction:?}");
         });
 
         loop {
