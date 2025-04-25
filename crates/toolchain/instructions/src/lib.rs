@@ -32,7 +32,7 @@ pub trait LocalOpcode {
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, derive_new::new, Serialize, Deserialize)]
-pub struct VmOpcode(pub usize);
+pub struct VmOpcode(usize);
 
 impl VmOpcode {
     /// Returns the corresponding `local_opcode_idx`

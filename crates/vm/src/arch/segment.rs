@@ -224,15 +224,7 @@ impl<F: PrimeField32, VC: VmConfig<F>> ExecutionSegment<F, VC> {
             .begin(ExecutionState::new(pc, timestamp));
 
         let mut did_terminate = false;
-
-        // debug print the entire program chip and pc, calculated as pc_base + step * index
-        self.chip_complex.base.program_chip.program.instructions_and_debug_infos.iter().enumerate().for_each(|(index, instruction)| {
-            let pc_base = self.chip_complex.base.program_chip.program.pc_base;
-            let step = self.chip_complex.base.program_chip.program.step;
-            let pc = pc_base + (step * (index as u32));
-            tracing::debug!("pc: {pc:#x} | index: {index} | instruction: {instruction:?}");
-        });
-
+        
         loop {
             #[allow(unused_variables)]
             let (opcode, dsl_instr) = {
