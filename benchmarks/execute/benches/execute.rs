@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use divan;
 use eyre::Result;
 use openvm_benchmarks_utils::{get_elf_path, get_programs_dir, read_elf_file};
@@ -8,7 +10,6 @@ use openvm_rv32im_transpiler::{
 };
 use openvm_stark_sdk::p3_baby_bear::BabyBear;
 use openvm_transpiler::{transpiler::Transpiler, FromElf};
-use std::path::PathBuf;
 
 static AVAILABLE_PROGRAMS: &[&str] = &[
     "fibonacci_recursive",

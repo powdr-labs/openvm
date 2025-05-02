@@ -298,9 +298,9 @@ where
             .request_range(imm_limbs[0] as u32, imm_limbs[1] as u32);
         self.bitwise_lookup_chip
             .request_range(imm_limbs[2] as u32, pc_limbs[1] as u32);
-
+        let msl_shift = RV32_REGISTER_NUM_LIMBS * RV32_CELL_BITS - PC_BITS;
         self.bitwise_lookup_chip
-            .request_range(pc_limbs[2] as u32, pc_limbs[3] as u32);
+            .request_range(pc_limbs[2] as u32, (pc_limbs[3] as u32) << msl_shift);
     }
 }
 
