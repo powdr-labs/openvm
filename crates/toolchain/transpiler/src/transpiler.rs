@@ -72,4 +72,30 @@ impl<F: PrimeField32> Transpiler<F> {
         }
         Ok(instructions)
     }
+
+    pub fn transpile_with_ptr_info(
+        &self,
+        instructions_u32: &[u32],
+    ) -> Result<Vec<(Vec<Option<Instruction<F>>>, usize)>, TranspilerError> {
+        let mut instructions = Vec::new();
+        let mut ptr = 0;
+        while ptr < instructions_u32.len() {
+            let mut options = self
+                .processors
+                .iter()
+                .map(|proc| proc.process_custom(&instructions_u32[ptr..]))
+                .filter(|opt| opt.is_some())
+                .collect::<Vec<_>>();
+            if options.is_empty() {
+                return Err(TranspilerError::ParseError(instructions_u32[ptr]));
+            }
+            if options.len() > 1 {
+                return Err(TranspilerError::AmbiguousNextInstruction);
+            }
+            let transpiler_output = options.pop().unwrap().unwrap();
+            instructions.push((transpiler_output.instructions, ptr));
+            ptr += transpiler_output.used_u32s;
+        }
+        Ok(instructions)
+    }
 }

@@ -1,5 +1,7 @@
 //! A transpiler from custom RISC-V ELFs to OpenVM executable binaries.
 
+use std::collections::HashMap;
+
 use elf::Elf;
 use openvm_instructions::{
     exe::VmExe,
@@ -44,4 +46,38 @@ impl<F: PrimeField32> FromElf for VmExe<F> {
             fn_bounds: elf.fn_bounds,
         })
     }
+}
+
+pub fn from_elf_with_ptr_info<F: PrimeField32>(
+    elf: Elf,
+    transpiler: Transpiler<F>,
+) -> Result<(VmExe<F>, HashMap<usize, usize>), TranspilerError> {
+    let instructions = transpiler.transpile_with_ptr_info(&elf.instructions)?;
+
+    let (instructions, ptr_info): (Vec<_>, HashMap<usize, usize>) =
+        instructions.into_iter().enumerate().fold(
+            (Vec::new(), HashMap::new()),
+            |(mut flat_instrs, mut ptrs), (i, (instr, ptr))| {
+                flat_instrs.extend(instr.iter().cloned());
+                ptrs.insert(i, ptr);
+                (flat_instrs, ptrs)
+            },
+        );
+    let program = Program::new_without_debug_infos_with_option(
+        &instructions,
+        DEFAULT_PC_STEP,
+        elf.pc_base,
+        elf.max_num_public_values,
+    );
+    let init_memory = elf_memory_image_to_openvm_memory_image(elf.memory_image);
+
+    Ok((
+        VmExe {
+            program,
+            pc_start: elf.pc_start,
+            init_memory,
+            fn_bounds: elf.fn_bounds,
+        },
+        ptr_info,
+    ))
 }
