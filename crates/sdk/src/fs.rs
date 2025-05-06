@@ -131,10 +131,15 @@ pub fn write_evm_halo2_verifier_to_folder<P: AsRef<Path>>(
     verifier: EvmHalo2Verifier,
     folder: P,
 ) -> Result<()> {
+    let openvm_version = env!("CARGO_PKG_VERSION")
+        .split('.')
+        .take(2)
+        .collect::<Vec<_>>()
+        .join(".");
     let folder = folder
         .as_ref()
         .join("src")
-        .join(format!("v{}", env!("CARGO_PKG_VERSION")));
+        .join(format!("v{}", openvm_version));
     if !folder.exists() {
         create_dir_all(&folder)?; // Make sure directories exist
     }

@@ -346,12 +346,16 @@ impl<E: StarkFriEngine<SC>> GenericSdk<E> {
             "OpenVM Halo2 verifier contract does not support more than 8192 public values"
         );
 
-        let openvm_version = env!("CARGO_PKG_VERSION");
+        let openvm_version = env!("CARGO_PKG_VERSION")
+            .split('.')
+            .take(2)
+            .collect::<Vec<_>>()
+            .join(".");
 
         // Fill out the public values length and OpenVM version in the template
         let openvm_verifier_code = EVM_HALO2_VERIFIER_TEMPLATE
             .replace("{PUBLIC_VALUES_LENGTH}", &pvs_length.to_string())
-            .replace("{OPENVM_VERSION}", openvm_version);
+            .replace("{OPENVM_VERSION}", &openvm_version);
 
         let formatter_config = FormatterConfig {
             line_length: 120,
