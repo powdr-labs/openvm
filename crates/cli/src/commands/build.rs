@@ -1,4 +1,5 @@
 use std::{
+    env::var,
     fs::{create_dir_all, read, write},
     path::PathBuf,
     sync::Arc,
@@ -93,6 +94,9 @@ pub struct BuildArgs {
 
     #[arg(long, default_value = "release", help = "Build profile")]
     pub profile: String,
+
+    #[arg(long, default_value = "false", help = "use --offline in cargo build")]
+    pub offline: bool,
 }
 
 #[derive(Clone, Default, clap::Args)]
@@ -125,8 +129,12 @@ pub(crate) fn build(build_args: &BuildArgs) -> Result<Option<PathBuf>> {
     };
     let mut guest_options = GuestOptions::default()
         .with_features(build_args.features.clone())
-        .with_profile(build_args.profile.clone());
+        .with_profile(build_args.profile.clone())
+        .with_rustc_flags(var("RUSTFLAGS").unwrap_or_default().split_whitespace());
     guest_options.target_dir = build_args.target_dir.clone();
+    if build_args.offline {
+        guest_options.options = vec!["--offline".to_string()];
+    }
 
     let pkg = get_package(&build_args.manifest_dir);
     // We support builds of libraries with 0 or >1 executables.
@@ -215,6 +223,7 @@ mod tests {
             exe_commit_output: PathBuf::from(DEFAULT_EXE_COMMIT_PATH),
             profile: "dev".to_string(),
             target_dir: Some(target_dir.to_path_buf()),
+            offline: false,
         };
         build(&build_args)?;
         assert!(
