@@ -725,6 +725,9 @@ pub struct MemoryAuxColsFactory<T> {
 // parallelized trace generation.
 impl<F: PrimeField32> MemoryAuxColsFactory<F> {
     pub fn generate_read_aux(&self, read: &MemoryRecord<F>, buffer: &mut MemoryReadAuxCols<F>) {
+        if read.address_space.is_one() {
+            return;
+        }
         assert!(
             !read.address_space.is_zero(),
             "cannot make `MemoryReadAuxCols` for address space 0"
@@ -737,6 +740,9 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
         read: &MemoryRecord<F>,
         buffer: &mut MemoryReadOrImmediateAuxCols<F>,
     ) {
+        if read.address_space.is_one() {
+            return;
+        }
         IsZeroSubAir.generate_subrow(
             read.address_space,
             (&mut buffer.is_zero_aux, &mut buffer.is_immediate),
@@ -749,6 +755,9 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
         write: &MemoryRecord<F>,
         buffer: &mut MemoryWriteAuxCols<F, N>,
     ) {
+        if write.address_space.is_one() {
+            return;
+        }
         buffer
             .prev_data
             .copy_from_slice(write.prev_data_slice().unwrap());
@@ -756,6 +765,9 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
     }
 
     pub fn generate_base_aux(&self, record: &MemoryRecord<F>, buffer: &mut MemoryBaseAuxCols<F>) {
+        if record.address_space.is_one() {
+            return;
+        }
         buffer.prev_timestamp = F::from_canonical_u32(record.prev_timestamp);
         self.generate_timestamp_lt(
             record.prev_timestamp,
