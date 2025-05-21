@@ -315,7 +315,7 @@ impl<F: PrimeField32> VmAdapterChip<F> for Rv32BaseAluAdapterChip<F> {
         memory: &OfflineMemory<F>,
     ) {
         let row_slice: &mut Rv32BaseAluAdapterCols<_> = row_slice.borrow_mut();
-        let aux_cols_factory = memory.aux_cols_factory();
+        // let aux_cols_factory = memory.aux_cols_factory();
 
         let rd = memory.record_by_id(write_record.rd.0);
         row_slice.from_state = write_record.from_state.map(F::from_canonical_u32);
@@ -328,19 +328,19 @@ impl<F: PrimeField32> VmAdapterChip<F> for Rv32BaseAluAdapterChip<F> {
         if let Some(rs2) = rs2 {
             row_slice.rs2 = rs2.pointer;
             row_slice.rs2_as = rs2.address_space;
-            aux_cols_factory.generate_read_aux(rs1, &mut row_slice.reads_aux[0]);
-            aux_cols_factory.generate_read_aux(rs2, &mut row_slice.reads_aux[1]);
+            // aux_cols_factory.generate_read_aux(rs1, &mut row_slice.reads_aux[0]);
+            // aux_cols_factory.generate_read_aux(rs2, &mut row_slice.reads_aux[1]);
         } else {
             row_slice.rs2 = read_record.rs2_imm;
             row_slice.rs2_as = F::ZERO;
             let rs2_imm = row_slice.rs2.as_canonical_u32();
             let mask = (1 << RV32_CELL_BITS) - 1;
-            self.bitwise_lookup_chip
-                .request_range(rs2_imm & mask, (rs2_imm >> 8) & mask);
-            aux_cols_factory.generate_read_aux(rs1, &mut row_slice.reads_aux[0]);
+            // self.bitwise_lookup_chip
+            //     .request_range(rs2_imm & mask, (rs2_imm >> 8) & mask);
+            // aux_cols_factory.generate_read_aux(rs1, &mut row_slice.reads_aux[0]);
             // row_slice.reads_aux[1] is disabled
         }
-        aux_cols_factory.generate_write_aux(rd, &mut row_slice.writes_aux);
+        // aux_cols_factory.generate_write_aux(rd, &mut row_slice.writes_aux);
     }
 
     fn air(&self) -> &Self::Air {

@@ -725,11 +725,11 @@ pub struct MemoryAuxColsFactory<T> {
 // parallelized trace generation.
 impl<F: PrimeField32> MemoryAuxColsFactory<F> {
     pub fn generate_read_aux(&self, read: &MemoryRecord<F>, buffer: &mut MemoryReadAuxCols<F>) {
-        assert!(
-            !read.address_space.is_zero(),
-            "cannot make `MemoryReadAuxCols` for address space 0"
-        );
-        self.generate_base_aux(read, &mut buffer.base);
+        // assert!(
+        //     !read.address_space.is_zero(),
+        //     "cannot make `MemoryReadAuxCols` for address space 0"
+        // );
+        // self.generate_base_aux(read, &mut buffer.base);
     }
 
     pub fn generate_read_or_immediate_aux(
@@ -737,11 +737,11 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
         read: &MemoryRecord<F>,
         buffer: &mut MemoryReadOrImmediateAuxCols<F>,
     ) {
-        IsZeroSubAir.generate_subrow(
-            read.address_space,
-            (&mut buffer.is_zero_aux, &mut buffer.is_immediate),
-        );
-        self.generate_base_aux(read, &mut buffer.base);
+        // IsZeroSubAir.generate_subrow(
+        //     read.address_space,
+        //     (&mut buffer.is_zero_aux, &mut buffer.is_immediate),
+        // );
+        // self.generate_base_aux(read, &mut buffer.base);
     }
 
     pub fn generate_write_aux<const N: usize>(
@@ -749,19 +749,19 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
         write: &MemoryRecord<F>,
         buffer: &mut MemoryWriteAuxCols<F, N>,
     ) {
-        buffer
-            .prev_data
-            .copy_from_slice(write.prev_data_slice().unwrap());
-        self.generate_base_aux(write, &mut buffer.base);
+        // buffer
+        //     .prev_data
+        //     .copy_from_slice(write.prev_data_slice().unwrap());
+        // self.generate_base_aux(write, &mut buffer.base);
     }
 
     pub fn generate_base_aux(&self, record: &MemoryRecord<F>, buffer: &mut MemoryBaseAuxCols<F>) {
-        buffer.prev_timestamp = F::from_canonical_u32(record.prev_timestamp);
-        self.generate_timestamp_lt(
-            record.prev_timestamp,
-            record.timestamp,
-            &mut buffer.timestamp_lt_aux,
-        );
+        // buffer.prev_timestamp = F::from_canonical_u32(record.prev_timestamp);
+        // self.generate_timestamp_lt(
+        //     record.prev_timestamp,
+        //     record.timestamp,
+        //     &mut buffer.timestamp_lt_aux,
+        // );
     }
 
     fn generate_timestamp_lt(
@@ -770,11 +770,11 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
         timestamp: u32,
         buffer: &mut LessThanAuxCols<F, AUX_LEN>,
     ) {
-        debug_assert!(prev_timestamp < timestamp);
-        self.timestamp_lt_air.generate_subrow(
-            (self.range_checker.as_ref(), prev_timestamp, timestamp),
-            &mut buffer.lower_decomp,
-        );
+        // debug_assert!(prev_timestamp < timestamp);
+        // self.timestamp_lt_air.generate_subrow(
+        //     (self.range_checker.as_ref(), prev_timestamp, timestamp),
+        //     &mut buffer.lower_decomp,
+        // );
     }
 
     /// In general, prefer `generate_read_aux` which writes in-place rather than this function.

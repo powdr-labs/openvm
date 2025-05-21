@@ -13,7 +13,7 @@ use openvm_stark_backend::{
     p3_field::PrimeField32,
     prover::types::{CommittedTraceData, ProofInput},
     utils::metrics_span,
-    Chip,
+    Chip, ChipUsageGetter,
 };
 
 use super::{
@@ -307,6 +307,12 @@ impl<F: PrimeField32, VC: VmConfig<F>> ExecutionSegment<F, VC> {
                         instruction,
                         ExecutionState::new(pc, timestamp),
                     )?;
+                    // let next_state = tracing::info_span!("executor", name = executor.air_name()).in_scope(|| InstructionExecutor::execute(
+                    //     executor,
+                    //     memory_controller,
+                    //     instruction,
+                    //     ExecutionState::new(pc, timestamp),
+                    // ))?;
                     assert!(next_state.timestamp > timestamp);
                     pc = next_state.pc;
                     timestamp = next_state.timestamp;

@@ -2,7 +2,7 @@ use std::{
     array::from_fn,
     borrow::Borrow,
     marker::PhantomData,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex}, time::Instant,
 };
 
 use openvm_circuit_primitives::utils::next_power_of_two_or_zero;
@@ -250,6 +250,13 @@ where
         let (to_state, write_record) =
             self.adapter
                 .postprocess(memory, instruction, from_state, output, &read_record)?;
+        // let (reads, read_record) = tracing::info_span!("preprocess").in_scope(|| self.adapter.preprocess(memory, instruction))?;
+        // let (output, core_record) = tracing::info_span!("execute instruction").in_scope(|| 
+        //     self.core
+        //         .execute_instruction(instruction, from_state.pc, reads))?;
+        // let (to_state, write_record) = tracing::info_span!("postprocess").in_scope(|| 
+        //     self.adapter
+        //         .postprocess(memory, instruction, from_state, output, &read_record))?;
         self.records.push((read_record, write_record, core_record));
         Ok(to_state)
     }
@@ -299,20 +306,33 @@ where
         let adapter_width = self.adapter.air().width();
         let width = core_width + adapter_width;
         let mut values = Val::<SC>::zero_vec(height * width);
-
-        let memory = self.offline_memory.lock().unwrap();
-
+        // let registers = self.registers_cache_map(); // vector of 32 values
+        let start = Instant::now();
+        let memory = tracing::info_span!("lock offline memory").in_scope(|| self.offline_memory.lock().unwrap());
+        let elapsed = start.elapsed();
+        tracing::info!("locked offline memory in {:?}", elapsed);
+        let parent_span = tracing::info_span!("generate trace row");
         // This zip only goes through records.
         // The padding rows between records.len()..height are filled with zeros.
+        parent_span.in_scope(|| 
         values
             .par_chunks_mut(width)
             .zip(self.records.into_par_iter())
-            .for_each(|(row_slice, record)| {
+            .enumerate()
+            .for_each(|(i, (row_slice, record))| {
                 let (adapter_row, core_row) = row_slice.split_at_mut(adapter_width);
-                self.adapter
-                    .generate_trace_row(adapter_row, record.0, record.1, &memory);
-                self.core.generate_trace_row(core_row, record.2);
-            });
+                if i < 10 { // only log the first couple instances
+                    parent_span.in_scope(|| {
+                        tracing::info_span!("adapter generate trace row").in_scope(|| self.adapter
+                        .generate_trace_row(adapter_row, record.0, record.1, &memory));
+                        tracing::info_span!("core generate trace row").in_scope(|| self.core.generate_trace_row(core_row, record.2));
+                    });
+                } else {
+                    self.adapter
+                        .generate_trace_row(adapter_row, record.0, record.1, &memory);
+                    self.core.generate_trace_row(core_row, record.2)
+                }
+            }));
 
         let mut trace = RowMajorMatrix::new(values, width);
         self.core.finalize(&mut trace, num_records);
