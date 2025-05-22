@@ -4,7 +4,10 @@ use openvm_benchmarks_utils::{get_elf_path, get_programs_dir, read_elf_file};
 use openvm_bigint_circuit::{Int256, Int256Executor, Int256Periphery, Int256Rv32Config};
 use openvm_bigint_transpiler::Int256TranspilerExtension;
 use openvm_circuit::{
-    arch::{instructions::exe::VmExe, SystemConfig, VirtualMachine, VmExecutor},
+    arch::{
+        execution_mode::metered::Segment, instructions::exe::VmExe, SystemConfig, VirtualMachine,
+        VmExecutor, VmExecutorResult,
+    },
     derive::VmConfig,
 };
 use openvm_keccak256_circuit::{
@@ -22,8 +25,14 @@ use openvm_sha256_circuit::{Sha256, Sha256Executor, Sha256Periphery};
 use openvm_sha256_transpiler::Sha256TranspilerExtension;
 use openvm_stark_sdk::{
     bench::run_with_metric_collection,
-    config::baby_bear_poseidon2::default_engine,
-    openvm_stark_backend::{self, p3_field::PrimeField32},
+    config::{
+        baby_bear_blake3::BabyBearBlake3Config,
+        baby_bear_poseidon2::{default_engine, BabyBearPoseidon2Config},
+    },
+    openvm_stark_backend::{
+        self,
+        p3_field::{FieldExtensionAlgebra, PrimeField32},
+    },
     p3_baby_bear::BabyBear,
 };
 use openvm_transpiler::{transpiler::Transpiler, FromElf};
@@ -32,17 +41,17 @@ use serde::{Deserialize, Serialize};
 // const DEFAULT_APP_CONFIG_PATH: &str = "./openvm.toml";
 
 static AVAILABLE_PROGRAMS: &[&str] = &[
-    // "fibonacci_recursive",
-    // "fibonacci_iterative",
-    // "quicksort",
-    // "bubblesort",
-    // "factorial_iterative_u256",
-    // "revm_snailtracer",
+    "fibonacci_recursive",
+    "fibonacci_iterative",
+    "quicksort",
+    "bubblesort",
+    "factorial_iterative_u256",
+    "revm_snailtracer",
     "keccak256",
-    // "keccak256_iter",
-    // "sha256",
-    // "sha256_iter",
-    // "revm_transfer",
+    "keccak256_iter",
+    "sha256",
+    "sha256_iter",
+    "revm_transfer",
     // "pairing",
 ];
 
@@ -173,20 +182,19 @@ fn main() -> Result<()> {
 
             let exe = VmExe::from_elf(elf, transpiler)?;
 
+            let vm = VirtualMachine::new(default_engine(), vm_config.clone());
+            let pk = vm.keygen();
             let (widths, interactions): (Vec<usize>, Vec<usize>) = {
-                let vm = VirtualMachine::new(default_engine(), vm_config.clone());
-                let pk = vm.keygen();
                 let vk = pk.get_vk();
                 vk.inner
                     .per_air
                     .iter()
                     .map(|vk| {
-                        // TODO(ayush): figure out which width to use
-                        // let total_width = vk.params.width.preprocessed.unwrap_or(0)
-                        //     + vk.params.width.cached_mains.iter().sum::<usize>()
-                        //     + vk.params.width.common_main
-                        //     + vk.params.width.after_challenge.iter().sum::<usize>();
-                        let total_width = vk.params.width.main_widths().iter().sum::<usize>();
+                        let total_width = vk.params.width.preprocessed.unwrap_or(0)
+                            + vk.params.width.cached_mains.iter().sum::<usize>()
+                            + vk.params.width.common_main
+                            // TODO(ayush): no magic value 4. should come from stark config
+                            + vk.params.width.after_challenge.iter().sum::<usize>() * 4;
                         (total_width, vk.symbolic_constraints.interactions.len())
                     })
                     .unzip()
@@ -194,9 +202,35 @@ fn main() -> Result<()> {
 
             let executor = VmExecutor::new(vm_config);
             executor
-                .execute_e1(exe.clone(), vec![])
+                .execute_e1(exe.clone(), vec![], None)
+                // .execute(exe.clone(), vec![])
                 // .execute_metered(exe.clone(), vec![], widths, interactions)
                 .expect("Failed to execute program");
+
+            // // E2 to find segment points
+            // let segments = executor.execute_metered(exe.clone(), vec![], widths, interactions)?;
+            // for Segment {
+            //     clk_start,
+            //     num_cycles,
+            //     ..
+            // } in segments
+            // {
+            //     // E1 till clk_start
+            //     let state = executor.execute_e1(exe.clone(), vec![], Some(clk_start))?;
+            //     assert!(state.clk == clk_start);
+            //     // E3/tracegen from clk_start for num_cycles beginning with state
+            //     let mut result = executor.execute_and_generate_segment::<BabyBearPoseidon2Config>(
+            //         exe.clone(),
+            //         state,
+            //         num_cycles,
+            //     )?;
+            //     // let proof_input = result.per_segment.pop().unwrap();
+            //     // let proof = tracing::info_span!("prove_single")
+            //     //     .in_scope(|| vm.prove_single(&pk, proof_input));
+
+            //     // let proof_bytes = bitcode::serialize(&proof)?;
+            //     // tracing::info!("Proof size: {} bytes", proof_bytes.len());
+            // }
 
             tracing::info!("Completed program: {}", program);
         }
