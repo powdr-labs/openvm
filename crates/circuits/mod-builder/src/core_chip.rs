@@ -329,7 +329,10 @@ where
         instruction: &Instruction<F>,
         chip_index: usize,
     ) -> Result<()> {
-        todo!()
+        self.execute_e1(state, instruction)?;
+        state.ctx.trace_heights[chip_index] += 1;
+
+        Ok(())
     }
 }
 

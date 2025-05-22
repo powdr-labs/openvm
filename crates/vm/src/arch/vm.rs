@@ -290,12 +290,15 @@ where
         let streams = segment.chip_complex.take_streams();
         #[cfg(feature = "bench-metrics")]
         let metrics = segment.metrics.partial_take();
+
+        // TODO(ayush): this can probably be avoided
+        let memory = segment.ctrl.final_memory.as_ref().unwrap().clone();
         Ok(VmExecutorOneSegmentResult {
             segment,
             next_state: Some(VmState {
                 clk: exec_state.clk,
                 pc: exec_state.pc,
-                memory: exec_state.memory.unwrap().memory,
+                memory,
                 input: streams,
                 #[cfg(feature = "bench-metrics")]
                 metrics,
@@ -475,14 +478,14 @@ where
             let ctx = MeteredCtx::new(
                 widths.len(),
                 continuations_enabled,
-                num_access_adapters,
+                num_access_adapters as u8,
                 segment
                     .chip_complex
                     .memory_controller()
                     .memory
                     .min_block_size
                     .iter()
-                    .map(|&x| log2_strict_usize(x as usize))
+                    .map(|&x| log2_strict_usize(x as usize) as u8)
                     .collect(),
                 segment
                     .chip_complex
