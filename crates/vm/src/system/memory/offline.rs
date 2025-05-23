@@ -118,9 +118,9 @@ pub struct MemoryRecord<T> {
     pub pointer: T,
     pub timestamp: u32,
     pub prev_timestamp: u32,
-    data: Vec<T>,
+    pub data: Vec<T>,
     /// None if a read.
-    prev_data: Option<Vec<T>>,
+    pub prev_data: Option<Vec<T>>,
 }
 
 impl<T> MemoryRecord<T> {
@@ -286,6 +286,10 @@ impl<F: PrimeField32> OfflineMemory<F> {
 
     pub fn record_by_id(&self, id: RecordId) -> &MemoryRecord<F> {
         self.log[id.0].as_ref().unwrap()
+    }
+
+    pub fn records_for_range(&self, from: RecordId, to: RecordId) -> &[Option<MemoryRecord<F>>] {
+        &self.log[from.0..to.0]
     }
 
     pub fn finalize<const N: usize>(
