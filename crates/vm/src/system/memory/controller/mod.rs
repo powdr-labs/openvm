@@ -1,6 +1,6 @@
 use std::{
     array,
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, HashSet},
     iter,
     marker::PhantomData,
     mem,
@@ -455,32 +455,41 @@ impl<F: PrimeField32> MemoryController<F> {
     }
 
     fn replay_access_log(&mut self) {
-        let mut log: Vec<MemoryLogEntry<F>> = mem::take(&mut self.memory.log);
-        
         // For each (start, end) range, mark all but the first Read/Write as skipped
         for &(start, end) in &self.memory.apc_ranges {
+            // We use a HashSet to track the first Read/Write for each register
             let mut seen_first = HashSet::new();
             for idx in start..=end {
-                if let Some(entry) = log.get_mut(idx) {
-                    match entry {
-                        MemoryLogEntry::Read  { address_space, pointer, skip, .. }
-                    | MemoryLogEntry::Write { address_space, pointer, skip, .. } => {
-                            if *address_space == 1 {
-                                if !seen_first.insert(*pointer) {
-                                    // first register Read/Write -> skip = false (default value)
-                                    // subsequent register Read/Write -> skip = true
-                                    *skip = true;
-                                }
+                let entry = self.memory.log.get_mut(idx).unwrap();
+                match entry {
+                    MemoryLogEntry::Read {
+                        address_space,
+                        pointer,
+                        should_skip: skip,
+                        ..
+                    }
+                    | MemoryLogEntry::Write {
+                        address_space,
+                        pointer,
+                        should_skip: skip,
+                        ..
+                    } => {
+                        if *address_space == 1 {
+                            if !seen_first.insert(*pointer) {
+                                // first register Read/Write -> skip = false (default value)
+                                // subsequent register Read/Write -> skip = true
+                                *skip = true;
                             }
                         }
-                        _ => {
-                            // not a Read/Write, do nothing
-                        }
+                    }
+                    _ => {
+                        // not a Read/Write, do nothing
                     }
                 }
             }
         }
 
+        let log = mem::take(&mut self.memory.log);
         if log.is_empty() {
             // Online memory logs may be empty, but offline memory may be replayed from external
             // sources. In these cases, we skip the calls to replay access logs because
@@ -515,23 +524,23 @@ impl<F: PrimeField32> MemoryController<F> {
                 address_space,
                 pointer,
                 len,
-                skip,
+                should_skip,
             } => {
                 if address_space != 0 {
                     interface_chip.touch_range(address_space, pointer, len as u32);
                 }
-                offline_memory.read(address_space, pointer, len, adapter_records, skip);
+                offline_memory.read_with_skip(address_space, pointer, len, adapter_records, should_skip);
             }
             MemoryLogEntry::Write {
                 address_space,
                 pointer,
                 data,
-                skip,
+                should_skip,
             } => {
                 if address_space != 0 {
                     interface_chip.touch_range(address_space, pointer, data.len() as u32);
                 }
-                offline_memory.write(address_space, pointer, data, adapter_records, skip);
+                offline_memory.write_with_skip(address_space, pointer, data, adapter_records, should_skip);
             }
             MemoryLogEntry::IncrementTimestampBy(amount) => {
                 offline_memory.increment_timestamp_by(amount);
@@ -752,7 +761,7 @@ pub struct MemoryAuxColsFactory<T> {
 // parallelized trace generation.
 impl<F: PrimeField32> MemoryAuxColsFactory<F> {
     pub fn generate_read_aux(&self, read: &MemoryRecord<F>, buffer: &mut MemoryReadAuxCols<F>) {
-        if read.address_space.is_one() && read.skip {
+        if read.should_skip {
             return;
         }
         assert!(
@@ -767,7 +776,7 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
         read: &MemoryRecord<F>,
         buffer: &mut MemoryReadOrImmediateAuxCols<F>,
     ) {
-        if read.address_space.is_one() && read.skip {
+        if read.should_skip {
             return;
         }
         IsZeroSubAir.generate_subrow(
@@ -782,7 +791,7 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
         write: &MemoryRecord<F>,
         buffer: &mut MemoryWriteAuxCols<F, N>,
     ) {
-        if write.address_space.is_one() && write.skip {
+        if write.should_skip {
             return;
         }
         buffer
@@ -792,7 +801,7 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
     }
 
     pub fn generate_base_aux(&self, record: &MemoryRecord<F>, buffer: &mut MemoryBaseAuxCols<F>) {
-        if record.address_space.is_one() && record.skip {
+        if record.should_skip {
             return;
         }
         buffer.prev_timestamp = F::from_canonical_u32(record.prev_timestamp);

@@ -121,7 +121,7 @@ pub struct MemoryRecord<T> {
     pub data: Vec<T>,
     /// None if a read.
     pub prev_data: Option<Vec<T>>,
-    pub skip: bool,
+    pub should_skip: bool,
 }
 
 impl<T> MemoryRecord<T> {
@@ -219,6 +219,17 @@ impl<F: PrimeField32> OfflineMemory<F> {
         pointer: u32,
         values: Vec<F>,
         records: &mut AccessAdapterInventory<F>,
+    ) {
+        self.write_with_skip(address_space, pointer, values, records, false);
+    }
+
+    /// Writes an array of values to the memory at the specified address space and start index, potentially hinting to skip the write in trace generation.
+    pub fn write_with_skip(
+        &mut self,
+        address_space: u32,
+        pointer: u32,
+        values: Vec<F>,
+        records: &mut AccessAdapterInventory<F>,
         skip: bool,
     ) {
         let len = values.len();
@@ -240,7 +251,7 @@ impl<F: PrimeField32> OfflineMemory<F> {
             prev_timestamp,
             data: values,
             prev_data: Some(prev_data),
-            skip,
+            should_skip: skip,
         };
         self.log.push(Some(record));
         self.timestamp += 1;
@@ -248,6 +259,17 @@ impl<F: PrimeField32> OfflineMemory<F> {
 
     /// Reads an array of values from the memory at the specified address space and start index.
     pub fn read(
+        &mut self,
+        address_space: u32,
+        pointer: u32,
+        len: usize,
+        adapter_records: &mut AccessAdapterInventory<F>,
+    ) {
+        self.read_with_skip(address_space, pointer, len, adapter_records, false);
+    }
+
+    /// Reads an array of values from the memory at the specified address space and start index, potentially hinting to skip the read in trace generation.
+    pub fn read_with_skip(
         &mut self,
         address_space: u32,
         pointer: u32,
@@ -265,7 +287,7 @@ impl<F: PrimeField32> OfflineMemory<F> {
                 prev_timestamp: 0,
                 data: vec![pointer],
                 prev_data: None,
-                skip,
+                should_skip: skip,
             }));
             self.timestamp += 1;
             return;
@@ -285,17 +307,13 @@ impl<F: PrimeField32> OfflineMemory<F> {
             prev_timestamp,
             data: values,
             prev_data: None,
-            skip,
+            should_skip: skip,
         }));
         self.timestamp += 1;
     }
 
     pub fn record_by_id(&self, id: RecordId) -> &MemoryRecord<F> {
         self.log[id.0].as_ref().unwrap()
-    }
-
-    pub fn records_for_range(&self, from: RecordId, to: RecordId) -> &[Option<MemoryRecord<F>>] {
-        &self.log[from.0..to.0]
     }
 
     pub fn finalize<const N: usize>(

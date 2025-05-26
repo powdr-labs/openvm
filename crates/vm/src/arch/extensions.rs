@@ -200,7 +200,7 @@ impl<'a, F: PrimeField32> VmInventoryBuilder<'a, F> {
 #[derive(Clone, Debug)]
 pub struct VmInventory<E, P> {
     /// Lookup table to executor ID. We store executors separately due to mutable borrow issues.
-    pub instruction_lookup: FxHashMap<VmOpcode, ExecutorId>,
+    instruction_lookup: FxHashMap<VmOpcode, ExecutorId>,
     pub executors: Vec<E>,
     pub periphery: Vec<P>,
     /// Order of insertion. The reverse of this will be the order the chips are destroyed
@@ -1063,10 +1063,13 @@ impl<F: PrimeField32, E, P> VmChipComplex<F, E, P> {
 
         // System: Program Chip
         debug_assert_eq!(builder.curr_air_id, PROGRAM_AIR_ID);
-        tracing::info_span!("program chip trace gen").in_scope(|| builder.add_air_proof_input(program_chip.generate_air_proof_input(cached_program)));
+        tracing::info_span!("program chip trace gen").in_scope(|| {
+            builder.add_air_proof_input(program_chip.generate_air_proof_input(cached_program))
+        });
         // System: Connector Chip
         debug_assert_eq!(builder.curr_air_id, CONNECTOR_AIR_ID);
-        tracing::info_span!("connector chip trace gen").in_scope(|| builder.add_air_proof_input(connector_chip.generate_air_proof_input()));
+        tracing::info_span!("connector chip trace gen")
+            .in_scope(|| builder.add_air_proof_input(connector_chip.generate_air_proof_input()));
 
         // Go through all chips in inventory in reverse order they were added (to resolve
         // dependencies) Important Note: for air_id ordering reasons, we want to
@@ -1085,12 +1088,22 @@ impl<F: PrimeField32, E, P> VmChipComplex<F, E, P> {
                 ChipId::Executor(id) => {
                     let chip = self.inventory.executors.pop().unwrap();
                     assert_eq!(id, self.inventory.executors.len());
-                    tracing::info_span!("executor chip trace gen", id = id, air_name = chip.air_name()).in_scope(|| generate_air_proof_input(chip, height))
+                    tracing::info_span!(
+                        "executor chip trace gen",
+                        id = id,
+                        air_name = chip.air_name()
+                    )
+                    .in_scope(|| generate_air_proof_input(chip, height))
                 }
                 ChipId::Periphery(id) => {
                     let chip = self.inventory.periphery.pop().unwrap();
                     assert_eq!(id, self.inventory.periphery.len());
-                    tracing::info_span!("periphery chip trace gen", id = id, air_name = chip.air_name()).in_scope(|| generate_air_proof_input(chip, height))
+                    tracing::info_span!(
+                        "periphery chip trace gen",
+                        id = id,
+                        air_name = chip.air_name()
+                    )
+                    .in_scope(|| generate_air_proof_input(chip, height))
                 }
             };
             if has_pv_chip && chip_id == ChipId::Executor(Self::PV_EXECUTOR_IDX) {
@@ -1107,7 +1120,8 @@ impl<F: PrimeField32, E, P> VmChipComplex<F, E, P> {
         // System: Memory Controller
         {
             // memory
-            let air_proof_inputs = tracing::info_span!("memory controller trace gen").in_scope(|| memory_controller.generate_air_proof_inputs());
+            let air_proof_inputs = tracing::info_span!("memory controller trace gen")
+                .in_scope(|| memory_controller.generate_air_proof_inputs());
             for air_proof_input in air_proof_inputs {
                 builder.add_air_proof_input(air_proof_input);
             }
@@ -1117,7 +1131,10 @@ impl<F: PrimeField32, E, P> VmChipComplex<F, E, P> {
             .into_iter()
             .for_each(|input| builder.add_air_proof_input(input));
         // System: Range Checker Chip
-        builder.add_air_proof_input(tracing::info_span!("range checker trace gen").in_scope(|| range_checker_chip.generate_air_proof_input()));
+        builder.add_air_proof_input(
+            tracing::info_span!("range checker trace gen")
+                .in_scope(|| range_checker_chip.generate_air_proof_input()),
+        );
 
         Ok(builder.build())
     }

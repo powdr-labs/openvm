@@ -28,7 +28,7 @@ use openvm_stark_backend::{
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
     prover::types::AirProofInput,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir, ColumnsAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter,
 };
 use serde::{Deserialize, Serialize};
