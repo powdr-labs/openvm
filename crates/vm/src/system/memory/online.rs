@@ -26,16 +26,6 @@ pub enum MemoryLogEntry<T> {
     IncrementTimestampBy(u32),
 }
 
-impl<T> MemoryLogEntry<T> {
-    pub fn skip(&mut self) {
-        match self {
-            MemoryLogEntry::Read { skip, .. } => *skip = true,
-            MemoryLogEntry::Write { skip, .. } => *skip = true,
-            MemoryLogEntry::IncrementTimestampBy(_) => {}
-        }
-    }
-}
-
 /// A simple data structure to read to/write from memory.
 ///
 /// Stores a log of memory accesses to reconstruct aspects of memory state for trace generation.

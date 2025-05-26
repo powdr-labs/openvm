@@ -457,17 +457,24 @@ impl<F: PrimeField32> MemoryController<F> {
     fn replay_access_log(&mut self) {
         let mut log: Vec<MemoryLogEntry<F>> = mem::take(&mut self.memory.log);
         
-        // For each (start, end) range, scan until the first Read or Write and mark skip = true
+        // For each (start, end) range, mark all but the first Read/Write as skipped
         for &(start, end) in &self.memory.apc_ranges {
+            let mut seen_first = false;
             for idx in start..=end {
                 if let Some(entry) = log.get_mut(idx) {
                     match entry {
-                        MemoryLogEntry::Read  { skip, .. } | MemoryLogEntry::Write { skip, .. } => {
-                            *skip = true;
-                            break; // stop scanning this range as soon as we skip one
+                        MemoryLogEntry::Read  { skip, .. }
+                    | MemoryLogEntry::Write { skip, .. } => {
+                            if seen_first {
+                                // every Read/Write *after* the first -> skip = true
+                                *skip = true;
+                            } else {
+                                // the very first Read/Write -> skip = false (which is the default)
+                                seen_first = true;
+                            }
                         }
                         _ => {
-                            // not a Read/Write, keep going
+                            // not a Read/Write, do nothing
                         }
                     }
                 }
