@@ -455,38 +455,24 @@ impl<F: PrimeField32> MemoryController<F> {
     }
 
     fn replay_access_log(&mut self) {
-        // let optimize = |mut logs, ranges| {
-        //     let range_idx = 0;
-        //     logs.iter_mut().enumerate().for_each(|(idx, log)| {
-        //         match log {
-        //             MemoryLogEntry::Read(.., skip) => {
-        //                 if idx > ranges[range_idx].0 {
-        //                     *skip = true;
-        //                 } else {
-        //                     *skip = false;
-        //                 }
-        //             }
-        //         }
-        //     })
-        // };
-
         let mut log: Vec<MemoryLogEntry<F>> = mem::take(&mut self.memory.log);
-        self.memory.apc_ranges.iter().for_each(|(start, end)| {
-            for idx in *start..(*end + 1) {
-                match log[idx] {
-                    MemoryLogEntry::Read { mut skip, .. } => {
-                        skip = true;
-                        return;
+        
+        // For each (start, end) range, scan until the first Read or Write and mark skip = true
+        for &(start, end) in &self.memory.apc_ranges {
+            for idx in start..=end {
+                if let Some(entry) = log.get_mut(idx) {
+                    match entry {
+                        MemoryLogEntry::Read  { skip, .. } | MemoryLogEntry::Write { skip, .. } => {
+                            *skip = true;
+                            break; // stop scanning this range as soon as we skip one
+                        }
+                        _ => {
+                            // not a Read/Write, keep going
+                        }
                     }
-                    MemoryLogEntry::Write { mut skip, .. } => {
-                        skip = true;
-                        return;
-                    }
-                    _ => {}
                 }
             }
-        });
-        // let log = optimize(log, self.memory.apc_ranges);
+        }
 
         if log.is_empty() {
             // Online memory logs may be empty, but offline memory may be replayed from external
