@@ -1,6 +1,6 @@
 use std::{
     array,
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap, HashSet},
     iter,
     marker::PhantomData,
     mem,
@@ -459,18 +459,18 @@ impl<F: PrimeField32> MemoryController<F> {
         
         // For each (start, end) range, mark all but the first Read/Write as skipped
         for &(start, end) in &self.memory.apc_ranges {
-            let mut seen_first = false;
+            let mut seen_first = HashSet::new();
             for idx in start..=end {
                 if let Some(entry) = log.get_mut(idx) {
                     match entry {
-                        MemoryLogEntry::Read  { skip, .. }
-                    | MemoryLogEntry::Write { skip, .. } => {
-                            if seen_first {
-                                // every Read/Write *after* the first -> skip = true
-                                *skip = true;
-                            } else {
-                                // the very first Read/Write -> skip = false (which is the default)
-                                seen_first = true;
+                        MemoryLogEntry::Read  { address_space, pointer, skip, .. }
+                    | MemoryLogEntry::Write { address_space, pointer, skip, .. } => {
+                            if *address_space == 1 {
+                                if !seen_first.insert(*pointer) {
+                                    // first register Read/Write -> skip = false (default value)
+                                    // subsequent register Read/Write -> skip = true
+                                    *skip = true;
+                                }
                             }
                         }
                         _ => {
