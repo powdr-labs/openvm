@@ -15,11 +15,13 @@ pub enum MemoryLogEntry<T> {
         address_space: u32,
         pointer: u32,
         len: usize,
+        skip: bool, // false if first within range
     },
     Write {
         address_space: u32,
         pointer: u32,
         data: Vec<T>,
+        skip: bool, // false if first within range
     },
     IncrementTimestampBy(u32),
 }
@@ -32,6 +34,7 @@ pub struct Memory<F> {
     pub(super) data: AddressMap<F, PAGE_SIZE>,
     pub(super) log: Vec<MemoryLogEntry<F>>,
     timestamp: u32,
+    pub apc_ranges: Vec<(usize, usize)>,
 }
 
 impl<F: PrimeField32> Memory<F> {
@@ -40,6 +43,7 @@ impl<F: PrimeField32> Memory<F> {
             data: AddressMap::from_mem_config(mem_config),
             timestamp: INITIAL_TIMESTAMP + 1,
             log: Vec::with_capacity(mem_config.access_capacity),
+            apc_ranges: Vec::default(),
         }
     }
 
@@ -49,6 +53,7 @@ impl<F: PrimeField32> Memory<F> {
             data: image,
             timestamp: INITIAL_TIMESTAMP + 1,
             log: Vec::with_capacity(access_capacity),
+            apc_ranges: Vec::default(),
         }
     }
 
@@ -73,6 +78,7 @@ impl<F: PrimeField32> Memory<F> {
             address_space,
             pointer,
             data: values.to_vec(),
+            skip: false,
         });
         self.timestamp += 1;
 
@@ -87,6 +93,7 @@ impl<F: PrimeField32> Memory<F> {
             address_space,
             pointer,
             len: N,
+            skip: false,
         });
 
         let values = if address_space == 0 {

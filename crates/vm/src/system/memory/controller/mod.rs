@@ -98,7 +98,7 @@ pub struct MemoryController<F> {
     // Store separately to avoid smart pointer reference each time
     range_checker_bus: VariableRangeCheckerBus,
     // addr_space -> Memory data structure
-    memory: Memory<F>,
+    pub memory: Memory<F>,
     /// A reference to the `OfflineMemory`. Will be populated after `finalize()`.
     pub offline_memory: Arc<Mutex<OfflineMemory<F>>>,
     pub access_adapters: AccessAdapterInventory<F>,
@@ -455,7 +455,39 @@ impl<F: PrimeField32> MemoryController<F> {
     }
 
     fn replay_access_log(&mut self) {
-        let log = mem::take(&mut self.memory.log);
+        // let optimize = |mut logs, ranges| {
+        //     let range_idx = 0;
+        //     logs.iter_mut().enumerate().for_each(|(idx, log)| {
+        //         match log {
+        //             MemoryLogEntry::Read(.., skip) => {
+        //                 if idx > ranges[range_idx].0 {
+        //                     *skip = true;
+        //                 } else {
+        //                     *skip = false;
+        //                 }
+        //             }
+        //         }
+        //     })
+        // };
+
+        let mut log: Vec<MemoryLogEntry<F>> = mem::take(&mut self.memory.log);
+        self.memory.apc_ranges.iter().for_each(|(start, end)| {
+            for idx in *start..(*end + 1) {
+                match log[idx] {
+                    MemoryLogEntry::Read { mut skip, .. } => {
+                        skip = true;
+                        return;
+                    }
+                    MemoryLogEntry::Write { mut skip, .. } => {
+                        skip = true;
+                        return;
+                    }
+                    _ => {}
+                }
+            }
+        });
+        // let log = optimize(log, self.memory.apc_ranges);
+
         if log.is_empty() {
             // Online memory logs may be empty, but offline memory may be replayed from external
             // sources. In these cases, we skip the calls to replay access logs because
@@ -490,21 +522,23 @@ impl<F: PrimeField32> MemoryController<F> {
                 address_space,
                 pointer,
                 len,
+                skip,
             } => {
                 if address_space != 0 {
                     interface_chip.touch_range(address_space, pointer, len as u32);
                 }
-                offline_memory.read(address_space, pointer, len, adapter_records);
+                offline_memory.read(address_space, pointer, len, adapter_records, skip);
             }
             MemoryLogEntry::Write {
                 address_space,
                 pointer,
                 data,
+                skip,
             } => {
                 if address_space != 0 {
                     interface_chip.touch_range(address_space, pointer, data.len() as u32);
                 }
-                offline_memory.write(address_space, pointer, data, adapter_records);
+                offline_memory.write(address_space, pointer, data, adapter_records, skip);
             }
             MemoryLogEntry::IncrementTimestampBy(amount) => {
                 offline_memory.increment_timestamp_by(amount);
@@ -725,7 +759,7 @@ pub struct MemoryAuxColsFactory<T> {
 // parallelized trace generation.
 impl<F: PrimeField32> MemoryAuxColsFactory<F> {
     pub fn generate_read_aux(&self, read: &MemoryRecord<F>, buffer: &mut MemoryReadAuxCols<F>) {
-        if read.address_space.is_one() {
+        if read.address_space.is_one() && read.skip {
             return;
         }
         assert!(
@@ -740,7 +774,7 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
         read: &MemoryRecord<F>,
         buffer: &mut MemoryReadOrImmediateAuxCols<F>,
     ) {
-        if read.address_space.is_one() {
+        if read.address_space.is_one() && read.skip {
             return;
         }
         IsZeroSubAir.generate_subrow(
@@ -755,7 +789,7 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
         write: &MemoryRecord<F>,
         buffer: &mut MemoryWriteAuxCols<F, N>,
     ) {
-        if write.address_space.is_one() {
+        if write.address_space.is_one() && write.skip {
             return;
         }
         buffer
@@ -765,7 +799,7 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
     }
 
     pub fn generate_base_aux(&self, record: &MemoryRecord<F>, buffer: &mut MemoryBaseAuxCols<F>) {
-        if record.address_space.is_one() {
+        if record.address_space.is_one() && record.skip {
             return;
         }
         buffer.prev_timestamp = F::from_canonical_u32(record.prev_timestamp);
