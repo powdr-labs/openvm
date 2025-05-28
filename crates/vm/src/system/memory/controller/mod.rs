@@ -1,6 +1,6 @@
 use std::{
     array,
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     iter,
     marker::PhantomData,
     mem,
@@ -455,11 +455,50 @@ impl<F: PrimeField32> MemoryController<F> {
     }
 
     fn replay_access_log(&mut self) {
+        // for &(start, end) in &self.memory.apc_ranges {
+        //     // 1) build map: pointer -> list of log-indices in this range
+        //     let mut idxs_by_ptr: HashMap<u32, Vec<usize>> = HashMap::new();
+    
+        //     for idx in start..=end {
+        //         if let Some(entry) = self.memory.log.get(idx) {
+        //             match entry {
+        //                 MemoryLogEntry::Read { address_space, pointer, .. }
+        //                 | MemoryLogEntry::Write { address_space, pointer, .. }
+        //                     if *address_space == 1 =>
+        //                 {
+        //                     idxs_by_ptr.entry(*pointer).or_default().push(idx);
+        //                 }
+        //                 _ => {}
+        //             }
+        //         }
+        //     }
+    
+        //     // 2) for each pointer, skip everything except its first & last
+        //     for idxs in idxs_by_ptr.values() {
+        //         if idxs.len() > 1 {
+        //             // skip everything except idxs[0] and idxs[last]
+        //             for &to_skip in &idxs[1..idxs.len() - 1] {
+        //                 if let Some(entry) = self.memory.log.get_mut(to_skip) {
+        //                     match entry {
+        //                         MemoryLogEntry::Read { should_skip, .. }
+        //                       | MemoryLogEntry::Write { should_skip, .. } =>
+        //                             *should_skip = true,
+        //                         _ => unreachable!(),
+        //                     }
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
+
+        let cutoff = 4811;
+        
         // For each (start, end) range, mark all but the first Read/Write as skipped
         for &(start, end) in &self.memory.apc_ranges {
             // We use a HashSet to track the first Read/Write for each register
+            println!("apc_range start: {start}, end: {end}");
             let mut seen_first = HashSet::new();
-            for idx in start..=end {
+            for idx in start..end { // never skip the last memory access of a basic block
                 let entry = self.memory.log.get_mut(idx).unwrap();
                 match entry {
                     MemoryLogEntry::Read {
@@ -476,9 +515,14 @@ impl<F: PrimeField32> MemoryController<F> {
                     } => {
                         if *address_space == 1 {
                             if !seen_first.insert(*pointer) {
+                                println!("skip index {idx}, pointer: {pointer}");
                                 // first register Read/Write -> skip = false (default value)
                                 // subsequent register Read/Write -> skip = true
-                                *skip = true;
+                                // if idx <= cutoff {
+                                    *skip = true;
+                                // }
+                            } else {
+                                println!("first for register {pointer} at index {idx}");
                             }
                         }
                     }
@@ -761,9 +805,9 @@ pub struct MemoryAuxColsFactory<T> {
 // parallelized trace generation.
 impl<F: PrimeField32> MemoryAuxColsFactory<F> {
     pub fn generate_read_aux(&self, read: &MemoryRecord<F>, buffer: &mut MemoryReadAuxCols<F>) {
-        if read.should_skip {
-            return;
-        }
+        // if read.should_skip {
+        //     return;
+        // }
         assert!(
             !read.address_space.is_zero(),
             "cannot make `MemoryReadAuxCols` for address space 0"
@@ -776,9 +820,9 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
         read: &MemoryRecord<F>,
         buffer: &mut MemoryReadOrImmediateAuxCols<F>,
     ) {
-        if read.should_skip {
-            return;
-        }
+        // if read.should_skip {
+        //     return;
+        // }
         IsZeroSubAir.generate_subrow(
             read.address_space,
             (&mut buffer.is_zero_aux, &mut buffer.is_immediate),
@@ -791,24 +835,28 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
         write: &MemoryRecord<F>,
         buffer: &mut MemoryWriteAuxCols<F, N>,
     ) {
-        if write.should_skip {
-            return;
-        }
         buffer
             .prev_data
             .copy_from_slice(write.prev_data_slice().unwrap());
+        // if write.should_skip {
+        //     return;
+        // }
         self.generate_base_aux(write, &mut buffer.base);
     }
 
     pub fn generate_base_aux(&self, record: &MemoryRecord<F>, buffer: &mut MemoryBaseAuxCols<F>) {
-        if record.should_skip {
-            return;
-        }
+        // if record.should_skip {
+        //     return;
+        // }
         buffer.prev_timestamp = F::from_canonical_u32(record.prev_timestamp);
+        // if record.should_skip {
+        //     return;
+        // }
         self.generate_timestamp_lt(
             record.prev_timestamp,
             record.timestamp,
             &mut buffer.timestamp_lt_aux,
+            record.should_skip,
         );
     }
 
@@ -817,16 +865,29 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
         prev_timestamp: u32,
         timestamp: u32,
         buffer: &mut LessThanAuxCols<F, AUX_LEN>,
+        should_skip: bool
     ) {
         debug_assert!(prev_timestamp < timestamp);
+        if should_skip {
+            println!("should skip");
+            // self.timestamp_lt_air.generate_subrow(
+            //     (self.range_checker.as_ref(), 0, 1),
+            //     &mut buffer.lower_decomp,
+            // );
+            self.range_checker.add_count(0, 17);
+            self.range_checker.add_count(0, 12);
+            // println!("lower decomps: {:?}", buffer.lower_decomp);
+        } else {
         self.timestamp_lt_air.generate_subrow(
             (self.range_checker.as_ref(), prev_timestamp, timestamp),
             &mut buffer.lower_decomp,
         );
+        }
     }
 
     /// In general, prefer `generate_read_aux` which writes in-place rather than this function.
     pub fn make_read_aux_cols(&self, read: &MemoryRecord<F>) -> MemoryReadAuxCols<F> {
+        panic!();
         assert!(
             !read.address_space.is_zero(),
             "cannot make `MemoryReadAuxCols` for address space 0"
@@ -842,6 +903,7 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
         &self,
         write: &MemoryRecord<F>,
     ) -> MemoryWriteAuxCols<F, N> {
+        panic!();
         let prev_data = write.prev_data_slice().unwrap();
         MemoryWriteAuxCols::new(
             prev_data.try_into().unwrap(),
