@@ -459,6 +459,7 @@ impl<F: PrimeField32> MemoryController<F> {
         tracing::info_span!("mark register memory record for skip").in_scope(||
         if let Some((start, end)) = self.memory.apc_ranges.iter().next() {
             let mut to_skip = Vec::new();
+            tracing::info_span!("calculate skipped memory record in a single APC run").in_scope(|| {
             let mut seen_first = HashSet::new();
             (*start..*end).into_iter().for_each(|idx| {
                 let entry = self.memory.log.get(idx).unwrap();
@@ -476,8 +477,11 @@ impl<F: PrimeField32> MemoryController<F> {
                         // not a Read/Write, do nothing
                     }
                 }
-            }); 
+            }); });
 
+            tracing::info!("Skip LT columns generation for {} out of {} memory records in each run of the current APC.", to_skip.len(), end - start + 1);
+
+            tracing::info_span!("mark skipped memory records").in_scope(|| {
             for &(start, _) in self.memory.apc_ranges.iter() {
                 for &idx in to_skip.iter() {
                     let entry = self.memory.log.get_mut(idx + start).unwrap();
@@ -489,7 +493,7 @@ impl<F: PrimeField32> MemoryController<F> {
                         _ => panic!("Expected Read or Write entry"), // should be unreachable
                     }
                 }
-            }
+            } });
         });
 
         let log = mem::take(&mut self.memory.log);
