@@ -814,7 +814,6 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
     ) {
         debug_assert!(prev_timestamp < timestamp);
         if should_skip {
-            println!("skipped gen lt");
             self.range_checker.add_count(0, 17);
             self.range_checker.add_count(0, 12);
         } else {
