@@ -144,7 +144,6 @@ impl VariableRangeCheckerChip {
         // if each [value, max_bits] is valid, the sends multiset will be exactly the receives
         // multiset
         let idx = (1 << max_bits) + (value as usize);
-        assert!(value < (1 << max_bits) as u32, "value {} exceeds max_bits {}", value, max_bits);
         assert!(
             idx < self.count.len(),
             "range exceeded: {} >= {}",
@@ -198,7 +197,6 @@ impl VariableRangeCheckerChip {
         for limb in limbs.iter_mut() {
             let limb_u32 = value & mask;
             *limb = F::from_canonical_u32(limb_u32);
-            println!("limb: {}, bits_remaining: {}, range_max_bits: {}, max_bits: {}", limb_u32, bits_remaining, self.range_max_bits(), bits_remaining.min(self.range_max_bits()));
             self.add_count(limb_u32, bits_remaining.min(self.range_max_bits()));
 
             value >>= self.range_max_bits();
