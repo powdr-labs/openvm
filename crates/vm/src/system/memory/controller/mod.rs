@@ -1,6 +1,6 @@
 use std::{
     array,
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap, HashSet},
     iter,
     marker::PhantomData,
     mem,
@@ -98,7 +98,7 @@ pub struct MemoryController<F> {
     // Store separately to avoid smart pointer reference each time
     range_checker_bus: VariableRangeCheckerBus,
     // addr_space -> Memory data structure
-    memory: Memory<F>,
+    pub memory: Memory<F>,
     /// A reference to the `OfflineMemory`. Will be populated after `finalize()`.
     pub offline_memory: Arc<Mutex<OfflineMemory<F>>>,
     pub access_adapters: AccessAdapterInventory<F>,
@@ -455,6 +455,47 @@ impl<F: PrimeField32> MemoryController<F> {
     }
 
     fn replay_access_log(&mut self) {
+        // For each (start, end) range, mark all but the first Read/Write as skipped
+        tracing::info_span!("mark register memory record for skip").in_scope(||
+        if let Some((start, end)) = self.memory.apc_ranges.iter().next() {
+            let mut to_skip = Vec::new();
+            tracing::info_span!("calculate skipped memory record in a single APC run").in_scope(|| {
+            let mut seen_first = HashSet::new();
+            (*start..*end).into_iter().for_each(|idx| {
+                let entry = self.memory.log.get(idx).unwrap();
+                match entry {
+                    MemoryLogEntry::Read { address_space, pointer, .. } | MemoryLogEntry::Write { address_space, pointer, .. } => {
+                        if *address_space == 1 {
+                            if !seen_first.insert(*pointer) {
+                                // first register Read/Write -> skip = false (default value)
+                                // subsequent register Read/Write -> skip = true
+                                to_skip.push(idx - start);
+                            }
+                        }
+                    }
+                    _ => {
+                        // not a Read/Write, do nothing
+                    }
+                }
+            }); });
+
+            tracing::info!("Skip LT columns generation for {} out of {} memory records in each run of the current APC.", to_skip.len(), end - start + 1);
+
+            tracing::info_span!("mark skipped memory records").in_scope(|| {
+            for &(start, _) in self.memory.apc_ranges.iter() {
+                for &idx in to_skip.iter() {
+                    let entry = self.memory.log.get_mut(idx + start).unwrap();
+                    match entry {
+                        MemoryLogEntry::Read { should_skip: skip, .. }
+                        | MemoryLogEntry::Write { should_skip: skip, .. } => {
+                            *skip = true; // mark as skipped
+                        }
+                        _ => panic!("Expected Read or Write entry"), // should be unreachable
+                    }
+                }
+            } });
+        });
+
         let log = mem::take(&mut self.memory.log);
         if log.is_empty() {
             // Online memory logs may be empty, but offline memory may be replayed from external
@@ -490,21 +531,23 @@ impl<F: PrimeField32> MemoryController<F> {
                 address_space,
                 pointer,
                 len,
+                should_skip,
             } => {
                 if address_space != 0 {
                     interface_chip.touch_range(address_space, pointer, len as u32);
                 }
-                offline_memory.read(address_space, pointer, len, adapter_records);
+                offline_memory.read_with_skip(address_space, pointer, len, adapter_records, should_skip);
             }
             MemoryLogEntry::Write {
                 address_space,
                 pointer,
                 data,
+                should_skip,
             } => {
                 if address_space != 0 {
                     interface_chip.touch_range(address_space, pointer, data.len() as u32);
                 }
-                offline_memory.write(address_space, pointer, data, adapter_records);
+                offline_memory.write_with_skip(address_space, pointer, data, adapter_records, should_skip);
             }
             MemoryLogEntry::IncrementTimestampBy(amount) => {
                 offline_memory.increment_timestamp_by(amount);
@@ -521,7 +564,7 @@ impl<F: PrimeField32> MemoryController<F> {
             return;
         }
 
-        self.replay_access_log();
+        tracing::info_span!("replay access log").in_scope(|| self.replay_access_log());
         let mut offline_memory = self.offline_memory.lock().unwrap();
 
         match &mut self.interface_chip {
@@ -756,11 +799,14 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
     }
 
     pub fn generate_base_aux(&self, record: &MemoryRecord<F>, buffer: &mut MemoryBaseAuxCols<F>) {
-        buffer.prev_timestamp = F::from_canonical_u32(record.prev_timestamp);
+        if !record.should_skip { // in practice we don't need prev_timestamp except the last instruction memory record of an apc, but there's no way to express that at the moment
+            buffer.prev_timestamp = F::from_canonical_u32(record.prev_timestamp);
+        }
         self.generate_timestamp_lt(
             record.prev_timestamp,
             record.timestamp,
             &mut buffer.timestamp_lt_aux,
+            record.should_skip,
         );
     }
 
@@ -769,12 +815,18 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
         prev_timestamp: u32,
         timestamp: u32,
         buffer: &mut LessThanAuxCols<F, AUX_LEN>,
+        should_skip: bool
     ) {
         debug_assert!(prev_timestamp < timestamp);
-        self.timestamp_lt_air.generate_subrow(
-            (self.range_checker.as_ref(), prev_timestamp, timestamp),
-            &mut buffer.lower_decomp,
-        );
+        if should_skip {
+            self.range_checker.add_count(0, 17);
+            self.range_checker.add_count(0, 12);
+        } else {
+            self.timestamp_lt_air.generate_subrow(
+                (self.range_checker.as_ref(), prev_timestamp, timestamp),
+                &mut buffer.lower_decomp,
+            );
+        }
     }
 
     /// In general, prefer `generate_read_aux` which writes in-place rather than this function.

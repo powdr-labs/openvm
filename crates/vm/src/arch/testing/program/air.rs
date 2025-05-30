@@ -3,7 +3,7 @@ use openvm_stark_backend::{
     p3_air::{Air, BaseAir},
     p3_field::Field,
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir, ColumnsAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
 
 use super::ProgramTester;
