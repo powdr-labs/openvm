@@ -456,6 +456,7 @@ impl<F: PrimeField32> MemoryController<F> {
 
     fn replay_access_log(&mut self) {
         // For each (start, end) range, mark all but the first Read/Write as skipped
+        tracing::info_span!("mark register memory record for skip").in_scope(|| 
         for &(start, end) in &self.memory.apc_ranges {
             // We use a HashSet to track the first Read/Write for each register
             let mut seen_first = HashSet::new();
@@ -488,6 +489,7 @@ impl<F: PrimeField32> MemoryController<F> {
                 }
             }
         }
+        );
 
         let log = mem::take(&mut self.memory.log);
         if log.is_empty() {
