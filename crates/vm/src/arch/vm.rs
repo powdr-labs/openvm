@@ -20,18 +20,19 @@ use thiserror::Error;
 use tracing::info_span;
 
 use super::{
-    execution_mode::{metered::Segment, tracegen::TracegenExecutionControlWithSegmentation},
-    ExecutionError, InsExecutorE1, VmChipComplex, VmComplexTraceHeights, VmConfig,
-    VmInventoryError, CONNECTOR_AIR_ID, MERKLE_AIR_ID, PROGRAM_AIR_ID, PROGRAM_CACHED_TRACE_INDEX,
+    execution_mode::tracegen::TracegenExecutionControlWithSegmentation, ExecutionError,
+    InsExecutorE1, VmChipComplex, VmComplexTraceHeights, VmConfig, VmInventoryError,
+    CONNECTOR_AIR_ID, MERKLE_AIR_ID, PROGRAM_AIR_ID, PROGRAM_CACHED_TRACE_INDEX,
 };
 #[cfg(feature = "bench-metrics")]
 use crate::metrics::VmMetrics;
 use crate::{
     arch::{
+        execution_control::ExecutionControl,
         execution_mode::{
             e1::E1ExecutionControl,
-            metered::{MeteredCtx, MeteredExecutionControl},
-            tracegen::TracegenExecutionControl,
+            metered::{bounded::Segment, MeteredCtx, MeteredExecutionControl},
+            tracegen::{TracegenCtx, TracegenExecutionControl},
         },
         hasher::poseidon2::vm_poseidon2_hasher,
         VmSegmentExecutor, VmSegmentState,
@@ -256,6 +257,7 @@ where
         )
         .unwrap();
         let ctrl = TracegenExecutionControlWithSegmentation::new(chip_complex.air_names());
+        let ctx = ExecutionControl::<F, VC>::initialize_context(&ctrl);
         let mut segment = VmSegmentExecutor::new(
             chip_complex,
             self.trace_height_constraints.clone(),
@@ -271,7 +273,7 @@ where
             segment.set_override_trace_heights(overridden_heights.clone());
         }
 
-        let mut exec_state = VmSegmentState::new(from_state.clk, from_state.pc, None, ());
+        let mut exec_state = VmSegmentState::new(from_state.clk, from_state.pc, None, ctx);
         metrics_span("execute_time_ms", || {
             segment.execute_from_state(&mut exec_state)
         })?;
@@ -298,7 +300,12 @@ where
         let metrics = segment.metrics.partial_take();
 
         // TODO(ayush): this can probably be avoided
-        let memory = segment.ctrl.final_memory.as_ref().unwrap().clone();
+        let memory = segment
+            .chip_complex
+            .base
+            .memory_controller
+            .memory_image()
+            .clone();
         Ok(VmExecutorOneSegmentResult {
             segment,
             next_state: Some(VmState {
@@ -328,7 +335,13 @@ where
             |err| err,
         )?;
         let last = last.expect("at least one segment must be executed");
-        let final_memory = last.ctrl.final_memory;
+        let final_memory = Some(
+            last.chip_complex
+                .base
+                .memory_controller
+                .memory_image()
+                .clone(),
+        );
         let end_state =
             last.chip_complex.connector_chip().boundary_states[1].expect("end state must be set");
         if end_state.is_terminate != 1 {
@@ -507,7 +520,7 @@ where
             None => return Err(ExecutionError::DidNotTerminate),
         };
 
-        Ok(executor.ctrl.segments)
+        todo!("record segments")
     }
 
     pub fn execute_and_generate<SC: StarkGenericConfig>(
@@ -569,8 +582,14 @@ where
                 .pc
         );
 
-        // TODO(ayush): avoid cloning
-        let final_memory = segment.ctrl.final_memory.clone();
+        let final_memory = Some(
+            segment
+                .chip_complex
+                .base
+                .memory_controller
+                .memory_image()
+                .clone(),
+        );
         let proof_input = tracing::info_span!("generate_proof_input")
             .in_scope(|| segment.generate_proof_input(None))?;
 
@@ -615,7 +634,7 @@ where
             |seg_idx, mut seg| {
                 // Note: this will only be Some on the last segment; otherwise it is
                 // already moved into next segment state
-                final_memory = mem::take(&mut seg.ctrl.final_memory);
+                final_memory = Some(seg.chip_complex.memory_controller().memory_image().clone());
                 tracing::info_span!("trace_gen", segment = seg_idx)
                     .in_scope(|| seg.generate_proof_input(committed_program.clone()))
             },
@@ -752,7 +771,14 @@ where
             segment.set_override_trace_heights(overridden_heights.clone());
         }
 
-        let mut exec_state = VmSegmentState::new(0, exe.pc_start, None, ());
+        let mut exec_state = VmSegmentState::new(
+            0,
+            exe.pc_start,
+            None,
+            TracegenCtx {
+                since_last_segment_check: 0,
+            },
+        );
         metrics_span("execute_time_ms", || {
             segment.execute_from_state(&mut exec_state)
         })?;
