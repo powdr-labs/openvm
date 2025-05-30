@@ -456,30 +456,19 @@ impl<F: PrimeField32> MemoryController<F> {
 
     fn replay_access_log(&mut self) {
         // For each (start, end) range, mark all but the first Read/Write as skipped
-        tracing::info_span!("mark register memory record for skip").in_scope(|| 
-        for &(start, end) in &self.memory.apc_ranges {
-            // We use a HashSet to track the first Read/Write for each register
+        tracing::info_span!("mark register memory record for skip").in_scope(||
+        if let Some((start, end)) = self.memory.apc_ranges.iter().next() {
+            let mut to_skip = Vec::new();
             let mut seen_first = HashSet::new();
-            for idx in start..end { // never skip the last memory access of a basic block
-                let entry = self.memory.log.get_mut(idx).unwrap();
+            (*start..*end).into_iter().for_each(|idx| {
+                let entry = self.memory.log.get(idx).unwrap();
                 match entry {
-                    MemoryLogEntry::Read {
-                        address_space,
-                        pointer,
-                        should_skip: skip,
-                        ..
-                    }
-                    | MemoryLogEntry::Write {
-                        address_space,
-                        pointer,
-                        should_skip: skip,
-                        ..
-                    } => {
+                    MemoryLogEntry::Read { address_space, pointer, .. } | MemoryLogEntry::Write { address_space, pointer, .. } => {
                         if *address_space == 1 {
                             if !seen_first.insert(*pointer) {
                                 // first register Read/Write -> skip = false (default value)
                                 // subsequent register Read/Write -> skip = true
-                                *skip = true;
+                                to_skip.push(idx - start);
                             }
                         }
                     }
@@ -487,9 +476,21 @@ impl<F: PrimeField32> MemoryController<F> {
                         // not a Read/Write, do nothing
                     }
                 }
+            }); 
+
+            for &(start, _) in self.memory.apc_ranges.iter() {
+                for &idx in to_skip.iter() {
+                    let entry = self.memory.log.get_mut(idx + start).unwrap();
+                    match entry {
+                        MemoryLogEntry::Read { should_skip: skip, .. }
+                        | MemoryLogEntry::Write { should_skip: skip, .. } => {
+                            *skip = true; // mark as skipped
+                        }
+                        _ => panic!("Expected Read or Write entry"), // should be unreachable
+                    }
+                }
             }
-        }
-        );
+        });
 
         let log = mem::take(&mut self.memory.log);
         if log.is_empty() {
