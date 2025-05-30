@@ -109,8 +109,13 @@ where
                     );
                     let proof_input = info_span!("trace_gen", segment = seg_idx)
                         .in_scope(|| seg.generate_proof_input(Some(committed_program.clone())))?;
-                    info_span!("prove_segment", segment = seg_idx)
-                        .in_scope(|| Ok(vm.engine.prove(&self.pk.vm_pk, proof_input)))
+                    info_span!("prove_segment", segment = seg_idx).in_scope(|| {
+                        let proof = vm.engine.prove(&self.pk.vm_pk, proof_input);
+                        vm.engine
+                            .verify(&self.pk.vm_pk.get_vk(), &proof)
+                            .expect("verification failed");
+                        Ok(proof)
+                    })
                 },
                 GenerationError::Execution,
             ) {
