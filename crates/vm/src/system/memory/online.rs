@@ -15,13 +15,11 @@ pub enum MemoryLogEntry<T> {
         address_space: u32,
         pointer: u32,
         len: usize,
-        should_skip: bool,
     },
     Write {
         address_space: u32,
         pointer: u32,
         data: Vec<T>,
-        should_skip: bool,
     },
     IncrementTimestampBy(u32),
 }
@@ -78,7 +76,6 @@ impl<F: PrimeField32> Memory<F> {
             address_space,
             pointer,
             data: values.to_vec(),
-            should_skip: false,
         });
         self.timestamp += 1;
 
@@ -93,7 +90,6 @@ impl<F: PrimeField32> Memory<F> {
             address_space,
             pointer,
             len: N,
-            should_skip: false,
         });
 
         let values = if address_space == 0 {
