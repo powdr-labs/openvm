@@ -1,6 +1,6 @@
 use std::{
     array,
-    collections::{BTreeMap, HashSet},
+    collections::BTreeMap,
     iter,
     marker::PhantomData,
     mem,
@@ -469,98 +469,93 @@ impl<F: PrimeField32> MemoryController<F> {
         offline_memory.set_log_capacity(log.len());
 
         // For each (start, end) range, mark all but the first Read/Write as skipped
-        tracing::info_span!("calculate and replay accesses").in_scope(|| {
-            /// The state machine to track whether we are in an APC range or not
-            enum Position {
-                /// In an APC range until the given index, keeping track of seen registers
-                InApcUntil(usize, [bool; 32]),
-                /// Outside of an APC range
-                OutOfApc,
-            }
 
-            /// State for the scan operation, keeping track of the current position in the log
-            struct ShouldSkipState<'a> {
-                /// Current position in the log
-                position: Position,
-                /// Iterator over the APC ranges
-                apc_ranges: Iter<'a, (usize, usize)>,
-                /// Next APC range, if any
-                next_range: Option<&'a (usize, usize)>,
-            }
+        /// The state machine to track whether we are in an APC range or not
+        enum Position {
+            /// In an APC range until the given index, keeping track of seen registers
+            InApcUntil(usize, [bool; 32]),
+            /// Outside of an APC range
+            OutOfApc,
+        }
 
-            let mut apc_ranges = self.memory.apc_ranges.iter();
-            let next_range = apc_ranges.next();
+        /// State for the scan operation, keeping track of the current position in the log
+        struct ShouldSkipState<'a> {
+            /// Current position in the log
+            position: Position,
+            /// Iterator over the APC ranges
+            apc_ranges: Iter<'a, (usize, usize)>,
+            /// Next APC range, if any
+            next_range: Option<&'a (usize, usize)>,
+        }
 
-            // Assumption: the ranges are disjoint and sorted
-            let tagged_entries = log.into_iter().enumerate().scan(
-                ShouldSkipState {
-                    position: Position::OutOfApc,
-                    apc_ranges,
-                    next_range,
-                },
-                |state, (index, entry)| {
-                    // Update the position
-                    match &mut state.position {
-                        // Reaching the end of an APC range, switch to `OutOfApc`
-                        Position::InApcUntil(end, _) if index == *end => {
-                            state.position = Position::OutOfApc;
-                            state.next_range = state.apc_ranges.next();
+        let mut apc_ranges = self.memory.apc_ranges.iter();
+        let next_range = apc_ranges.next();
+
+        // Assumption: the ranges are disjoint and sorted
+        let tagged_entries = log.into_iter().enumerate().scan(
+            ShouldSkipState {
+                position: Position::OutOfApc,
+                apc_ranges,
+                next_range,
+            },
+            |state, (index, entry)| {
+                // Update the position
+                match &mut state.position {
+                    // Reaching the end of an APC range, switch to `OutOfApc`
+                    Position::InApcUntil(end, _) if index == *end => {
+                        state.position = Position::OutOfApc;
+                        state.next_range = state.apc_ranges.next();
+                    }
+                    // Outside any APC range, switch to `InApcUntil` iff we reached the start of the next range
+                    Position::OutOfApc => match state.next_range {
+                        Some((start, end)) if index == *start => {
+                            state.position = Position::InApcUntil(*end, [false; 32]);
                         }
-                        // Outside any APC range, switch to `InApcUntil` iff we reached the start of the next range
-                        Position::OutOfApc => match state.next_range {
-                            Some((start, end)) if index == *start => {
-                                state.position = Position::InApcUntil(*end, [false; 32]);
-                            }
-                            _ => (),
+                        _ => (),
+                    },
+                    // Staying in the same APC range, do nothing
+                    _ => {}
+                };
+
+                // Determine if we should skip this entry
+                let should_skip = match (&mut state.position, &entry) {
+                    (
+                        Position::InApcUntil(_, seen),
+                        MemoryLogEntry::Read {
+                            address_space,
+                            pointer,
+                            ..
+                        }
+                        | MemoryLogEntry::Write {
+                            address_space,
+                            pointer,
+                            ..
                         },
-                        // Staying in the same APC range, do nothing
-                        _ => {}
-                    };
-
-                    // Determine if we should skip this entry
-                    let should_skip = match (&mut state.position, &entry) {
-                        (
-                            Position::InApcUntil(_, seen),
-                            MemoryLogEntry::Read {
-                                address_space,
-                                pointer,
-                                ..
-                            }
-                            | MemoryLogEntry::Write {
-                                address_space,
-                                pointer,
-                                ..
-                            },
-                        ) if *address_space == 1 => {
-                            // Skip the first access in the APC range
-                            if seen[(*pointer/4) as usize] {
-                                true
-                            } else {
-                                seen[(*pointer/4) as usize] = true;
-                                false
-                            }
+                    ) if *address_space == 1 => {
+                        // Skip the first access in the APC range
+                        if seen[(*pointer / 4) as usize] {
+                            true
+                        } else {
+                            seen[(*pointer / 4) as usize] = true;
+                            false
                         }
-                        _ => false,
-                    };
+                    }
+                    _ => false,
+                };
 
-                    Some((entry, should_skip))
-                },
-            );
+                Some((entry, should_skip))
+            },
+        );
 
-            tracing::info_span!("replay memory accesses")
-                .in_scope(|| 
-
-            for (entry, should_skip) in tagged_entries {
-                Self::replay_access(
-                    entry,
-                    &mut offline_memory,
-                    &mut self.interface_chip,
-                    &mut self.access_adapters,
-                    should_skip,
-                )
-            }
-            );
-        });
+        for (entry, should_skip) in tagged_entries {
+            Self::replay_access(
+                entry,
+                &mut offline_memory,
+                &mut self.interface_chip,
+                &mut self.access_adapters,
+                should_skip,
+            )
+        }
     }
 
     /// Low-level API to replay a single memory access log entry and populate the [OfflineMemory],
@@ -855,7 +850,7 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
     }
 
     pub fn generate_base_aux(&self, record: &MemoryRecord<F>, buffer: &mut MemoryBaseAuxCols<F>) {
-        if !record.should_skip { 
+        if !record.should_skip {
             // In practice we don't need prev_timestamp except the last instruction memory record of an apc, but there's no way to express that at the moment.
             buffer.prev_timestamp = F::from_canonical_u32(record.prev_timestamp);
         }
