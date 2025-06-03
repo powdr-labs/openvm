@@ -658,441 +658,449 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn test_write_read_initial_block_len_1() {
-    //     let (mut memory, mut access_adapters) = setup_test(MemoryImage::default(), 1);
-    //     let address_space = 1;
+    #[test]
+    fn test_write_read_initial_block_len_1() {
+        let (mut memory, mut access_adapters) = setup_test(MemoryImage::default(), 1);
+        let address_space = 1;
 
-    //     memory.write(address_space, 0, bbvec![1, 2, 3, 4], &mut access_adapters);
+        memory.write(address_space, 0, bbvec![1, 2, 3, 4], &mut access_adapters);
 
-    //     memory.read(address_space, 0, 2, &mut access_adapters);
-    //     let read_record = memory.last_record();
-    //     assert_eq!(read_record.data, bba![1, 2]);
+        memory.read(address_space, 0, 2, &mut access_adapters);
+        let read_record = memory.last_record();
+        assert_eq!(read_record.data, bba![1, 2]);
 
-    //     memory.write(address_space, 2, bbvec![100], &mut access_adapters);
+        memory.write(address_space, 2, bbvec![100], &mut access_adapters);
 
-    //     memory.read(address_space, 0, 4, &mut access_adapters);
-    //     let read_record = memory.last_record();
-    //     assert_eq!(read_record.data, bba![1, 2, 100, 4]);
-    // }
+        memory.read(address_space, 0, 4, &mut access_adapters);
+        let read_record = memory.last_record();
+        assert_eq!(read_record.data, bba![1, 2, 100, 4]);
+    }
 
-    // #[test]
-    // fn test_records_initial_block_len_1() {
-    //     let (mut memory, mut adapter_records) = setup_test(MemoryImage::default(), 1);
+    #[test]
+    fn test_records_initial_block_len_1() {
+        let (mut memory, mut adapter_records) = setup_test(MemoryImage::default(), 1);
 
-    //     memory.write(1, 0, bbvec![1, 2, 3, 4], &mut adapter_records);
+        memory.write(1, 0, bbvec![1, 2, 3, 4], &mut adapter_records);
 
-    //     // Above write first causes merge of [0:1] and [1:2] into [0:2].
-    //     assert_eq!(
-    //         adapter_records.records_for_n(2)[0],
-    //         AccessAdapterRecord {
-    //             timestamp: 0,
-    //             address_space: bb!(1),
-    //             start_index: bb!(0),
-    //             data: bbvec![0, 0],
-    //             kind: AccessAdapterRecordKind::Merge {
-    //                 left_timestamp: 0,
-    //                 right_timestamp: 0,
-    //             },
-    //         }
-    //     );
-    //     // then merge [2:3] and [3:4] into [2:4].
-    //     assert_eq!(
-    //         adapter_records.records_for_n(2)[1],
-    //         AccessAdapterRecord {
-    //             timestamp: 0,
-    //             address_space: bb!(1),
-    //             start_index: bb!(2),
-    //             data: bbvec![0, 0],
-    //             kind: AccessAdapterRecordKind::Merge {
-    //                 left_timestamp: 0,
-    //                 right_timestamp: 0,
-    //             },
-    //         }
-    //     );
-    //     // then merge [0:2] and [2:4] into [0:4].
-    //     assert_eq!(
-    //         adapter_records.records_for_n(4)[0],
-    //         AccessAdapterRecord {
-    //             timestamp: 0,
-    //             address_space: bb!(1),
-    //             start_index: bb!(0),
-    //             data: bbvec![0, 0, 0, 0],
-    //             kind: AccessAdapterRecordKind::Merge {
-    //                 left_timestamp: 0,
-    //                 right_timestamp: 0,
-    //             },
-    //         }
-    //     );
-    //     // At time 1 we write [0:4].
-    //     let write_record = memory.last_record();
-    //     assert_eq!(
-    //         write_record,
-    //         &MemoryRecord {
-    //             address_space: bb!(1),
-    //             pointer: bb!(0),
-    //             timestamp: 1,
-    //             prev_timestamp: 0,
-    //             data: bbvec![1, 2, 3, 4],
-    //             prev_data: Some(bbvec![0, 0, 0, 0]),
-    //         }
-    //     );
-    //     assert_eq!(memory.timestamp(), 2);
-    //     assert_eq!(adapter_records.total_records(), 3);
+        // Above write first causes merge of [0:1] and [1:2] into [0:2].
+        assert_eq!(
+            adapter_records.records_for_n(2)[0],
+            AccessAdapterRecord {
+                timestamp: 0,
+                address_space: bb!(1),
+                start_index: bb!(0),
+                data: bbvec![0, 0],
+                kind: AccessAdapterRecordKind::Merge {
+                    left_timestamp: 0,
+                    right_timestamp: 0,
+                },
+            }
+        );
+        // then merge [2:3] and [3:4] into [2:4].
+        assert_eq!(
+            adapter_records.records_for_n(2)[1],
+            AccessAdapterRecord {
+                timestamp: 0,
+                address_space: bb!(1),
+                start_index: bb!(2),
+                data: bbvec![0, 0],
+                kind: AccessAdapterRecordKind::Merge {
+                    left_timestamp: 0,
+                    right_timestamp: 0,
+                },
+            }
+        );
+        // then merge [0:2] and [2:4] into [0:4].
+        assert_eq!(
+            adapter_records.records_for_n(4)[0],
+            AccessAdapterRecord {
+                timestamp: 0,
+                address_space: bb!(1),
+                start_index: bb!(0),
+                data: bbvec![0, 0, 0, 0],
+                kind: AccessAdapterRecordKind::Merge {
+                    left_timestamp: 0,
+                    right_timestamp: 0,
+                },
+            }
+        );
+        // At time 1 we write [0:4].
+        let write_record = memory.last_record();
+        assert_eq!(
+            write_record,
+            &MemoryRecord {
+                address_space: bb!(1),
+                pointer: bb!(0),
+                timestamp: 1,
+                prev_timestamp: 0,
+                data: bbvec![1, 2, 3, 4],
+                prev_data: Some(bbvec![0, 0, 0, 0]),
+                should_skip: false,
+            }
+        );
+        assert_eq!(memory.timestamp(), 2);
+        assert_eq!(adapter_records.total_records(), 3);
 
-    //     memory.read(1, 0, 4, &mut adapter_records);
-    //     let read_record = memory.last_record();
-    //     // At time 2 we read [0:4].
-    //     assert_eq!(adapter_records.total_records(), 3);
-    //     assert_eq!(
-    //         read_record,
-    //         &MemoryRecord {
-    //             address_space: bb!(1),
-    //             pointer: bb!(0),
-    //             timestamp: 2,
-    //             prev_timestamp: 1,
-    //             data: bbvec![1, 2, 3, 4],
-    //             prev_data: None,
-    //         }
-    //     );
-    //     assert_eq!(memory.timestamp(), 3);
+        memory.read(1, 0, 4, &mut adapter_records);
+        let read_record = memory.last_record();
+        // At time 2 we read [0:4].
+        assert_eq!(adapter_records.total_records(), 3);
+        assert_eq!(
+            read_record,
+            &MemoryRecord {
+                address_space: bb!(1),
+                pointer: bb!(0),
+                timestamp: 2,
+                prev_timestamp: 1,
+                data: bbvec![1, 2, 3, 4],
+                prev_data: None,
+                should_skip: false,
+            }
+        );
+        assert_eq!(memory.timestamp(), 3);
 
-    //     memory.write(1, 0, bbvec![10, 11], &mut adapter_records);
-    //     let write_record = memory.last_record();
-    //     // write causes split [0:4] into [0:2] and [2:4] (to prepare for write to [0:2]).
-    //     assert_eq!(adapter_records.total_records(), 4);
-    //     assert_eq!(
-    //         adapter_records.records_for_n(4).last().unwrap(),
-    //         &AccessAdapterRecord {
-    //             timestamp: 2,
-    //             address_space: bb!(1),
-    //             start_index: bb!(0),
-    //             data: bbvec![1, 2, 3, 4],
-    //             kind: AccessAdapterRecordKind::Split,
-    //         }
-    //     );
+        memory.write(1, 0, bbvec![10, 11], &mut adapter_records);
+        let write_record = memory.last_record();
+        // write causes split [0:4] into [0:2] and [2:4] (to prepare for write to [0:2]).
+        assert_eq!(adapter_records.total_records(), 4);
+        assert_eq!(
+            adapter_records.records_for_n(4).last().unwrap(),
+            &AccessAdapterRecord {
+                timestamp: 2,
+                address_space: bb!(1),
+                start_index: bb!(0),
+                data: bbvec![1, 2, 3, 4],
+                kind: AccessAdapterRecordKind::Split,
+            }
+        );
 
-    //     // At time 3 we write [10, 11] into [0, 2].
-    //     assert_eq!(
-    //         write_record,
-    //         &MemoryRecord {
-    //             address_space: bb!(1),
-    //             pointer: bb!(0),
-    //             timestamp: 3,
-    //             prev_timestamp: 2,
-    //             data: bbvec![10, 11],
-    //             prev_data: Some(bbvec![1, 2]),
-    //         }
-    //     );
+        // At time 3 we write [10, 11] into [0, 2].
+        assert_eq!(
+            write_record,
+            &MemoryRecord {
+                address_space: bb!(1),
+                pointer: bb!(0),
+                timestamp: 3,
+                prev_timestamp: 2,
+                data: bbvec![10, 11],
+                prev_data: Some(bbvec![1, 2]),
+                should_skip: false,
+            }
+        );
 
-    //     memory.read(1, 0, 4, &mut adapter_records);
-    //     let read_record = memory.last_record();
-    //     assert_eq!(adapter_records.total_records(), 5);
-    //     assert_eq!(
-    //         adapter_records.records_for_n(4).last().unwrap(),
-    //         &AccessAdapterRecord {
-    //             timestamp: 3,
-    //             address_space: bb!(1),
-    //             start_index: bb!(0),
-    //             data: bbvec![10, 11, 3, 4],
-    //             kind: AccessAdapterRecordKind::Merge {
-    //                 left_timestamp: 3,
-    //                 right_timestamp: 2
-    //             },
-    //         }
-    //     );
-    //     // At time 9 we read [0:4].
-    //     assert_eq!(
-    //         read_record,
-    //         &MemoryRecord {
-    //             address_space: bb!(1),
-    //             pointer: bb!(0),
-    //             timestamp: 4,
-    //             prev_timestamp: 3,
-    //             data: bbvec![10, 11, 3, 4],
-    //             prev_data: None,
-    //         }
-    //     );
-    // }
+        memory.read(1, 0, 4, &mut adapter_records);
+        let read_record = memory.last_record();
+        assert_eq!(adapter_records.total_records(), 5);
+        assert_eq!(
+            adapter_records.records_for_n(4).last().unwrap(),
+            &AccessAdapterRecord {
+                timestamp: 3,
+                address_space: bb!(1),
+                start_index: bb!(0),
+                data: bbvec![10, 11, 3, 4],
+                kind: AccessAdapterRecordKind::Merge {
+                    left_timestamp: 3,
+                    right_timestamp: 2
+                },
+            }
+        );
+        // At time 9 we read [0:4].
+        assert_eq!(
+            read_record,
+            &MemoryRecord {
+                address_space: bb!(1),
+                pointer: bb!(0),
+                timestamp: 4,
+                prev_timestamp: 3,
+                data: bbvec![10, 11, 3, 4],
+                prev_data: None,
+                should_skip: false,
+            }
+        );
+    }
 
-    // #[test]
-    // fn test_records_initial_block_len_8() {
-    //     let (mut memory, mut adapter_records) = setup_test(MemoryImage::default(), 8);
+    #[test]
+    fn test_records_initial_block_len_8() {
+        let (mut memory, mut adapter_records) = setup_test(MemoryImage::default(), 8);
 
-    //     memory.write(1, 0, bbvec![1, 2, 3, 4], &mut adapter_records);
-    //     let write_record = memory.last_record();
+        memory.write(1, 0, bbvec![1, 2, 3, 4], &mut adapter_records);
+        let write_record = memory.last_record();
 
-    //     // Above write first causes split of [0:8] into [0:4] and [4:8].
-    //     assert_eq!(adapter_records.total_records(), 1);
-    //     assert_eq!(
-    //         adapter_records.records_for_n(8).last().unwrap(),
-    //         &AccessAdapterRecord {
-    //             timestamp: 0,
-    //             address_space: bb!(1),
-    //             start_index: bb!(0),
-    //             data: bbvec![0, 0, 0, 0, 0, 0, 0, 0],
-    //             kind: AccessAdapterRecordKind::Split,
-    //         }
-    //     );
-    //     // At time 1 we write [0:4].
-    //     assert_eq!(
-    //         write_record,
-    //         &MemoryRecord {
-    //             address_space: bb!(1),
-    //             pointer: bb!(0),
-    //             timestamp: 1,
-    //             prev_timestamp: 0,
-    //             data: bbvec![1, 2, 3, 4],
-    //             prev_data: Some(bbvec![0, 0, 0, 0]),
-    //         }
-    //     );
-    //     assert_eq!(memory.timestamp(), 2);
+        // Above write first causes split of [0:8] into [0:4] and [4:8].
+        assert_eq!(adapter_records.total_records(), 1);
+        assert_eq!(
+            adapter_records.records_for_n(8).last().unwrap(),
+            &AccessAdapterRecord {
+                timestamp: 0,
+                address_space: bb!(1),
+                start_index: bb!(0),
+                data: bbvec![0, 0, 0, 0, 0, 0, 0, 0],
+                kind: AccessAdapterRecordKind::Split,
+            }
+        );
+        // At time 1 we write [0:4].
+        assert_eq!(
+            write_record,
+            &MemoryRecord {
+                address_space: bb!(1),
+                pointer: bb!(0),
+                timestamp: 1,
+                prev_timestamp: 0,
+                data: bbvec![1, 2, 3, 4],
+                prev_data: Some(bbvec![0, 0, 0, 0]),
+                should_skip: false,
+            }
+        );
+        assert_eq!(memory.timestamp(), 2);
 
-    //     memory.read(1, 0, 4, &mut adapter_records);
-    //     let read_record = memory.last_record();
-    //     // At time 2 we read [0:4].
-    //     assert_eq!(adapter_records.total_records(), 1);
-    //     assert_eq!(
-    //         read_record,
-    //         &MemoryRecord {
-    //             address_space: bb!(1),
-    //             pointer: bb!(0),
-    //             timestamp: 2,
-    //             prev_timestamp: 1,
-    //             data: bbvec![1, 2, 3, 4],
-    //             prev_data: None,
-    //         }
-    //     );
-    //     assert_eq!(memory.timestamp(), 3);
+        memory.read(1, 0, 4, &mut adapter_records);
+        let read_record = memory.last_record();
+        // At time 2 we read [0:4].
+        assert_eq!(adapter_records.total_records(), 1);
+        assert_eq!(
+            read_record,
+            &MemoryRecord {
+                address_space: bb!(1),
+                pointer: bb!(0),
+                timestamp: 2,
+                prev_timestamp: 1,
+                data: bbvec![1, 2, 3, 4],
+                prev_data: None,
+                should_skip: false,
+            }
+        );
+        assert_eq!(memory.timestamp(), 3);
 
-    //     memory.write(1, 0, bbvec![10, 11], &mut adapter_records);
-    //     let write_record = memory.last_record();
-    //     // write causes split [0:4] into [0:2] and [2:4] (to prepare for write to [0:2]).
-    //     assert_eq!(adapter_records.total_records(), 2);
-    //     assert_eq!(
-    //         adapter_records.records_for_n(4).last().unwrap(),
-    //         &AccessAdapterRecord {
-    //             timestamp: 2,
-    //             address_space: bb!(1),
-    //             start_index: bb!(0),
-    //             data: bbvec![1, 2, 3, 4],
-    //             kind: AccessAdapterRecordKind::Split,
-    //         }
-    //     );
+        memory.write(1, 0, bbvec![10, 11], &mut adapter_records);
+        let write_record = memory.last_record();
+        // write causes split [0:4] into [0:2] and [2:4] (to prepare for write to [0:2]).
+        assert_eq!(adapter_records.total_records(), 2);
+        assert_eq!(
+            adapter_records.records_for_n(4).last().unwrap(),
+            &AccessAdapterRecord {
+                timestamp: 2,
+                address_space: bb!(1),
+                start_index: bb!(0),
+                data: bbvec![1, 2, 3, 4],
+                kind: AccessAdapterRecordKind::Split,
+            }
+        );
 
-    //     // At time 3 we write [10, 11] into [0, 2].
-    //     assert_eq!(
-    //         write_record,
-    //         &MemoryRecord {
-    //             address_space: bb!(1),
-    //             pointer: bb!(0),
-    //             timestamp: 3,
-    //             prev_timestamp: 2,
-    //             data: bbvec![10, 11],
-    //             prev_data: Some(bbvec![1, 2]),
-    //         }
-    //     );
+        // At time 3 we write [10, 11] into [0, 2].
+        assert_eq!(
+            write_record,
+            &MemoryRecord {
+                address_space: bb!(1),
+                pointer: bb!(0),
+                timestamp: 3,
+                prev_timestamp: 2,
+                data: bbvec![10, 11],
+                prev_data: Some(bbvec![1, 2]),
+                should_skip: false,
+            }
+        );
 
-    //     memory.read(1, 0, 4, &mut adapter_records);
-    //     let read_record = memory.last_record();
-    //     assert_eq!(adapter_records.total_records(), 3);
-    //     assert_eq!(
-    //         adapter_records.records_for_n(4).last().unwrap(),
-    //         &AccessAdapterRecord {
-    //             timestamp: 3,
-    //             address_space: bb!(1),
-    //             start_index: bb!(0),
-    //             data: bbvec![10, 11, 3, 4],
-    //             kind: AccessAdapterRecordKind::Merge {
-    //                 left_timestamp: 3,
-    //                 right_timestamp: 2
-    //             },
-    //         }
-    //     );
-    //     // At time 9 we read [0:4].
-    //     assert_eq!(
-    //         read_record,
-    //         &MemoryRecord {
-    //             address_space: bb!(1),
-    //             pointer: bb!(0),
-    //             timestamp: 4,
-    //             prev_timestamp: 3,
-    //             data: bbvec![10, 11, 3, 4],
-    //             prev_data: None,
-    //         }
-    //     );
-    // }
+        memory.read(1, 0, 4, &mut adapter_records);
+        let read_record = memory.last_record();
+        assert_eq!(adapter_records.total_records(), 3);
+        assert_eq!(
+            adapter_records.records_for_n(4).last().unwrap(),
+            &AccessAdapterRecord {
+                timestamp: 3,
+                address_space: bb!(1),
+                start_index: bb!(0),
+                data: bbvec![10, 11, 3, 4],
+                kind: AccessAdapterRecordKind::Merge {
+                    left_timestamp: 3,
+                    right_timestamp: 2
+                },
+            }
+        );
+        // At time 9 we read [0:4].
+        assert_eq!(
+            read_record,
+            &MemoryRecord {
+                address_space: bb!(1),
+                pointer: bb!(0),
+                timestamp: 4,
+                prev_timestamp: 3,
+                data: bbvec![10, 11, 3, 4],
+                prev_data: None,
+                should_skip: false,
+            }
+        );
+    }
 
-    // #[test]
-    // fn test_get_initial_block_len_1() {
-    //     let (mut memory, mut adapter_records) = setup_test(MemoryImage::default(), 1);
+    #[test]
+    fn test_get_initial_block_len_1() {
+        let (mut memory, mut adapter_records) = setup_test(MemoryImage::default(), 1);
 
-    //     memory.write(2, 0, bbvec![4, 3, 2, 1], &mut adapter_records);
+        memory.write(2, 0, bbvec![4, 3, 2, 1], &mut adapter_records);
 
-    //     assert_eq!(memory.get(2, 0), BabyBear::from_canonical_u32(4));
-    //     assert_eq!(memory.get(2, 1), BabyBear::from_canonical_u32(3));
-    //     assert_eq!(memory.get(2, 2), BabyBear::from_canonical_u32(2));
-    //     assert_eq!(memory.get(2, 3), BabyBear::from_canonical_u32(1));
-    //     assert_eq!(memory.get(2, 5), BabyBear::ZERO);
+        assert_eq!(memory.get(2, 0), BabyBear::from_canonical_u32(4));
+        assert_eq!(memory.get(2, 1), BabyBear::from_canonical_u32(3));
+        assert_eq!(memory.get(2, 2), BabyBear::from_canonical_u32(2));
+        assert_eq!(memory.get(2, 3), BabyBear::from_canonical_u32(1));
+        assert_eq!(memory.get(2, 5), BabyBear::ZERO);
 
-    //     assert_eq!(memory.get(1, 0), BabyBear::ZERO);
-    // }
+        assert_eq!(memory.get(1, 0), BabyBear::ZERO);
+    }
 
-    // #[test]
-    // fn test_get_initial_block_len_8() {
-    //     let (mut memory, mut adapter_records) = setup_test(MemoryImage::default(), 8);
+    #[test]
+    fn test_get_initial_block_len_8() {
+        let (mut memory, mut adapter_records) = setup_test(MemoryImage::default(), 8);
 
-    //     memory.write(2, 0, bbvec![4, 3, 2, 1], &mut adapter_records);
+        memory.write(2, 0, bbvec![4, 3, 2, 1], &mut adapter_records);
 
-    //     assert_eq!(memory.get(2, 0), BabyBear::from_canonical_u32(4));
-    //     assert_eq!(memory.get(2, 1), BabyBear::from_canonical_u32(3));
-    //     assert_eq!(memory.get(2, 2), BabyBear::from_canonical_u32(2));
-    //     assert_eq!(memory.get(2, 3), BabyBear::from_canonical_u32(1));
-    //     assert_eq!(memory.get(2, 5), BabyBear::ZERO);
-    //     assert_eq!(memory.get(2, 9), BabyBear::ZERO);
-    //     assert_eq!(memory.get(1, 0), BabyBear::ZERO);
-    // }
+        assert_eq!(memory.get(2, 0), BabyBear::from_canonical_u32(4));
+        assert_eq!(memory.get(2, 1), BabyBear::from_canonical_u32(3));
+        assert_eq!(memory.get(2, 2), BabyBear::from_canonical_u32(2));
+        assert_eq!(memory.get(2, 3), BabyBear::from_canonical_u32(1));
+        assert_eq!(memory.get(2, 5), BabyBear::ZERO);
+        assert_eq!(memory.get(2, 9), BabyBear::ZERO);
+        assert_eq!(memory.get(1, 0), BabyBear::ZERO);
+    }
 
-    // #[test]
-    // fn test_finalize_empty() {
-    //     let (mut memory, mut adapter_records) = setup_test(MemoryImage::default(), 4);
+    #[test]
+    fn test_finalize_empty() {
+        let (mut memory, mut adapter_records) = setup_test(MemoryImage::default(), 4);
 
-    //     let memory = memory.finalize::<4>(&mut adapter_records);
-    //     assert_eq!(memory.len(), 0);
-    //     assert_eq!(adapter_records.total_records(), 0);
-    // }
+        let memory = memory.finalize::<4>(&mut adapter_records);
+        assert_eq!(memory.len(), 0);
+        assert_eq!(adapter_records.total_records(), 0);
+    }
 
-    // #[test]
-    // fn test_finalize_block_len_8() {
-    //     let (mut memory, mut adapter_records) = setup_test(MemoryImage::default(), 8);
-    //     // Make block 0:4 in address space 1 active.
-    //     memory.write(1, 0, bbvec![1, 2, 3, 4], &mut adapter_records);
+    #[test]
+    fn test_finalize_block_len_8() {
+        let (mut memory, mut adapter_records) = setup_test(MemoryImage::default(), 8);
+        // Make block 0:4 in address space 1 active.
+        memory.write(1, 0, bbvec![1, 2, 3, 4], &mut adapter_records);
 
-    //     // Make block 16:32 in address space 1 active.
-    //     memory.write(
-    //         1,
-    //         16,
-    //         bbvec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    //         &mut adapter_records,
-    //     );
+        // Make block 16:32 in address space 1 active.
+        memory.write(
+            1,
+            16,
+            bbvec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            &mut adapter_records,
+        );
 
-    //     // Make block 64:72 in address space 2 active.
-    //     memory.write(2, 64, bbvec![8, 7, 6, 5, 4, 3, 2, 1], &mut adapter_records);
+        // Make block 64:72 in address space 2 active.
+        memory.write(2, 64, bbvec![8, 7, 6, 5, 4, 3, 2, 1], &mut adapter_records);
 
-    //     let num_records_before_finalize = adapter_records.total_records();
+        let num_records_before_finalize = adapter_records.total_records();
 
-    //     // Finalize to a partition of size 8.
-    //     let final_memory = memory.finalize::<8>(&mut adapter_records);
-    //     assert_eq!(final_memory.len(), 4);
-    //     assert_eq!(
-    //         final_memory.get(&(1, 0)),
-    //         Some(&TimestampedValues {
-    //             values: bba![1, 2, 3, 4, 0, 0, 0, 0],
-    //             timestamp: 1,
-    //         })
-    //     );
-    //     // start_index = 16 corresponds to label = 2
-    //     assert_eq!(
-    //         final_memory.get(&(1, 2)),
-    //         Some(&TimestampedValues {
-    //             values: bba![1, 1, 1, 1, 1, 1, 1, 1],
-    //             timestamp: 2,
-    //         })
-    //     );
-    //     // start_index = 24 corresponds to label = 3
-    //     assert_eq!(
-    //         final_memory.get(&(1, 3)),
-    //         Some(&TimestampedValues {
-    //             values: bba![1, 1, 1, 1, 1, 1, 1, 1],
-    //             timestamp: 2,
-    //         })
-    //     );
-    //     // start_index = 64 corresponds to label = 8
-    //     assert_eq!(
-    //         final_memory.get(&(2, 8)),
-    //         Some(&TimestampedValues {
-    //             values: bba![8, 7, 6, 5, 4, 3, 2, 1],
-    //             timestamp: 3,
-    //         })
-    //     );
+        // Finalize to a partition of size 8.
+        let final_memory = memory.finalize::<8>(&mut adapter_records);
+        assert_eq!(final_memory.len(), 4);
+        assert_eq!(
+            final_memory.get(&(1, 0)),
+            Some(&TimestampedValues {
+                values: bba![1, 2, 3, 4, 0, 0, 0, 0],
+                timestamp: 1,
+            })
+        );
+        // start_index = 16 corresponds to label = 2
+        assert_eq!(
+            final_memory.get(&(1, 2)),
+            Some(&TimestampedValues {
+                values: bba![1, 1, 1, 1, 1, 1, 1, 1],
+                timestamp: 2,
+            })
+        );
+        // start_index = 24 corresponds to label = 3
+        assert_eq!(
+            final_memory.get(&(1, 3)),
+            Some(&TimestampedValues {
+                values: bba![1, 1, 1, 1, 1, 1, 1, 1],
+                timestamp: 2,
+            })
+        );
+        // start_index = 64 corresponds to label = 8
+        assert_eq!(
+            final_memory.get(&(2, 8)),
+            Some(&TimestampedValues {
+                values: bba![8, 7, 6, 5, 4, 3, 2, 1],
+                timestamp: 3,
+            })
+        );
 
-    //     // We need to do 1 + 1 + 0 = 2 adapters.
-    //     assert_eq!(
-    //         adapter_records.total_records() - num_records_before_finalize,
-    //         2
-    //     );
-    // }
+        // We need to do 1 + 1 + 0 = 2 adapters.
+        assert_eq!(
+            adapter_records.total_records() - num_records_before_finalize,
+            2
+        );
+    }
 
-    // #[test]
-    // fn test_write_read_initial_block_len_8_initial_memory() {
-    //     type F = BabyBear;
+    #[test]
+    fn test_write_read_initial_block_len_8_initial_memory() {
+        type F = BabyBear;
 
-    //     // Initialize initial memory with blocks at indices 0 and 2
-    //     let mut initial_memory = MemoryImage::default();
-    //     for i in 0..8 {
-    //         initial_memory.insert(&(1, i), F::from_canonical_u32(i + 1));
-    //         initial_memory.insert(&(1, 16 + i), F::from_canonical_u32(i + 1));
-    //     }
+        // Initialize initial memory with blocks at indices 0 and 2
+        let mut initial_memory = MemoryImage::default();
+        for i in 0..8 {
+            initial_memory.insert(&(1, i), F::from_canonical_u32(i + 1));
+            initial_memory.insert(&(1, 16 + i), F::from_canonical_u32(i + 1));
+        }
 
-    //     let (mut memory, mut adapter_records) = setup_test(initial_memory, 8);
+        let (mut memory, mut adapter_records) = setup_test(initial_memory, 8);
 
-    //     // Verify initial state of block 0 (pointers 0–8)
-    //     memory.read(1, 0, 8, &mut adapter_records);
-    //     let initial_read_record_0 = memory.last_record();
-    //     assert_eq!(initial_read_record_0.data, bbvec![1, 2, 3, 4, 5, 6, 7, 8]);
+        // Verify initial state of block 0 (pointers 0–8)
+        memory.read(1, 0, 8, &mut adapter_records);
+        let initial_read_record_0 = memory.last_record();
+        assert_eq!(initial_read_record_0.data, bbvec![1, 2, 3, 4, 5, 6, 7, 8]);
 
-    //     // Verify initial state of block 2 (pointers 16–24)
-    //     memory.read(1, 16, 8, &mut adapter_records);
-    //     let initial_read_record_2 = memory.last_record();
-    //     assert_eq!(initial_read_record_2.data, bbvec![1, 2, 3, 4, 5, 6, 7, 8]);
+        // Verify initial state of block 2 (pointers 16–24)
+        memory.read(1, 16, 8, &mut adapter_records);
+        let initial_read_record_2 = memory.last_record();
+        assert_eq!(initial_read_record_2.data, bbvec![1, 2, 3, 4, 5, 6, 7, 8]);
 
-    //     // Test: Write a partial block to block 0 (pointer 0) and read back partially and fully
-    //     memory.write(1, 0, bbvec![9, 9, 9, 9], &mut adapter_records);
-    //     memory.read(1, 0, 2, &mut adapter_records);
-    //     let partial_read_record = memory.last_record();
-    //     assert_eq!(partial_read_record.data, bbvec![9, 9]);
+        // Test: Write a partial block to block 0 (pointer 0) and read back partially and fully
+        memory.write(1, 0, bbvec![9, 9, 9, 9], &mut adapter_records);
+        memory.read(1, 0, 2, &mut adapter_records);
+        let partial_read_record = memory.last_record();
+        assert_eq!(partial_read_record.data, bbvec![9, 9]);
 
-    //     memory.read(1, 0, 8, &mut adapter_records);
-    //     let full_read_record_0 = memory.last_record();
-    //     assert_eq!(full_read_record_0.data, bbvec![9, 9, 9, 9, 5, 6, 7, 8]);
+        memory.read(1, 0, 8, &mut adapter_records);
+        let full_read_record_0 = memory.last_record();
+        assert_eq!(full_read_record_0.data, bbvec![9, 9, 9, 9, 5, 6, 7, 8]);
 
-    //     // Test: Write a single element to pointer 2 and verify read in different lengths
-    //     memory.write(1, 2, bbvec![100], &mut adapter_records);
-    //     memory.read(1, 1, 4, &mut adapter_records);
-    //     let read_record_4 = memory.last_record();
-    //     assert_eq!(read_record_4.data, bbvec![9, 100, 9, 5]);
+        // Test: Write a single element to pointer 2 and verify read in different lengths
+        memory.write(1, 2, bbvec![100], &mut adapter_records);
+        memory.read(1, 1, 4, &mut adapter_records);
+        let read_record_4 = memory.last_record();
+        assert_eq!(read_record_4.data, bbvec![9, 100, 9, 5]);
 
-    //     memory.read(1, 2, 8, &mut adapter_records);
-    //     let full_read_record_2 = memory.last_record();
-    //     assert_eq!(full_read_record_2.data, bba![100, 9, 5, 6, 7, 8, 0, 0]);
+        memory.read(1, 2, 8, &mut adapter_records);
+        let full_read_record_2 = memory.last_record();
+        assert_eq!(full_read_record_2.data, bba![100, 9, 5, 6, 7, 8, 0, 0]);
 
-    //     // Test: Write and read at the last pointer in block 2 (pointer 23, part of key (1, 2))
-    //     memory.write(1, 23, bbvec![77], &mut adapter_records);
-    //     memory.read(1, 23, 2, &mut adapter_records);
-    //     let boundary_read_record = memory.last_record();
-    //     assert_eq!(boundary_read_record.data, bba![77, 0]); // Last byte modified, ensuring boundary check
+        // Test: Write and read at the last pointer in block 2 (pointer 23, part of key (1, 2))
+        memory.write(1, 23, bbvec![77], &mut adapter_records);
+        memory.read(1, 23, 2, &mut adapter_records);
+        let boundary_read_record = memory.last_record();
+        assert_eq!(boundary_read_record.data, bba![77, 0]); // Last byte modified, ensuring boundary check
 
-    //     // Test: Reading from an uninitialized block (should default to 0)
-    //     memory.read(1, 10, 4, &mut adapter_records);
-    //     let default_read_record = memory.last_record();
-    //     assert_eq!(default_read_record.data, bba![0, 0, 0, 0]);
+        // Test: Reading from an uninitialized block (should default to 0)
+        memory.read(1, 10, 4, &mut adapter_records);
+        let default_read_record = memory.last_record();
+        assert_eq!(default_read_record.data, bba![0, 0, 0, 0]);
 
-    //     memory.read(1, 100, 4, &mut adapter_records);
-    //     let default_read_record = memory.last_record();
-    //     assert_eq!(default_read_record.data, bba![0, 0, 0, 0]);
+        memory.read(1, 100, 4, &mut adapter_records);
+        let default_read_record = memory.last_record();
+        assert_eq!(default_read_record.data, bba![0, 0, 0, 0]);
 
-    //     // Test: Overwrite entire memory pointer 16–24 and verify
-    //     memory.write(
-    //         1,
-    //         16,
-    //         bbvec![50, 50, 50, 50, 50, 50, 50, 50],
-    //         &mut adapter_records,
-    //     );
-    //     memory.read(1, 16, 8, &mut adapter_records);
-    //     let overwrite_read_record = memory.last_record();
-    //     assert_eq!(
-    //         overwrite_read_record.data,
-    //         bba![50, 50, 50, 50, 50, 50, 50, 50]
-    //     ); // Verify entire block overwrite
-    // }
+        // Test: Overwrite entire memory pointer 16–24 and verify
+        memory.write(
+            1,
+            16,
+            bbvec![50, 50, 50, 50, 50, 50, 50, 50],
+            &mut adapter_records,
+        );
+        memory.read(1, 16, 8, &mut adapter_records);
+        let overwrite_read_record = memory.last_record();
+        assert_eq!(
+            overwrite_read_record.data,
+            bba![50, 50, 50, 50, 50, 50, 50, 50]
+        ); // Verify entire block overwrite
+    }
 }

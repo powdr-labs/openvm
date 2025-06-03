@@ -456,19 +456,17 @@ impl<F: PrimeField32> MemoryController<F> {
 
     fn replay_access_log(&mut self) {
         // For each (start, end) range, mark all but the first Read/Write as skipped
-        if let Some((start, end)) = self.memory.apc_ranges.iter().next() {
-            let mut to_skip = Vec::new();
+        let mut to_skip = Vec::new();
+        if let Some((start, end)) = self.memory.apc_ranges.first() {
             let mut seen_first = HashSet::new();
-            (*start..*end).into_iter().for_each(|idx| {
+            (*start..*end).for_each(|idx| {
                 let entry = self.memory.log.get(idx).unwrap();
                 match entry {
                     MemoryLogEntry::Read { address_space, pointer, .. } | MemoryLogEntry::Write { address_space, pointer, .. } => {
-                        if *address_space == 1 {
-                            if !seen_first.insert(*pointer) {
-                                // first register Read/Write -> skip = false (default value)
-                                // subsequent register Read/Write -> skip = true
-                                to_skip.push(idx - start);
-                            }
+                        if *address_space == 1 && !seen_first.insert(*pointer) {
+                            // first register Read/Write -> skip = false (default value)
+                            // subsequent register Read/Write -> skip = true
+                            to_skip.push(idx - start);
                         }
                     }
                     _ => {

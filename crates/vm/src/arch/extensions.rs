@@ -1064,7 +1064,6 @@ impl<F: PrimeField32, E, P> VmChipComplex<F, E, P> {
         // System: Program Chip
         debug_assert_eq!(builder.curr_air_id, PROGRAM_AIR_ID);
         builder.add_air_proof_input(program_chip.generate_air_proof_input(cached_program));
-
         // System: Connector Chip
         debug_assert_eq!(builder.curr_air_id, CONNECTOR_AIR_ID);
         builder.add_air_proof_input(connector_chip.generate_air_proof_input());
