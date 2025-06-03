@@ -469,7 +469,7 @@ impl<F: PrimeField32> MemoryController<F> {
         offline_memory.set_log_capacity(log.len());
 
         // For each (start, end) range, mark all but the first Read/Write as skipped
-        tracing::info_span!("replay accesses").in_scope(|| {
+        tracing::info_span!("calculate and replay accesses").in_scope(|| {
             /// The state machine to track whether we are in an APC range or not
             enum Position {
                 /// In an APC range until the given index, keeping track of seen registers
@@ -533,10 +533,10 @@ impl<F: PrimeField32> MemoryController<F> {
                             },
                         ) if *address_space == 1 => {
                             // Skip the first access in the APC range
-                            if seen[*pointer as usize] {
+                            if seen[(*pointer/4) as usize] {
                                 true
                             } else {
-                                seen[*pointer as usize] = true;
+                                seen[(*pointer/4) as usize] = true;
                                 false
                             }
                         }
@@ -547,6 +547,9 @@ impl<F: PrimeField32> MemoryController<F> {
                 },
             );
 
+            tracing::info_span!("replay memory accesses")
+                .in_scope(|| 
+
             for (entry, should_skip) in tagged_entries {
                 Self::replay_access(
                     entry,
@@ -556,6 +559,7 @@ impl<F: PrimeField32> MemoryController<F> {
                     should_skip,
                 )
             }
+            );
         });
     }
 
