@@ -1,6 +1,6 @@
 use std::{
     array,
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, HashSet},
     iter,
     marker::PhantomData,
     mem,
@@ -456,10 +456,8 @@ impl<F: PrimeField32> MemoryController<F> {
 
     fn replay_access_log(&mut self) {
         // For each (start, end) range, mark all but the first Read/Write as skipped
-        tracing::info_span!("mark register memory record for skip").in_scope(||
         if let Some((start, end)) = self.memory.apc_ranges.iter().next() {
             let mut to_skip = Vec::new();
-            tracing::info_span!("calculate skipped memory record in a single APC run").in_scope(|| {
             let mut seen_first = HashSet::new();
             (*start..*end).into_iter().for_each(|idx| {
                 let entry = self.memory.log.get(idx).unwrap();
@@ -477,24 +475,21 @@ impl<F: PrimeField32> MemoryController<F> {
                         // not a Read/Write, do nothing
                     }
                 }
-            }); });
+            });
+        }
 
-            tracing::info!("Skip LT columns generation for {} out of {} memory records in each run of the current APC.", to_skip.len(), end - start + 1);
-
-            tracing::info_span!("mark skipped memory records").in_scope(|| {
-            for &(start, _) in self.memory.apc_ranges.iter() {
-                for &idx in to_skip.iter() {
-                    let entry = self.memory.log.get_mut(idx + start).unwrap();
-                    match entry {
-                        MemoryLogEntry::Read { should_skip: skip, .. }
-                        | MemoryLogEntry::Write { should_skip: skip, .. } => {
-                            *skip = true; // mark as skipped
-                        }
-                        _ => panic!("Expected Read or Write entry"), // should be unreachable
+        for &(start, _) in self.memory.apc_ranges.iter() {
+            for &idx in to_skip.iter() {
+                let entry = self.memory.log.get_mut(idx + start).unwrap();
+                match entry {
+                    MemoryLogEntry::Read { should_skip: skip, .. }
+                    | MemoryLogEntry::Write { should_skip: skip, .. } => {
+                        *skip = true; // mark as skipped
                     }
+                    _ => panic!("Expected Read or Write entry"), // should be unreachable
                 }
-            } });
-        });
+            }
+        }
 
         let log = mem::take(&mut self.memory.log);
         if log.is_empty() {
@@ -564,7 +559,7 @@ impl<F: PrimeField32> MemoryController<F> {
             return;
         }
 
-        tracing::info_span!("replay access log").in_scope(|| self.replay_access_log());
+        self.replay_access_log();
         let mut offline_memory = self.offline_memory.lock().unwrap();
 
         match &mut self.interface_chip {
@@ -799,7 +794,8 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
     }
 
     pub fn generate_base_aux(&self, record: &MemoryRecord<F>, buffer: &mut MemoryBaseAuxCols<F>) {
-        if !record.should_skip { // in practice we don't need prev_timestamp except the last instruction memory record of an apc, but there's no way to express that at the moment
+        if !record.should_skip { 
+            // In practice we don't need prev_timestamp except the last instruction memory record of an apc, but there's no way to express that at the moment.
             buffer.prev_timestamp = F::from_canonical_u32(record.prev_timestamp);
         }
         self.generate_timestamp_lt(

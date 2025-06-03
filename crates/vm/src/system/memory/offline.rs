@@ -118,9 +118,9 @@ pub struct MemoryRecord<T> {
     pub pointer: T,
     pub timestamp: u32,
     pub prev_timestamp: u32,
-    pub data: Vec<T>,
+    data: Vec<T>,
     /// None if a read.
-    pub prev_data: Option<Vec<T>>,
+    prev_data: Option<Vec<T>>,
     pub should_skip: bool,
 }
 
