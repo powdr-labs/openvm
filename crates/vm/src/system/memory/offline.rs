@@ -121,6 +121,7 @@ pub struct MemoryRecord<T> {
     data: Vec<T>,
     /// None if a read.
     prev_data: Option<Vec<T>>,
+    pub should_skip: bool,
 }
 
 impl<T> MemoryRecord<T> {
@@ -219,6 +220,18 @@ impl<F: PrimeField32> OfflineMemory<F> {
         values: Vec<F>,
         records: &mut AccessAdapterInventory<F>,
     ) {
+        self.write_with_skip(address_space, pointer, values, records, false);
+    }
+
+    /// Writes an array of values to the memory at the specified address space and start index, potentially hinting to skip the write in trace generation.
+    pub fn write_with_skip(
+        &mut self,
+        address_space: u32,
+        pointer: u32,
+        values: Vec<F>,
+        records: &mut AccessAdapterInventory<F>,
+        skip: bool,
+    ) {
         let len = values.len();
         assert!(len.is_power_of_two());
         assert_ne!(address_space, 0);
@@ -238,6 +251,7 @@ impl<F: PrimeField32> OfflineMemory<F> {
             prev_timestamp,
             data: values,
             prev_data: Some(prev_data),
+            should_skip: skip,
         };
         self.log.push(Some(record));
         self.timestamp += 1;
@@ -251,6 +265,18 @@ impl<F: PrimeField32> OfflineMemory<F> {
         len: usize,
         adapter_records: &mut AccessAdapterInventory<F>,
     ) {
+        self.read_with_skip(address_space, pointer, len, adapter_records, false);
+    }
+
+    /// Reads an array of values from the memory at the specified address space and start index, potentially hinting to skip the read in trace generation.
+    pub fn read_with_skip(
+        &mut self,
+        address_space: u32,
+        pointer: u32,
+        len: usize,
+        adapter_records: &mut AccessAdapterInventory<F>,
+        skip: bool,
+    ) {
         assert!(len.is_power_of_two());
         if address_space == 0 {
             let pointer = F::from_canonical_u32(pointer);
@@ -261,6 +287,7 @@ impl<F: PrimeField32> OfflineMemory<F> {
                 prev_timestamp: 0,
                 data: vec![pointer],
                 prev_data: None,
+                should_skip: skip,
             }));
             self.timestamp += 1;
             return;
@@ -280,6 +307,7 @@ impl<F: PrimeField32> OfflineMemory<F> {
             prev_timestamp,
             data: values,
             prev_data: None,
+            should_skip: skip,
         }));
         self.timestamp += 1;
     }
@@ -707,6 +735,7 @@ mod tests {
                 prev_timestamp: 0,
                 data: bbvec![1, 2, 3, 4],
                 prev_data: Some(bbvec![0, 0, 0, 0]),
+                should_skip: false,
             }
         );
         assert_eq!(memory.timestamp(), 2);
@@ -725,6 +754,7 @@ mod tests {
                 prev_timestamp: 1,
                 data: bbvec![1, 2, 3, 4],
                 prev_data: None,
+                should_skip: false,
             }
         );
         assert_eq!(memory.timestamp(), 3);
@@ -754,6 +784,7 @@ mod tests {
                 prev_timestamp: 2,
                 data: bbvec![10, 11],
                 prev_data: Some(bbvec![1, 2]),
+                should_skip: false,
             }
         );
 
@@ -783,6 +814,7 @@ mod tests {
                 prev_timestamp: 3,
                 data: bbvec![10, 11, 3, 4],
                 prev_data: None,
+                should_skip: false,
             }
         );
     }
@@ -816,6 +848,7 @@ mod tests {
                 prev_timestamp: 0,
                 data: bbvec![1, 2, 3, 4],
                 prev_data: Some(bbvec![0, 0, 0, 0]),
+                should_skip: false,
             }
         );
         assert_eq!(memory.timestamp(), 2);
@@ -833,6 +866,7 @@ mod tests {
                 prev_timestamp: 1,
                 data: bbvec![1, 2, 3, 4],
                 prev_data: None,
+                should_skip: false,
             }
         );
         assert_eq!(memory.timestamp(), 3);
@@ -862,6 +896,7 @@ mod tests {
                 prev_timestamp: 2,
                 data: bbvec![10, 11],
                 prev_data: Some(bbvec![1, 2]),
+                should_skip: false,
             }
         );
 
@@ -891,6 +926,7 @@ mod tests {
                 prev_timestamp: 3,
                 data: bbvec![10, 11, 3, 4],
                 prev_data: None,
+                should_skip: false,
             }
         );
     }
