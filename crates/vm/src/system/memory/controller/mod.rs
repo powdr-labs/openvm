@@ -1,6 +1,6 @@
 use std::{
     array,
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{BTreeMap, HashSet},
     iter,
     marker::PhantomData,
     mem,
@@ -620,7 +620,7 @@ impl<F: PrimeField32> MemoryController<F> {
             return;
         }
 
-        tracing::info_span!("replay access log").in_scope(|| self.replay_access_log());
+        self.replay_access_log();
         let mut offline_memory = self.offline_memory.lock().unwrap();
 
         match &mut self.interface_chip {
@@ -855,8 +855,8 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
     }
 
     pub fn generate_base_aux(&self, record: &MemoryRecord<F>, buffer: &mut MemoryBaseAuxCols<F>) {
-        if !record.should_skip {
-            // in practice we don't need prev_timestamp except the last instruction memory record of an apc, but there's no way to express that at the moment
+        if !record.should_skip { 
+            // In practice we don't need prev_timestamp except the last instruction memory record of an apc, but there's no way to express that at the moment.
             buffer.prev_timestamp = F::from_canonical_u32(record.prev_timestamp);
         }
         self.generate_timestamp_lt(
