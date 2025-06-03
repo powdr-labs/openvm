@@ -1063,12 +1063,12 @@ impl<F: PrimeField32, E, P> VmChipComplex<F, E, P> {
 
         // System: Program Chip
         debug_assert_eq!(builder.curr_air_id, PROGRAM_AIR_ID);
-        tracing::info_span!("program chip trace gen").in_scope(|| {
+        tracing::debug_span!("program chip trace gen").in_scope(|| {
             builder.add_air_proof_input(program_chip.generate_air_proof_input(cached_program))
         });
         // System: Connector Chip
         debug_assert_eq!(builder.curr_air_id, CONNECTOR_AIR_ID);
-        tracing::info_span!("connector chip trace gen")
+        tracing::debug_span!("connector chip trace gen")
             .in_scope(|| builder.add_air_proof_input(connector_chip.generate_air_proof_input()));
 
         // Go through all chips in inventory in reverse order they were added (to resolve
@@ -1088,7 +1088,7 @@ impl<F: PrimeField32, E, P> VmChipComplex<F, E, P> {
                 ChipId::Executor(id) => {
                     let chip = self.inventory.executors.pop().unwrap();
                     assert_eq!(id, self.inventory.executors.len());
-                    tracing::info_span!(
+                    tracing::debug_span!(
                         "executor chip trace gen",
                         id = id,
                         air_name = chip.air_name()
@@ -1098,7 +1098,7 @@ impl<F: PrimeField32, E, P> VmChipComplex<F, E, P> {
                 ChipId::Periphery(id) => {
                     let chip = self.inventory.periphery.pop().unwrap();
                     assert_eq!(id, self.inventory.periphery.len());
-                    tracing::info_span!(
+                    tracing::debug_span!(
                         "periphery chip trace gen",
                         id = id,
                         air_name = chip.air_name()
@@ -1120,7 +1120,7 @@ impl<F: PrimeField32, E, P> VmChipComplex<F, E, P> {
         // System: Memory Controller
         {
             // memory
-            let air_proof_inputs = tracing::info_span!("memory controller trace gen")
+            let air_proof_inputs = tracing::debug_span!("memory controller trace gen")
                 .in_scope(|| memory_controller.generate_air_proof_inputs());
             for air_proof_input in air_proof_inputs {
                 builder.add_air_proof_input(air_proof_input);
@@ -1132,7 +1132,7 @@ impl<F: PrimeField32, E, P> VmChipComplex<F, E, P> {
             .for_each(|input| builder.add_air_proof_input(input));
         // System: Range Checker Chip
         builder.add_air_proof_input(
-            tracing::info_span!("range checker trace gen")
+            tracing::debug_span!("range checker trace gen")
                 .in_scope(|| range_checker_chip.generate_air_proof_input()),
         );
 

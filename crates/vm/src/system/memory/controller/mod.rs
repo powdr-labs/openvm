@@ -521,7 +521,7 @@ impl<F: PrimeField32> MemoryController<F> {
             return;
         }
 
-        tracing::info_span!("replay access log").in_scope(|| self.replay_access_log());
+        tracing::debug_span!("replay access log").in_scope(|| self.replay_access_log());
         let mut offline_memory = self.offline_memory.lock().unwrap();
 
         match &mut self.interface_chip {
