@@ -1,6 +1,6 @@
 # Solidity SDK
 
-As a supplement to OpenVM, we provide a [Solidity SDK](https://github.com/openvm-org/openvm-solidity-sdk) containing OpenVM verifier contracts generated at official release commits using the `cargo openvm setup` [command](../advanced-usage/sdk.md#setup). The contracts are built at every _minor_ release as OpenVM guarantees verifier backward compatibility across patch releases. 
+As a supplement to OpenVM, we provide a [Solidity SDK](https://github.com/openvm-org/openvm-solidity-sdk) containing OpenVM verifier contracts generated at official release commits using the `cargo openvm setup` [command](../advanced-usage/sdk.md#setup). The contracts are built at every _minor_ release as OpenVM guarantees verifier backward compatibility across patch releases.
 
 Note that these builds are for the default aggregation VM config which should be sufficient for most users. If you use a custom config, you will need to manually generate the verifier contract using the [OpenVM SDK](../advanced-usage/sdk.md).
 
@@ -17,13 +17,13 @@ forge install openvm-org/openvm-solidity-sdk
 Once you have the SDK installed, you can import the SDK contracts into your Solidity project:
 
 ```solidity
-import "openvm-solidity-sdk/v1.1/OpenVmHalo2Verifier.sol";
+import "openvm-solidity-sdk/v1.2/OpenVmHalo2Verifier.sol";
 ```
 
 If you are using an already-deployed verifier contract, you can simply import the `IOpenVmHalo2Verifier` interface:
 
 ```solidity
-import { IOpenVmHalo2Verifier } from "openvm-solidity-sdk/v1.1/interfaces/IOpenVmHalo2Verifier.sol";
+import { IOpenVmHalo2Verifier } from "openvm-solidity-sdk/v1.2/interfaces/IOpenVmHalo2Verifier.sol";
 
 contract MyContract {
     function myFunction() public view {
@@ -49,7 +49,7 @@ To deploy an instance of a verifier contract, you can clone the repo and simply 
 ```bash
 git clone --recursive https://github.com/openvm-org/openvm-solidity-sdk.git
 cd openvm-solidity-sdk
-forge create src/v1.1/OpenVmHalo2Verifier.sol:OpenVmHalo2Verifier --rpc-url $RPC --private-key $PRIVATE_KEY --broadcast
+forge create src/v1.2/OpenVmHalo2Verifier.sol:OpenVmHalo2Verifier --rpc-url $RPC --private-key $PRIVATE_KEY --broadcast
 ```
 
 We recommend a direct deployment from the SDK repo since the proper compiler configurations are all pre-set.
