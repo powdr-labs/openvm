@@ -24,7 +24,23 @@ pub enum MemoryLogEntry<T> {
     IncrementTimestampBy(u32),
 }
 
-pub type ApcRange = (usize, usize, Option<usize>); // (range start, memory log length, length from start to last read/write)
+#[derive(Debug)]
+pub struct ApcRange {
+    pub range_start: usize,
+    pub range_end: usize,
+    pub last_read_write: Option<usize>,
+}
+
+// new function for apcrange
+impl ApcRange {
+    pub fn new(range_start: usize, range_end: usize) -> Self {
+        Self {
+            range_start,
+            range_end,
+            last_read_write: None,
+        }
+    }
+}
 
 /// A simple data structure to read to/write from memory.
 ///

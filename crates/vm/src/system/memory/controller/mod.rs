@@ -510,7 +510,7 @@ impl<F: PrimeField32> MemoryController<F> {
                     }
                     // Switch to `SkipIfUnseenUntil` iff we reached the start of the next range
                     Position::OutOfSkipIfUnseen => match state.next_range {
-                        Some((start, end, last_rw)) if index == *start => {
+                        Some(ApcRange{ start, end, last_rw  }) if index == *start => {
                             state.position = Position::SkipIfUnseenUntil((*last_rw).unwrap_or(*end), [false; 32]);
                         }
                         _ => (),
