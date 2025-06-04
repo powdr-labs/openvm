@@ -44,7 +44,7 @@ use crate::{
             MemoryBaseAuxCols, MemoryBridge, MemoryBus, MemoryReadAuxCols,
             MemoryReadOrImmediateAuxCols, MemoryWriteAuxCols, AUX_LEN,
         },
-        online::{Memory, MemoryLogEntry},
+        online::{ApcRange, Memory, MemoryLogEntry},
         persistent::PersistentBoundaryChip,
         tree::MemoryNode,
     },
@@ -472,10 +472,11 @@ impl<F: PrimeField32> MemoryController<F> {
 
         /// The state machine to track whether we are in an APC range or not
         enum Position {
-            /// In an APC range until the last read/write index, keeping track of seen registers
-            InApcUntil(usize, [bool; 32]),
-            /// Outside of an APC range
-            OutOfApc,
+            /// In this range we skip trace gen if a register memory read/write access isn't yet seen for 
+            /// that register until the last read/write index, keeping track of seen registers.
+            SkipIfUnseenUntil(usize, [bool; 32]),
+            /// Outside of the range
+            OutOfSkipIfUnseen,
         }
 
         /// State for the scan operation, keeping track of the current position in the log
@@ -483,9 +484,9 @@ impl<F: PrimeField32> MemoryController<F> {
             /// Current position in the log
             position: Position,
             /// Iterator over the APC ranges
-            apc_ranges: Iter<'a, (usize, usize, usize)>,
+            apc_ranges: Iter<'a, ApcRange>,
             /// Next APC range, if any
-            next_range: Option<&'a (usize, usize, usize)>,
+            next_range: Option<&'a ApcRange>,
         }
 
         let mut apc_ranges = self.memory.apc_ranges.iter();
@@ -494,23 +495,23 @@ impl<F: PrimeField32> MemoryController<F> {
         // Assumption: the ranges are disjoint and sorted
         let tagged_entries = log.into_iter().enumerate().scan(
             ShouldSkipState {
-                position: Position::OutOfApc,
+                position: Position::OutOfSkipIfUnseen,
                 apc_ranges,
                 next_range,
             },
             |state, (index, entry)| {
                 // Update the position
                 match &mut state.position {
-                    // Reaching the last read/write of an APC range, switch to `OutOfApc`
+                    // Reaching the last read/write of an APC range, switch to `OutOfSkipIfUnseen`
                     // Note that we cannot skipp the last read/write of an APC range or we get a backend error
-                    Position::InApcUntil(last_rw, _) if index == *last_rw => {
-                        state.position = Position::OutOfApc;
+                    Position::SkipIfUnseenUntil(last_rw, _) if index == *last_rw  => {
+                        state.position = Position::OutOfSkipIfUnseen;
                         state.next_range = state.apc_ranges.next();
                     }
-                    // Outside any APC range, switch to `InApcUntil` iff we reached the start of the next range
-                    Position::OutOfApc => match state.next_range {
+                    // Outside any APC range, switch to `SkipIfUnseenUntil` iff we reached the start of the next range
+                    Position::OutOfSkipIfUnseen => match state.next_range {
                         Some((start, _, last_rw)) if index == *start => {
-                            state.position = Position::InApcUntil(*last_rw, [false; 32]);
+                            state.position = Position::SkipIfUnseenUntil(*last_rw, [false; 32]);
                         }
                         _ => (),
                     },
@@ -521,7 +522,7 @@ impl<F: PrimeField32> MemoryController<F> {
                 // Determine if we should skip this entry
                 let should_skip = match (&mut state.position, &entry) {
                     (
-                        Position::InApcUntil(_, seen),
+                        Position::SkipIfUnseenUntil(_, seen),
                         MemoryLogEntry::Read {
                             address_space,
                             pointer,

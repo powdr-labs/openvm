@@ -24,6 +24,8 @@ pub enum MemoryLogEntry<T> {
     IncrementTimestampBy(u32),
 }
 
+pub type ApcRange = (usize, usize, usize); // (range start, memory log length, length from start to last read/write)
+
 /// A simple data structure to read to/write from memory.
 ///
 /// Stores a log of memory accesses to reconstruct aspects of memory state for trace generation.
