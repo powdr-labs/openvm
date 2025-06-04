@@ -44,7 +44,7 @@ use crate::{
             MemoryBaseAuxCols, MemoryBridge, MemoryBus, MemoryReadAuxCols,
             MemoryReadOrImmediateAuxCols, MemoryWriteAuxCols, AUX_LEN,
         },
-        online::{Memory, MemoryLogEntry},
+        online::{ApcRange, Memory, MemoryLogEntry},
         persistent::PersistentBoundaryChip,
         tree::MemoryNode,
     },
@@ -470,12 +470,13 @@ impl<F: PrimeField32> MemoryController<F> {
 
         // For each (start, end) range, mark all but the first Read/Write as skipped
 
-        /// The state machine to track whether we are in an APC range or not
+        /// The state machine to track whether we are in a range to skip trace gen or not
         enum Position {
-            /// In an APC range until the given index, keeping track of seen registers
-            InApcUntil(usize, [bool; 32]),
-            /// Outside of an APC range
-            OutOfApc,
+            /// In this range we skip trace gen if a register memory read/write access isn't yet seen for 
+            /// that register, keeping track of seen registers.
+            SkipIfUnseenUntil(usize, [bool; 32]),
+            /// Outside of the range
+            OutOfSkipIfUnseen,
         }
 
         /// State for the scan operation, keeping track of the current position in the log
@@ -483,9 +484,9 @@ impl<F: PrimeField32> MemoryController<F> {
             /// Current position in the log
             position: Position,
             /// Iterator over the APC ranges
-            apc_ranges: Iter<'a, (usize, usize)>,
+            apc_ranges: Iter<'a, ApcRange>,
             /// Next APC range, if any
-            next_range: Option<&'a (usize, usize)>,
+            next_range: Option<&'a ApcRange>,
         }
 
         let mut apc_ranges = self.memory.apc_ranges.iter();
@@ -494,33 +495,34 @@ impl<F: PrimeField32> MemoryController<F> {
         // Assumption: the ranges are disjoint and sorted
         let tagged_entries = log.into_iter().enumerate().scan(
             ShouldSkipState {
-                position: Position::OutOfApc,
+                position: Position::OutOfSkipIfUnseen,
                 apc_ranges,
                 next_range,
             },
             |state, (index, entry)| {
                 // Update the position
                 match &mut state.position {
-                    // Reaching the end of an APC range, switch to `OutOfApc`
-                    Position::InApcUntil(end, _) if index == *end => {
-                        state.position = Position::OutOfApc;
+                    // Reaching the last element of this range, which is the last read/write of an APC range, switch to `OutOfSkipIfUnseen`
+                    // Note that we cannot skip the last read/write of an APC range or we get a backend error
+                    Position::SkipIfUnseenUntil(last_read_write, _) if index == *last_read_write  => {
+                        state.position = Position::OutOfSkipIfUnseen;
                         state.next_range = state.apc_ranges.next();
                     }
-                    // Outside any APC range, switch to `InApcUntil` iff we reached the start of the next range
-                    Position::OutOfApc => match state.next_range {
-                        Some((start, end)) if index == *start => {
-                            state.position = Position::InApcUntil(*end, [false; 32]);
+                    // Switch to `SkipIfUnseenUntil` iff we reached the start of the next range
+                    Position::OutOfSkipIfUnseen => match state.next_range {
+                        Some(ApcRange { range_start, range_end, last_read_write }) if index == *range_start => {
+                            state.position = Position::SkipIfUnseenUntil((*last_read_write).unwrap_or(*range_end), [false; 32]);
                         }
                         _ => (),
                     },
-                    // Staying in the same APC range, do nothing
+                    // Staying in the same range, do nothing
                     _ => {}
                 };
 
                 // Determine if we should skip this entry
                 let should_skip = match (&mut state.position, &entry) {
                     (
-                        Position::InApcUntil(_, seen),
+                        Position::SkipIfUnseenUntil(_, seen),
                         MemoryLogEntry::Read {
                             address_space,
                             pointer,
@@ -532,7 +534,7 @@ impl<F: PrimeField32> MemoryController<F> {
                             ..
                         },
                     ) if *address_space == 1 => {
-                        // Skip the first access in the APC range
+                        // Skip the first access in the range
                         if seen[(*pointer / 4) as usize] {
                             true
                         } else {

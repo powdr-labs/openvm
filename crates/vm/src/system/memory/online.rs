@@ -24,6 +24,23 @@ pub enum MemoryLogEntry<T> {
     IncrementTimestampBy(u32),
 }
 
+#[derive(Debug)]
+pub struct ApcRange {
+    pub range_start: usize,
+    pub range_end: usize,
+    pub last_read_write: Option<usize>,
+}
+
+impl ApcRange {
+    pub fn new(range_start: usize, range_end: usize, last_read_write: Option<usize>) -> Self {
+        Self {
+            range_start,
+            range_end,
+            last_read_write,
+        }
+    }
+}
+
 /// A simple data structure to read to/write from memory.
 ///
 /// Stores a log of memory accesses to reconstruct aspects of memory state for trace generation.
@@ -32,7 +49,7 @@ pub struct Memory<F> {
     pub(super) data: AddressMap<F, PAGE_SIZE>,
     pub(super) log: Vec<MemoryLogEntry<F>>,
     timestamp: u32,
-    pub apc_ranges: Vec<(usize, usize)>,
+    pub apc_ranges: Vec<ApcRange>,
 }
 
 impl<F: PrimeField32> Memory<F> {
