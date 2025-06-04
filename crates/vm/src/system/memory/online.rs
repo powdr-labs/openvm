@@ -31,13 +31,12 @@ pub struct ApcRange {
     pub last_read_write: Option<usize>,
 }
 
-// new function for apcrange
 impl ApcRange {
-    pub fn new(range_start: usize, range_end: usize) -> Self {
+    pub fn new(range_start: usize, range_end: usize, last_read_write: Option<usize>) -> Self {
         Self {
             range_start,
             range_end,
-            last_read_write: None,
+            last_read_write,
         }
     }
 }
