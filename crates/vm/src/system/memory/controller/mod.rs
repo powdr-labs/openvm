@@ -472,7 +472,7 @@ impl<F: PrimeField32> MemoryController<F> {
 
         /// The state machine to track whether we are in an APC range or not
         enum Position {
-            /// In an APC range until the given index, keeping track of seen registers
+            /// In an APC range until the last read/write index, keeping track of seen registers
             InApcUntil(usize, [bool; 32]),
             /// Outside of an APC range
             OutOfApc,
@@ -483,9 +483,9 @@ impl<F: PrimeField32> MemoryController<F> {
             /// Current position in the log
             position: Position,
             /// Iterator over the APC ranges
-            apc_ranges: Iter<'a, (usize, usize)>,
+            apc_ranges: Iter<'a, (usize, usize, usize)>,
             /// Next APC range, if any
-            next_range: Option<&'a (usize, usize)>,
+            next_range: Option<&'a (usize, usize, usize)>,
         }
 
         let mut apc_ranges = self.memory.apc_ranges.iter();
@@ -501,15 +501,16 @@ impl<F: PrimeField32> MemoryController<F> {
             |state, (index, entry)| {
                 // Update the position
                 match &mut state.position {
-                    // Reaching the end of an APC range, switch to `OutOfApc`
-                    Position::InApcUntil(end, _) if index == *end => {
+                    // Reaching the last read/write of an APC range, switch to `OutOfApc`
+                    // Note that we cannot skipp the last read/write of an APC range or we get a backend error
+                    Position::InApcUntil(last_rw, _) if index == *last_rw => {
                         state.position = Position::OutOfApc;
                         state.next_range = state.apc_ranges.next();
                     }
                     // Outside any APC range, switch to `InApcUntil` iff we reached the start of the next range
                     Position::OutOfApc => match state.next_range {
-                        Some((start, end)) if index == *start => {
-                            state.position = Position::InApcUntil(*end, [false; 32]);
+                        Some((start, _, last_rw)) if index == *start => {
+                            state.position = Position::InApcUntil(*last_rw, [false; 32]);
                         }
                         _ => (),
                     },

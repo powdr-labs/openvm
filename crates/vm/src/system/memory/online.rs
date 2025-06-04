@@ -32,7 +32,7 @@ pub struct Memory<F> {
     pub(super) data: AddressMap<F, PAGE_SIZE>,
     pub(super) log: Vec<MemoryLogEntry<F>>,
     timestamp: u32,
-    pub apc_ranges: Vec<(usize, usize)>,
+    pub apc_ranges: Vec<(usize, usize, usize)>,
 }
 
 impl<F: PrimeField32> Memory<F> {
