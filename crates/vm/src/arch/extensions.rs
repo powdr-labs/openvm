@@ -253,6 +253,10 @@ impl<E, P> VmInventory<E, P> {
         }
     }
 
+    pub fn available_opcodes(&self) -> impl Iterator<Item = VmOpcode> + '_ {
+        self.instruction_lookup.keys().copied()
+    }
+
     pub fn transmute<E2, P2>(self) -> VmInventory<E2, P2>
     where
         E: Into<E2>,
