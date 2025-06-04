@@ -504,14 +504,14 @@ impl<F: PrimeField32> MemoryController<F> {
                 match &mut state.position {
                     // Reaching the last element of this range, which is the last read/write of an APC range, switch to `OutOfSkipIfUnseen`
                     // Note that we cannot skip the last read/write of an APC range or we get a backend error
-                    Position::SkipIfUnseenUntil(last_rw, _) if index == *last_rw  => {
+                    Position::SkipIfUnseenUntil(last_read_write, _) if index == *last_read_write  => {
                         state.position = Position::OutOfSkipIfUnseen;
                         state.next_range = state.apc_ranges.next();
                     }
                     // Switch to `SkipIfUnseenUntil` iff we reached the start of the next range
                     Position::OutOfSkipIfUnseen => match state.next_range {
-                        Some(ApcRange{ start, end, last_rw  }) if index == *start => {
-                            state.position = Position::SkipIfUnseenUntil((*last_rw).unwrap_or(*end), [false; 32]);
+                        Some(ApcRange { range_start, range_end, last_read_write }) if index == *range_start => {
+                            state.position = Position::SkipIfUnseenUntil((*last_read_write).unwrap_or(*range_end), [false; 32]);
                         }
                         _ => (),
                     },
