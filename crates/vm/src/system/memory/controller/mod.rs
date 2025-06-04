@@ -470,10 +470,10 @@ impl<F: PrimeField32> MemoryController<F> {
 
         // For each (start, end) range, mark all but the first Read/Write as skipped
 
-        /// The state machine to track whether we are in an APC range or not
+        /// The state machine to track whether we are in a range to skip trace gen or not
         enum Position {
             /// In this range we skip trace gen if a register memory read/write access isn't yet seen for 
-            /// that register until the last read/write index, keeping track of seen registers.
+            /// that register, keeping track of seen registers.
             SkipIfUnseenUntil(usize, [bool; 32]),
             /// Outside of the range
             OutOfSkipIfUnseen,
@@ -502,20 +502,20 @@ impl<F: PrimeField32> MemoryController<F> {
             |state, (index, entry)| {
                 // Update the position
                 match &mut state.position {
-                    // Reaching the last read/write of an APC range, switch to `OutOfSkipIfUnseen`
-                    // Note that we cannot skipp the last read/write of an APC range or we get a backend error
+                    // Reaching the last element of this range, which is the last read/write of an APC range, switch to `OutOfSkipIfUnseen`
+                    // Note that we cannot skip the last read/write of an APC range or we get a backend error
                     Position::SkipIfUnseenUntil(last_rw, _) if index == *last_rw  => {
                         state.position = Position::OutOfSkipIfUnseen;
                         state.next_range = state.apc_ranges.next();
                     }
-                    // Outside any APC range, switch to `SkipIfUnseenUntil` iff we reached the start of the next range
+                    // Switch to `SkipIfUnseenUntil` iff we reached the start of the next range
                     Position::OutOfSkipIfUnseen => match state.next_range {
                         Some((start, _, last_rw)) if index == *start => {
                             state.position = Position::SkipIfUnseenUntil(*last_rw, [false; 32]);
                         }
                         _ => (),
                     },
-                    // Staying in the same APC range, do nothing
+                    // Staying in the same range, do nothing
                     _ => {}
                 };
 
@@ -534,7 +534,7 @@ impl<F: PrimeField32> MemoryController<F> {
                             ..
                         },
                     ) if *address_space == 1 => {
-                        // Skip the first access in the APC range
+                        // Skip the first access in the range
                         if seen[(*pointer / 4) as usize] {
                             true
                         } else {
