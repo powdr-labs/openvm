@@ -24,7 +24,7 @@ pub enum MemoryLogEntry<T> {
     IncrementTimestampBy(u32),
 }
 
-pub type ApcRange = (usize, usize, usize); // (range start, memory log length, length from start to last read/write)
+pub type ApcRange = (usize, usize, Option<usize>); // (range start, memory log length, length from start to last read/write)
 
 /// A simple data structure to read to/write from memory.
 ///
@@ -34,7 +34,7 @@ pub struct Memory<F> {
     pub(super) data: AddressMap<F, PAGE_SIZE>,
     pub(super) log: Vec<MemoryLogEntry<F>>,
     timestamp: u32,
-    pub apc_ranges: Vec<(usize, usize, usize)>,
+    pub apc_ranges: Vec<ApcRange>,
 }
 
 impl<F: PrimeField32> Memory<F> {
