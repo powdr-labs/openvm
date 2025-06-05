@@ -325,6 +325,18 @@ impl<F: PrimeField32, VC: VmConfig<F>> ExecutionSegment<F, VC> {
                     .end(ExecutionState::new(pc, timestamp), None);
                 break;
             }
+
+            // TODO This is a temporary solution to prevent too large timestamps.
+            if let Ok(val) = std::env::var("POWDR_OPENVM_SEGMENT_DELTA") {
+                if let Ok(delta) = val.parse::<u32>() {
+                    if timestamp > ((1 << 29) - delta) {
+                        tracing::info!(
+                            "Should segment because timestamp {timestamp} is approaching the limit",
+                        );
+                        break;
+                    }
+                }
+            }
         }
         self.final_memory = Some(
             self.chip_complex
