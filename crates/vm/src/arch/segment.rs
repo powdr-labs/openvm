@@ -319,23 +319,26 @@ impl<F: PrimeField32, VC: VmConfig<F>> ExecutionSegment<F, VC> {
             #[cfg(feature = "bench-metrics")]
             self.update_instruction_metrics(pc, opcode, dsl_instr);
 
-            if self.should_segment() {
-                self.chip_complex
-                    .connector_chip_mut()
-                    .end(ExecutionState::new(pc, timestamp), None);
-                break;
-            }
-
             // TODO This is a temporary solution to prevent too large timestamps.
-            if let Ok(val) = std::env::var("POWDR_OPENVM_SEGMENT_DELTA") {
-                if let Ok(delta) = val.parse::<u32>() {
+            let segment_timestamp = std::env::var("POWDR_OPENVM_SEGMENT_DELTA")
+                .ok()
+                .and_then(|val| val.parse::<u32>().ok())
+                .map_or(false, |delta| {
                     if timestamp > ((1 << 29) - delta) {
                         tracing::info!(
                             "Should segment because timestamp {timestamp} is approaching the limit",
                         );
-                        break;
+                        true
+                    } else {
+                        false
                     }
-                }
+                });
+
+            if self.should_segment() || segment_timestamp {
+                self.chip_complex
+                    .connector_chip_mut()
+                    .end(ExecutionState::new(pc, timestamp), None);
+                break;
             }
         }
         self.final_memory = Some(
