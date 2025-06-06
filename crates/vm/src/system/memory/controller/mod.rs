@@ -856,12 +856,23 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
             // In practice we don't need prev_timestamp except the last instruction memory record of an apc, but there's no way to express that at the moment.
             buffer.prev_timestamp = F::from_canonical_u32(record.prev_timestamp);
         }
-        self.generate_timestamp_lt(
-            record.prev_timestamp,
-            record.timestamp,
-            &mut buffer.timestamp_lt_aux,
-            record.should_skip,
-        );
+
+        if record.address_space == F::from_canonical_u32(2) {
+            tracing::debug!("skip heap");
+            self.generate_timestamp_lt(
+                record.prev_timestamp,
+                record.timestamp,
+                &mut buffer.timestamp_lt_aux,
+                true,
+            );
+        } else {
+            self.generate_timestamp_lt(
+                record.prev_timestamp,
+                record.timestamp,
+                &mut buffer.timestamp_lt_aux,
+                record.should_skip,
+            );
+        }
     }
 
     fn generate_timestamp_lt(
