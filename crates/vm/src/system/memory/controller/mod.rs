@@ -858,7 +858,6 @@ impl<F: PrimeField32> MemoryAuxColsFactory<F> {
         }
 
         if record.address_space == F::from_canonical_u32(2) {
-            tracing::debug!("skip heap");
             self.generate_timestamp_lt(
                 record.prev_timestamp,
                 record.timestamp,
