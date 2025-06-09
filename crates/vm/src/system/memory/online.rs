@@ -29,14 +29,21 @@ pub struct ApcRange {
     pub range_start: usize,
     pub range_end: usize,
     pub last_read_write: Option<usize>,
+    pub removed_heap_memory_bus: Vec<usize>,
 }
 
 impl ApcRange {
-    pub fn new(range_start: usize, range_end: usize, last_read_write: Option<usize>) -> Self {
+    pub fn new(
+        range_start: usize,
+        range_end: usize,
+        last_read_write: Option<usize>,
+        removed_heap_memory_bus: Vec<usize>,
+    ) -> Self {
         Self {
             range_start,
             range_end,
             last_read_write,
+            removed_heap_memory_bus,
         }
     }
 }
@@ -50,6 +57,7 @@ pub struct Memory<F> {
     pub(super) log: Vec<MemoryLogEntry<F>>,
     timestamp: u32,
     pub apc_ranges: Vec<ApcRange>,
+    pub removed_heap_memory_bus: Vec<usize>,
 }
 
 impl<F: PrimeField32> Memory<F> {
@@ -59,6 +67,7 @@ impl<F: PrimeField32> Memory<F> {
             timestamp: INITIAL_TIMESTAMP + 1,
             log: Vec::with_capacity(mem_config.access_capacity),
             apc_ranges: Vec::default(),
+            removed_heap_memory_bus: Vec::default(),
         }
     }
 
@@ -69,6 +78,7 @@ impl<F: PrimeField32> Memory<F> {
             timestamp: INITIAL_TIMESTAMP + 1,
             log: Vec::with_capacity(access_capacity),
             apc_ranges: Vec::default(),
+            removed_heap_memory_bus: Vec::default(),
         }
     }
 
