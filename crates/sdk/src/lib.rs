@@ -12,8 +12,8 @@ use openvm_build::{
 use openvm_circuit::{
     arch::{
         hasher::poseidon2::vm_poseidon2_hasher, instructions::exe::VmExe, verify_segments,
-        ContinuationVmProof, ExecutionError, VerifiedExecutionPayload, VmConfig, VmExecutor,
-        VmVerificationError,
+        ContinuationVmProof, ExecutionError, GenerationError, InsExecutorE1,
+        VerifiedExecutionPayload, VmConfig, VmExecutor, VmExecutorResult, VmVerificationError,
     },
     system::{
         memory::{tree::public_values::extract_public_values, CHUNK},
@@ -26,7 +26,7 @@ pub use openvm_continuations::{
     RootSC, C, F, SC,
 };
 use openvm_native_recursion::halo2::utils::Halo2ParamsReader;
-use openvm_stark_backend::proof::Proof;
+use openvm_stark_backend::{config::Val, proof::Proof};
 use openvm_stark_sdk::{
     config::{baby_bear_poseidon2::BabyBearPoseidon2Engine, FriParameters},
     engine::StarkFriEngine,
@@ -38,6 +38,7 @@ use openvm_transpiler::{
     transpiler::{Transpiler, TranspilerError},
     FromElf,
 };
+use prover::vm::types::VmProvingKey;
 #[cfg(feature = "evm-verify")]
 use snark_verifier_sdk::{evm::gen_evm_verifier_sol_code, halo2::aggregation::AggregationCircuit};
 
@@ -156,15 +157,15 @@ impl<E: StarkFriEngine<SC>> GenericSdk<E> {
         inputs: StdIn,
     ) -> Result<Vec<F>, ExecutionError>
     where
-        VC::Executor: Chip<SC>,
+        VC::Executor: Chip<SC> + InsExecutorE1<Val<SC>>,
         VC::Periphery: Chip<SC>,
     {
         let vm = VmExecutor::new(vm_config);
-        let final_memory = vm.execute(exe, inputs)?;
+        let final_memory = vm.execute_e1(exe, inputs, None)?.memory;
         let public_values = extract_public_values(
             &vm.config.system().memory_config.memory_dimensions(),
             vm.config.system().num_public_values,
-            final_memory.as_ref().unwrap(),
+            &final_memory,
         );
         Ok(public_values)
     }
@@ -180,7 +181,7 @@ impl<E: StarkFriEngine<SC>> GenericSdk<E> {
 
     pub fn app_keygen<VC: VmConfig<F>>(&self, config: AppConfig<VC>) -> Result<AppProvingKey<VC>>
     where
-        VC::Executor: Chip<SC>,
+        VC::Executor: Chip<SC> + InsExecutorE1<Val<SC>>,
         VC::Periphery: Chip<SC>,
     {
         let app_pk = AppProvingKey::keygen(config);
@@ -194,7 +195,7 @@ impl<E: StarkFriEngine<SC>> GenericSdk<E> {
         inputs: StdIn,
     ) -> Result<ContinuationVmProof<SC>>
     where
-        VC::Executor: Chip<SC>,
+        VC::Executor: Chip<SC> + InsExecutorE1<Val<SC>>,
         VC::Periphery: Chip<SC>,
     {
         let app_prover = AppProver::<VC, E>::new(app_pk.app_vm_pk.clone(), app_committed_exe);
@@ -259,7 +260,7 @@ impl<E: StarkFriEngine<SC>> GenericSdk<E> {
         inputs: StdIn,
     ) -> Result<RootVmVerifierInput<SC>>
     where
-        VC::Executor: Chip<SC>,
+        VC::Executor: Chip<SC> + InsExecutorE1<Val<SC>>,
         VC::Periphery: Chip<SC>,
     {
         let stark_prover =
@@ -278,7 +279,7 @@ impl<E: StarkFriEngine<SC>> GenericSdk<E> {
         inputs: StdIn,
     ) -> Result<EvmProof>
     where
-        VC::Executor: Chip<SC>,
+        VC::Executor: Chip<SC> + InsExecutorE1<Val<SC>>,
         VC::Periphery: Chip<SC>,
     {
         let e2e_prover =
