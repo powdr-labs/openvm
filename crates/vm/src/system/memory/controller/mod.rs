@@ -472,9 +472,9 @@ impl<F: PrimeField32> MemoryController<F> {
 
         /// The state machine to track whether we are in a range to skip trace gen or not
         enum Position {
-            /// In this range we skip trace gen if a register memory read/write access isn't yet seen for 
+            /// In this range we skip trace gen if a register memory read/write access isn't yet seen for
             /// that register, keeping track of seen registers.
-            SkipIfUnseenUntil(usize, [bool; 32]),
+            SkipIfUnseenUntil(usize, [bool; 32], Vec<usize>),
             /// Outside of the range
             OutOfSkipIfUnseen,
         }
@@ -504,14 +504,25 @@ impl<F: PrimeField32> MemoryController<F> {
                 match &mut state.position {
                     // Reaching the last element of this range, which is the last read/write of an APC range, switch to `OutOfSkipIfUnseen`
                     // Note that we cannot skip the last read/write of an APC range or we get a backend error
-                    Position::SkipIfUnseenUntil(last_read_write, _) if index == *last_read_write  => {
+                    Position::SkipIfUnseenUntil(last_read_write, _, _)
+                        if index == *last_read_write =>
+                    {
                         state.position = Position::OutOfSkipIfUnseen;
                         state.next_range = state.apc_ranges.next();
                     }
                     // Switch to `SkipIfUnseenUntil` iff we reached the start of the next range
                     Position::OutOfSkipIfUnseen => match state.next_range {
-                        Some(ApcRange { range_start, range_end, last_read_write }) if index == *range_start => {
-                            state.position = Position::SkipIfUnseenUntil((*last_read_write).unwrap_or(*range_end), [false; 32]);
+                        Some(ApcRange {
+                            range_start,
+                            range_end,
+                            last_read_write,
+                            removed_heap_memory_bus,
+                        }) if index == *range_start => {
+                            state.position = Position::SkipIfUnseenUntil(
+                                (*last_read_write).unwrap_or(*range_end),
+                                [false; 32],
+                                removed_heap_memory_bus.clone(),
+                            );
                         }
                         _ => (),
                     },
@@ -522,7 +533,7 @@ impl<F: PrimeField32> MemoryController<F> {
                 // Determine if we should skip this entry
                 let should_skip = match (&mut state.position, &entry) {
                     (
-                        Position::SkipIfUnseenUntil(_, seen),
+                        Position::SkipIfUnseenUntil(_, seen, removed_heap_memory_bus),
                         MemoryLogEntry::Read {
                             address_space,
                             pointer,
@@ -533,12 +544,19 @@ impl<F: PrimeField32> MemoryController<F> {
                             pointer,
                             ..
                         },
-                    ) if *address_space == 1 => {
-                        // Skip the first access in the range
-                        if seen[(*pointer / 4) as usize] {
+                    ) => {
+                        if *address_space == 1 {
+                            // Skip the first access in the range
+                            if seen[(*pointer / 4) as usize] {
+                                true
+                            } else {
+                                seen[(*pointer / 4) as usize] = true;
+                                false
+                            }
+                        } else if removed_heap_memory_bus.contains(&index) {
+                            debug_assert!(*address_space == 2);
                             true
                         } else {
-                            seen[(*pointer / 4) as usize] = true;
                             false
                         }
                     }
