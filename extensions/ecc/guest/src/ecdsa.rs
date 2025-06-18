@@ -12,10 +12,11 @@ use ecdsa_core::{
     EncodedPoint, Error, RecoveryId, Result, Signature, SignatureSize,
 };
 use elliptic_curve::{
-    generic_array::ArrayLength,
+    bigint::CheckedAdd,
+    generic_array::{typenum::Unsigned, ArrayLength},
     sec1::{FromEncodedPoint, ModulusSize, Tag, ToEncodedPoint},
     subtle::{Choice, ConditionallySelectable, CtOption},
-    CurveArithmetic, FieldBytesSize, PrimeCurve,
+    CurveArithmetic, FieldBytes, FieldBytesEncoding, FieldBytesSize, PrimeCurve,
 };
 use openvm_algebra_guest::{DivUnsafe, IntMod, Reduce};
 
