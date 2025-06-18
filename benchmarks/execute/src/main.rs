@@ -1,4 +1,5 @@
-use clap::Parser;
+use cargo_openvm::util::read_config_toml_or_default;
+use clap::{Parser, ValueEnum};
 use eyre::Result;
 use openvm_benchmarks_utils::{get_elf_path, get_programs_dir, read_elf_file};
 use openvm_bigint_circuit::{Int256, Int256Executor, Int256Periphery};
