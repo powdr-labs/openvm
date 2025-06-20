@@ -19,7 +19,6 @@ use openvm_stark_backend::{
     p3_util::log2_strict_usize,
     proof::Proof,
     prover::types::ProofInput,
-    utils::metrics_span,
     verifier::VerificationError,
     Chip,
 };
@@ -243,9 +242,7 @@ where
             state.rng,
             (),
         );
-        metrics_span("execute_e1_time_ms", || {
-            segment.execute_from_state(&mut exec_state)
-        })?;
+        segment.execute_spanned("execute_e1", &mut exec_state)?;
 
         if let Some(exit_code) = exec_state.exit_code {
             check_exit_code(exit_code)?;
@@ -350,9 +347,7 @@ where
             state.rng,
             ctx,
         );
-        metrics_span("execute_metered_time_ms", || {
-            executor.execute_from_state(&mut exec_state)
-        })?;
+        executor.execute_spanned("execute_metered", &mut exec_state)?;
 
         check_termination(exec_state.exit_code)?;
 
@@ -424,10 +419,9 @@ where
 
             let mut exec_state =
                 VmSegmentState::new(state.instret, state.pc, None, state.input, state.rng, ());
-            metrics_span("execute_time_ms", || {
-                segment.execute_from_state(&mut exec_state)
-            })
-            .map_err(&map_err)?;
+            segment
+                .execute_spanned("execute_e3", &mut exec_state)
+                .map_err(&map_err)?;
 
             assert_eq!(
                 exec_state.pc,
@@ -687,9 +681,7 @@ where
             rng,
             ctx,
         );
-        metrics_span("execute_e1_time_ms", || {
-            executor.execute_from_state(&mut exec_state)
-        })?;
+        executor.execute_spanned("execute_e1", &mut exec_state)?;
 
         check_termination(exec_state.exit_code)?;
 
@@ -757,9 +749,7 @@ where
             rng,
             ctx,
         );
-        metrics_span("execute_metered_time_ms", || {
-            executor.execute_from_state(&mut exec_state)
-        })?;
+        executor.execute_spanned("execute_metered", &mut exec_state)?;
 
         check_termination(exec_state.exit_code)?;
 
@@ -802,9 +792,7 @@ where
         }
 
         let mut exec_state = VmSegmentState::new(0, exe.pc_start, None, input.into(), rng, ());
-        metrics_span("execute_time_ms", || {
-            segment.execute_from_state(&mut exec_state)
-        })?;
+        segment.execute_spanned("execute_e3", &mut exec_state)?;
         Ok(segment)
     }
 
