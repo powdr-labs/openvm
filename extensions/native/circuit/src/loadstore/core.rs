@@ -120,7 +120,6 @@ where
     }
 }
 
-#[derive(Debug)]
 pub struct NativeLoadStoreCoreChip<F: Field, const NUM_CELLS: usize> {
     pub air: NativeLoadStoreCoreAir<NUM_CELLS>,
     pub streams: OnceLock<Arc<Mutex<Streams<F>>>>,
@@ -134,7 +133,10 @@ impl<F: Field, const NUM_CELLS: usize> NativeLoadStoreCoreChip<F, NUM_CELLS> {
         }
     }
     pub fn set_streams(&mut self, streams: Arc<Mutex<Streams<F>>>) {
-        self.streams.set(streams).unwrap();
+        self.streams
+            .set(streams)
+            .map_err(|_| "streams have already been set.")
+            .unwrap();
     }
 }
 
