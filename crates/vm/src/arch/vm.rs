@@ -44,6 +44,7 @@ use crate::{
         hasher::poseidon2::vm_poseidon2_hasher,
         VmSegmentExecutor, VmSegmentState,
     },
+    execute_spanned,
     system::{
         connector::{VmConnectorPvs, DEFAULT_SUSPEND_EXIT_CODE},
         memory::{
@@ -244,7 +245,7 @@ where
             state.rng,
             ctx,
         );
-        segment.execute_spanned("execute_e1", &mut exec_state)?;
+        execute_spanned!("execute_e1", segment, &mut exec_state)?;
 
         if let Some(exit_code) = exec_state.exit_code {
             check_exit_code(exit_code)?;
@@ -350,7 +351,7 @@ where
             state.rng,
             ctx,
         );
-        executor.execute_spanned("execute_metered", &mut exec_state)?;
+        execute_spanned!("execute_metered", executor, &mut exec_state)?;
 
         check_termination(exec_state.exit_code)?;
 
@@ -423,9 +424,7 @@ where
             let ctx = TracegenCtx::new(Some(instret_end));
             let mut exec_state =
                 VmSegmentState::new(state.instret, state.pc, None, state.input, state.rng, ctx);
-            segment
-                .execute_spanned("execute_e3", &mut exec_state)
-                .map_err(&map_err)?;
+            execute_spanned!("execute_e3", segment, &mut exec_state).map_err(&map_err)?;
 
             assert_eq!(
                 exec_state.pc,
@@ -684,7 +683,7 @@ where
             rng,
             ctx,
         );
-        executor.execute_spanned("execute_e1", &mut exec_state)?;
+        execute_spanned!("execute_e1", executor, &mut exec_state)?;
 
         check_termination(exec_state.exit_code)?;
 
@@ -754,7 +753,7 @@ where
             rng,
             ctx,
         );
-        executor.execute_spanned("execute_metered", &mut exec_state)?;
+        execute_spanned!("execute_metered", executor, &mut exec_state)?;
 
         check_termination(exec_state.exit_code)?;
 
@@ -798,7 +797,7 @@ where
 
         let ctx = TracegenCtx::default();
         let mut exec_state = VmSegmentState::new(0, exe.pc_start, None, input.into(), rng, ctx);
-        segment.execute_spanned("execute_e3", &mut exec_state)?;
+        execute_spanned!("execute_e3", segment, &mut exec_state)?;
         Ok(segment)
     }
 
