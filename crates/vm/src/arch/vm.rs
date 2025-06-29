@@ -250,6 +250,7 @@ where
         from_state: VmExecutorNextSegmentState<F>,
     ) -> Result<VmExecutorOneSegmentResult<F, VC>, ExecutionError> {
         let exe = exe.into();
+        println!("Program: {:#?}", exe.program.instructions_and_debug_infos);
         let mut segment = ExecutionSegment::new(
             &self.config,
             exe.program.clone(),

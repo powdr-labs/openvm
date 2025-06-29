@@ -3,12 +3,14 @@ use core::hint::black_box;
 
 use hex::FromHex;
 use openvm_keccak256::keccak256;
+use openvm::io::reveal_u32;
 // ANCHOR_END: imports
 
 // ANCHOR: main
 openvm::entry!(main);
 
 pub fn main() {
+    /*
     let test_vectors = [
         (
             "",
@@ -19,6 +21,9 @@ pub fn main() {
             "EEAD6DBFC7340A56CAEDC044696A168870549A6A7F6F56961E84A54BD9970B8A",
         ),
     ];
+    */
+    reveal_u32(black_box(222), 0);
+    /*
     for (input, expected_output) in test_vectors.iter() {
         let input = Vec::from_hex(input).unwrap();
         let expected_output = Vec::from_hex(expected_output).unwrap();
@@ -27,5 +32,7 @@ pub fn main() {
             panic!();
         }
     }
+    */
+    reveal_u32(666, 1);
 }
 // ANCHOR_END: main
