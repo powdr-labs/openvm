@@ -110,8 +110,8 @@ lto = "thin"
 
 [workspace.dependencies]
 # Stark Backend
-openvm-stark-backend = { git = "https://github.com/powdr-labs/stark-backend.git", rev = "c33fda6", default-features = false }
-openvm-stark-sdk = { git = "https://github.com/powdr-labs/stark-backend.git", rev = "c33fda6", default-features = false }
+openvm-stark-backend = { git = "https://github.com/powdr-labs/stark-backend.git", rev = "ae4520b", default-features = false }
+openvm-stark-sdk = { git = "https://github.com/powdr-labs/stark-backend.git", rev = "ae4520b", default-features = false }
 
 # OpenVM
 openvm-sdk = { path = "crates/sdk", default-features = false }
@@ -259,3 +259,7 @@ sha2 = { version = "0.10", default-features = false }
 # p3-poseidon2 = { path = "../Plonky3/poseidon2" }
 # p3-poseidon2-air = { path = "../Plonky3/poseidon2-air" }
 # p3-symmetric = { path = "../Plonky3/symmetric" }
+
+[patch."https://github.com/powdr-labs/stark-backend.git"]
+openvm-stark-sdk = { path = "../stark-backend/crates/stark-sdk", default-features = false }
+openvm-stark-backend = { path = "../stark-backend/crates/stark-backend", default-features = false }
