@@ -1,4 +1,4 @@
-use std::{env, fs::OpenOptions, io::Write, path::Path, process::Command};
+use std::{env, fs::OpenOptions, io::Write, path::Path, process::Command, sync::OnceLock};
 
 use eyre::Result;
 use tempfile::tempdir;
