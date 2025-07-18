@@ -1,7 +1,7 @@
 use openvm_stark_backend::{
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::Field,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
 use p3_poseidon2_air::{Poseidon2Air, Poseidon2Cols};
 
@@ -34,6 +34,9 @@ pub type Plonky3Poseidon2Air<F, LinearLayers, const SBOX_REGISTERS: usize> = Pos
 pub enum Poseidon2SubAir<F: Field, const SBOX_REGISTERS: usize> {
     BabyBearMds(Plonky3Poseidon2Air<F, BabyBearPoseidon2LinearLayers, SBOX_REGISTERS>),
 }
+
+impl<F: Field, const SBOX_REGISTERS: usize> ColumnsAir<F> for Poseidon2SubAir<F, SBOX_REGISTERS> {}
+
 
 impl<F: Field, const SBOX_REGISTERS: usize> Poseidon2SubAir<F, SBOX_REGISTERS> {
     pub fn new(constants: Plonky3RoundConstants<F>) -> Self {
