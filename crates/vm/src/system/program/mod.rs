@@ -106,15 +106,12 @@ impl<F: PrimeField64> ProgramChip<F> {
 
         let instruction = &res.0;
 
-        if let Some(executor) = inventory.get_executor(instruction.opcode) {
-            if executor.receives_from_program_chip() {
-                // If the executor receives from the program chip, we need to update the frequency in the program chip
-                self.execution_frequencies[pc_index] += 1;
-            } else {
-                panic!();
-            }
-        } else {
-            panic!();
+        // Iff the executor receives from the program chip or we don't have an executor for this opcode (system opcode), we increase the frequency count.
+        if inventory
+            .get_executor(instruction.opcode)
+            .map_or(true, |executor| executor.receives_from_program_chip())
+        {
+            self.execution_frequencies[pc_index] += 1;
         }
         Ok(res)
     }
