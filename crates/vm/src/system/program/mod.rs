@@ -113,6 +113,8 @@ impl<F: PrimeField64> ProgramChip<F> {
             } else {
                 panic!();
             }
+        } else {
+            panic!();
         }
         Ok(res)
     }
