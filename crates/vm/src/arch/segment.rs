@@ -240,7 +240,8 @@ impl<F: PrimeField32, VC: VmConfig<F>> ExecutionSegment<F, VC> {
                     ..
                 } = &mut chip_complex.base;
 
-                let (instruction, debug_info) = program_chip.get_instruction(pc)?;
+                let (instruction, debug_info) =
+                    program_chip.get_instruction(pc, Some(&chip_complex.inventory))?;
                 // tracing::trace!("pc: {pc:#x} | time: {timestamp} | {:?}", instruction);
                 // update the trace event for logging instructions in execution order in our profiler via a custom subscriber
                 tracing::trace!(pc = pc, "executing instruction");

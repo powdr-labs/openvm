@@ -4,7 +4,10 @@ use openvm_instructions::{
 };
 use openvm_stark_backend::{p3_field::PrimeField64, ChipUsageGetter};
 
-use crate::{arch::ExecutionError, system::program::trace::padding_instruction};
+use crate::{
+    arch::{ExecutionError, InstructionExecutor, VmInventory},
+    system::program::trace::padding_instruction,
+};
 
 #[cfg(test)]
 pub mod tests;
@@ -69,20 +72,33 @@ impl<F: PrimeField64> ProgramChip<F> {
         Ok(pc_index)
     }
 
-    pub fn get_instruction(
+    pub fn get_instruction<E: InstructionExecutor<F>, P>(
         &mut self,
         pc: u32,
+        inventory: Option<&VmInventory<E, P>>,
     ) -> Result<&(Instruction<F>, Option<DebugInfo>), ExecutionError> {
         let pc_index = self.get_pc_index(pc)?;
-        self.execution_frequencies[pc_index] += 1;
-        self.program
+        let res = self
+            .program
             .get_instruction_and_debug_info(pc_index)
             .ok_or(ExecutionError::PcNotFound {
                 pc,
                 step: self.program.step,
                 pc_base: self.program.pc_base,
                 program_len: self.program.len(),
-            })
+            })?;
+
+        let instruction = &res.0;
+
+        if let Some(inventory) = inventory {
+            if let Some(_) = inventory.get_executor(instruction.opcode) {
+                if E::RECEIVES_FROM_PROGRAM_CHIP {
+                    // If the executor receives from the program chip, we need to update the frequency in the program chip
+                    self.execution_frequencies[pc_index] += 1;
+                }
+            }
+        }
+        Ok(res)
     }
 }
 

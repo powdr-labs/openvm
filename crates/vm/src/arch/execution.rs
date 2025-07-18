@@ -70,6 +70,9 @@ pub enum ExecutionError {
 }
 
 pub trait InstructionExecutor<F> {
+    /// Whether this instruction receives from the program chip.
+    const RECEIVES_FROM_PROGRAM_CHIP: bool = true;
+
     /// Runtime execution of the instruction, if the instruction is owned by the
     /// current instance. May internally store records of this call for later trace generation.
     fn execute(

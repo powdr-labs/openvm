@@ -41,7 +41,7 @@ fn interaction_test(program: Program<BabyBear>, execution: Vec<u32>) {
     let mut execution_frequencies = vec![0; program.len()];
     for pc_idx in execution {
         execution_frequencies[pc_idx as usize] += 1;
-        chip.get_instruction(pc_idx * DEFAULT_PC_STEP).unwrap();
+        chip.get_instruction(pc_idx * DEFAULT_PC_STEP, None).unwrap();
     }
     let program_air = chip.air;
     let program_proof_input = chip.generate_air_proof_input(None);
@@ -182,7 +182,7 @@ fn test_program_negative() {
     let mut chip = ProgramChip::new_with_program(program, bus);
     let execution_frequencies = vec![1; instructions.len()];
     for pc_idx in 0..instructions.len() {
-        chip.get_instruction(pc_idx as u32 * DEFAULT_PC_STEP)
+        chip.get_instruction(pc_idx as u32 * DEFAULT_PC_STEP, None)
             .unwrap();
     }
     let program_air = chip.air;
