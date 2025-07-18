@@ -72,10 +72,26 @@ impl<F: PrimeField64> ProgramChip<F> {
         Ok(pc_index)
     }
 
-    pub fn get_instruction<E: InstructionExecutor<F>, P>(
+    #[cfg(test)]
+    pub fn get_instruction(
+        &self,
+        pc: u32,
+    ) -> Result<&(Instruction<F>, Option<DebugInfo>), ExecutionError> {
+        let pc_index = self.get_pc_index(pc)?;
+        self.program
+            .get_instruction_and_debug_info(pc_index)
+            .ok_or(ExecutionError::PcNotFound {
+                pc,
+                step: self.program.step,
+                pc_base: self.program.pc_base,
+                program_len: self.program.len(),
+            })
+    }
+
+    pub fn get_instruction_and_maybe_increase_count<E: InstructionExecutor<F>, P>(
         &mut self,
         pc: u32,
-        inventory: Option<&VmInventory<E, P>>,
+        inventory: &VmInventory<E, P>,
     ) -> Result<&(Instruction<F>, Option<DebugInfo>), ExecutionError> {
         let pc_index = self.get_pc_index(pc)?;
         let res = self
@@ -90,14 +106,12 @@ impl<F: PrimeField64> ProgramChip<F> {
 
         let instruction = &res.0;
 
-        if let Some(inventory) = inventory {
-            if let Some(executor) = inventory.get_executor(instruction.opcode) {
-                if executor.receives_from_program_chip() {
-                    // If the executor receives from the program chip, we need to update the frequency in the program chip
-                    self.execution_frequencies[pc_index] += 1;
-                } else {
-                    panic!();
-                }
+        if let Some(executor) = inventory.get_executor(instruction.opcode) {
+            if executor.receives_from_program_chip() {
+                // If the executor receives from the program chip, we need to update the frequency in the program chip
+                self.execution_frequencies[pc_index] += 1;
+            } else {
+                panic!();
             }
         }
         Ok(res)

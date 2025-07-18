@@ -37,11 +37,11 @@ assert_impl_all!(VmCommittedExe<BabyBearPoseidon2RootConfig>: Serialize, Deseria
 
 fn interaction_test(program: Program<BabyBear>, execution: Vec<u32>) {
     let bus = ProgramBus::new(READ_INSTRUCTION_BUS);
-    let mut chip = ProgramChip::new_with_program(program.clone(), bus);
+    let chip = ProgramChip::new_with_program(program.clone(), bus);
     let mut execution_frequencies = vec![0; program.len()];
     for pc_idx in execution {
         execution_frequencies[pc_idx as usize] += 1;
-        chip.get_instruction(pc_idx * DEFAULT_PC_STEP, None).unwrap();
+        chip.get_instruction(pc_idx * DEFAULT_PC_STEP).unwrap();
     }
     let program_air = chip.air;
     let program_proof_input = chip.generate_air_proof_input(None);
@@ -179,10 +179,10 @@ fn test_program_negative() {
     let bus = ProgramBus::new(READ_INSTRUCTION_BUS);
     let program = Program::from_instructions(&instructions);
 
-    let mut chip = ProgramChip::new_with_program(program, bus);
+    let chip = ProgramChip::new_with_program(program, bus);
     let execution_frequencies = vec![1; instructions.len()];
     for pc_idx in 0..instructions.len() {
-        chip.get_instruction(pc_idx as u32 * DEFAULT_PC_STEP, None)
+        chip.get_instruction(pc_idx as u32 * DEFAULT_PC_STEP)
             .unwrap();
     }
     let program_air = chip.air;
