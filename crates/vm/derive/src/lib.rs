@@ -35,6 +35,10 @@ pub fn instruction_executor_derive(input: TokenStream) -> TokenStream {
             );
             quote! {
                 impl #impl_generics ::openvm_circuit::arch::InstructionExecutor<F> for #name #ty_generics #where_clause {
+                    fn receives_from_program_chip(&self) -> bool {
+                        self.0.receives_from_program_chip()
+                    }
+
                     fn execute(
                         &mut self,
                         memory: &mut ::openvm_circuit::system::memory::MemoryController<F>,
@@ -75,7 +79,7 @@ pub fn instruction_executor_derive(input: TokenStream) -> TokenStream {
                 .expect("First generic must be type for Field");
             // Use full path ::openvm_circuit... so it can be used either within or outside the vm
             // crate. Assume F is already generic of the field.
-            let (execute_arms, get_opcode_name_arms): (Vec<_>, Vec<_>) =
+            let (execute_arms, get_opcode_name_arms, receives_from_program_chip_arms): (Vec<_>, Vec<_>, Vec<_>) =
                 multiunzip(variants.iter().map(|(variant_name, field)| {
                     let field_ty = &field.ty;
                     let execute_arm = quote! {
@@ -84,11 +88,20 @@ pub fn instruction_executor_derive(input: TokenStream) -> TokenStream {
                     let get_opcode_name_arm = quote! {
                         #name::#variant_name(x) => <#field_ty as ::openvm_circuit::arch::InstructionExecutor<#first_ty_generic>>::get_opcode_name(x, opcode)
                     };
+                    let receives_from_program_chip_arm = quote! {
+                        #name::#variant_name(x) => <#field_ty as ::openvm_circuit::arch::InstructionExecutor<#first_ty_generic>>::receives_from_program_chip(x)
+                    };
 
-                    (execute_arm, get_opcode_name_arm)
+                    (execute_arm, get_opcode_name_arm, receives_from_program_chip_arm)
                 }));
             quote! {
                 impl #impl_generics ::openvm_circuit::arch::InstructionExecutor<#first_ty_generic> for #name #ty_generics {
+                    fn receives_from_program_chip(&self) -> bool {
+                        match self {
+                            #(#receives_from_program_chip_arms,)*
+                        }
+                    }
+
                     fn execute(
                         &mut self,
                         memory: &mut ::openvm_circuit::system::memory::MemoryController<#first_ty_generic>,

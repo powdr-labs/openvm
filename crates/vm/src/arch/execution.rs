@@ -70,6 +70,11 @@ pub enum ExecutionError {
 }
 
 pub trait InstructionExecutor<F> {
+    /// Whether this instruction receives from the program chip
+    fn receives_from_program_chip(&self) -> bool {
+        true
+    }
+
     /// Runtime execution of the instruction, if the instruction is owned by the
     /// current instance. May internally store records of this call for later trace generation.
     fn execute(
@@ -85,6 +90,10 @@ pub trait InstructionExecutor<F> {
 }
 
 impl<F, C: InstructionExecutor<F>> InstructionExecutor<F> for RefCell<C> {
+    fn receives_from_program_chip(&self) -> bool {
+        self.borrow().receives_from_program_chip()
+    }
+
     fn execute(
         &mut self,
         memory: &mut MemoryController<F>,
@@ -100,6 +109,10 @@ impl<F, C: InstructionExecutor<F>> InstructionExecutor<F> for RefCell<C> {
 }
 
 impl<F, C: InstructionExecutor<F>> InstructionExecutor<F> for Rc<RefCell<C>> {
+    fn receives_from_program_chip(&self) -> bool {
+        self.borrow().receives_from_program_chip()
+    }
+
     fn execute(
         &mut self,
         memory: &mut MemoryController<F>,
