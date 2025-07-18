@@ -18,7 +18,7 @@ use openvm_stark_backend::{
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField64},
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
 
 use super::{FieldVariable, SymbolicExpr};
@@ -299,6 +299,7 @@ impl Deref for FieldExpr {
     }
 }
 
+impl<F: Field> ColumnsAir<F> for FieldExpr {}
 impl<F: Field> BaseAirWithPublicValues<F> for FieldExpr {}
 impl<F: Field> PartitionedBaseAir<F> for FieldExpr {}
 impl<F: Field> BaseAir<F> for FieldExpr {

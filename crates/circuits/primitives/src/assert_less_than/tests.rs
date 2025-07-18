@@ -13,7 +13,7 @@ use openvm_stark_backend::{
         Matrix,
     },
     p3_maybe_rayon::prelude::*,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     utils::disable_debug_builder,
     verifier::VerificationError,
 };
@@ -41,6 +41,7 @@ pub struct AssertLessThanCols<T, const AUX_LEN: usize> {
 #[derive(Clone, Copy)]
 pub struct AssertLtTestAir<const AUX_LEN: usize>(pub AssertLtSubAir);
 
+impl<F: Field, const AUX_LEN: usize> ColumnsAir<F> for AssertLtTestAir<AUX_LEN> {}
 impl<F: Field, const AUX_LEN: usize> BaseAirWithPublicValues<F> for AssertLtTestAir<AUX_LEN> {}
 impl<F: Field, const AUX_LEN: usize> PartitionedBaseAir<F> for AssertLtTestAir<AUX_LEN> {}
 impl<F: Field, const AUX_LEN: usize> BaseAir<F> for AssertLtTestAir<AUX_LEN> {

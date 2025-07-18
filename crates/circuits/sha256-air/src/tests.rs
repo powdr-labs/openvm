@@ -15,7 +15,7 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra, PrimeField32},
     p3_maybe_rayon::prelude::{IndexedParallelIterator, ParallelIterator, ParallelSliceMut},
     prover::types::AirProofInput,
-    rap::{get_air_name, BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{get_air_name, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     AirRef, Chip, ChipUsageGetter,
 };
 use openvm_stark_sdk::utils::create_seeded_rng;
@@ -31,6 +31,9 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct Sha256TestAir {
     pub sub_air: Sha256Air,
+}
+
+impl<F: Field> ColumnsAir<F> for Sha256TestAir {
 }
 
 impl<F: Field> BaseAirWithPublicValues<F> for Sha256TestAir {}

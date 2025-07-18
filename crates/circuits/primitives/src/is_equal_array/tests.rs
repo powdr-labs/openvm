@@ -9,7 +9,7 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     utils::disable_debug_builder,
     verifier::VerificationError,
 };
@@ -35,6 +35,7 @@ pub struct IsEqArrayCols<T, const N: usize> {
 #[derive(Clone, Copy)]
 pub struct IsEqArrayTestAir<const N: usize>(IsEqArraySubAir<N>);
 
+impl<F: Field, const N: usize> ColumnsAir<F> for IsEqArrayTestAir<N> {}
 impl<F: Field, const N: usize> BaseAirWithPublicValues<F> for IsEqArrayTestAir<N> {}
 impl<F: Field, const N: usize> PartitionedBaseAir<F> for IsEqArrayTestAir<N> {}
 impl<F: Field, const N: usize> BaseAir<F> for IsEqArrayTestAir<N> {
