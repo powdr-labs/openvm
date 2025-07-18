@@ -29,12 +29,11 @@ mod trace;
 
 pub use air::*;
 pub use columns::*;
-pub use trace::*;
-
 use openvm_circuit::arch::{
     execution_mode::E2ExecutionCtx, ExecuteFunc, ExecutionError::InvalidInstruction, VmSegmentState,
 };
 use openvm_circuit_primitives_derive::AlignedBytesBorrow;
+pub use trace::*;
 
 #[cfg(test)]
 mod tests;
