@@ -91,8 +91,8 @@ impl<F: PrimeField64> ProgramChip<F> {
         let instruction = &res.0;
 
         if let Some(inventory) = inventory {
-            if let Some(_) = inventory.get_executor(instruction.opcode) {
-                if E::RECEIVES_FROM_PROGRAM_CHIP {
+            if let Some(executor) = inventory.get_executor(instruction.opcode) {
+                if executor.receives_from_program_chip() {
                     // If the executor receives from the program chip, we need to update the frequency in the program chip
                     self.execution_frequencies[pc_index] += 1;
                 }

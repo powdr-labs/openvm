@@ -35,6 +35,10 @@ pub fn instruction_executor_derive(input: TokenStream) -> TokenStream {
             );
             quote! {
                 impl #impl_generics ::openvm_circuit::arch::InstructionExecutor<F> for #name #ty_generics #where_clause {
+                    fn receives_from_program_chip(&self) -> bool {
+                        self.0.receives_from_program_chip()
+                    }
+
                     fn execute(
                         &mut self,
                         memory: &mut ::openvm_circuit::system::memory::MemoryController<F>,
