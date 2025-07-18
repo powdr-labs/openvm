@@ -4,7 +4,10 @@ use openvm_instructions::{
 };
 use openvm_stark_backend::{p3_field::PrimeField64, ChipUsageGetter};
 
-use crate::{arch::ExecutionError, system::program::trace::padding_instruction};
+use crate::{
+    arch::{ExecutionError, InstructionExecutor, VmInventory},
+    system::program::trace::padding_instruction,
+};
 
 #[cfg(test)]
 pub mod tests;
@@ -69,12 +72,12 @@ impl<F: PrimeField64> ProgramChip<F> {
         Ok(pc_index)
     }
 
+    #[cfg(test)]
     pub fn get_instruction(
-        &mut self,
+        &self,
         pc: u32,
     ) -> Result<&(Instruction<F>, Option<DebugInfo>), ExecutionError> {
         let pc_index = self.get_pc_index(pc)?;
-        self.execution_frequencies[pc_index] += 1;
         self.program
             .get_instruction_and_debug_info(pc_index)
             .ok_or(ExecutionError::PcNotFound {
@@ -83,6 +86,34 @@ impl<F: PrimeField64> ProgramChip<F> {
                 pc_base: self.program.pc_base,
                 program_len: self.program.len(),
             })
+    }
+
+    pub fn get_instruction_and_maybe_increase_count<E: InstructionExecutor<F>, P>(
+        &mut self,
+        pc: u32,
+        inventory: &VmInventory<E, P>,
+    ) -> Result<&(Instruction<F>, Option<DebugInfo>), ExecutionError> {
+        let pc_index = self.get_pc_index(pc)?;
+        let res = self
+            .program
+            .get_instruction_and_debug_info(pc_index)
+            .ok_or(ExecutionError::PcNotFound {
+                pc,
+                step: self.program.step,
+                pc_base: self.program.pc_base,
+                program_len: self.program.len(),
+            })?;
+
+        let instruction = &res.0;
+
+        // Iff the executor receives from the program chip or we don't have an executor for this opcode (system opcode), we increase the frequency count.
+        if inventory
+            .get_executor(instruction.opcode)
+            .map_or(true, |executor| executor.receives_from_program_chip())
+        {
+            self.execution_frequencies[pc_index] += 1;
+        }
+        Ok(res)
     }
 }
 
