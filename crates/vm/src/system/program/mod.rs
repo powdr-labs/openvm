@@ -95,6 +95,8 @@ impl<F: PrimeField64> ProgramChip<F> {
                 if executor.receives_from_program_chip() {
                     // If the executor receives from the program chip, we need to update the frequency in the program chip
                     self.execution_frequencies[pc_index] += 1;
+                } else {
+                    panic!();
                 }
             }
         }
