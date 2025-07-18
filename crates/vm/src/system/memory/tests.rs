@@ -16,7 +16,7 @@ use openvm_stark_backend::{
     p3_field::{FieldAlgebra, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     prover::types::AirProofInput,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     Chip,
 };
 use openvm_stark_sdk::{
@@ -70,7 +70,7 @@ struct MemoryRequesterCols<T> {
 struct MemoryRequesterAir {
     memory_bridge: MemoryBridge,
 }
-
+impl<T> ColumnsAir<T> for MemoryRequesterAir {}
 impl<T> BaseAirWithPublicValues<T> for MemoryRequesterAir {}
 impl<T> PartitionedBaseAir<T> for MemoryRequesterAir {}
 impl<T> BaseAir<T> for MemoryRequesterAir {

@@ -9,7 +9,7 @@ use openvm_instructions::instruction::Instruction;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
-    p3_field::{Field, FieldAlgebra, PrimeField32},
+    p3_field::{Field, FieldAlgebra, PrimeField32}, rap::ColumnsAir,
 };
 use serde::{Deserialize, Serialize};
 
@@ -129,6 +129,8 @@ impl<F: PrimeField32> VmAdapterChip<F> for TestAdapterChip<F> {
 pub struct TestAdapterAir {
     pub execution_bridge: ExecutionBridge,
 }
+
+impl<F: Field> ColumnsAir<F> for TestAdapterAir {}
 
 #[repr(C)]
 #[derive(AlignedBorrow)]
