@@ -99,7 +99,7 @@ impl<F: PrimeField64> ProgramChip<F> {
             return Ok(res);
         }
 
-        self
+        let res = self
             .program
             .get_instruction_and_debug_info(pc_index)
             .ok_or(ExecutionError::PcNotFound {
@@ -107,7 +107,12 @@ impl<F: PrimeField64> ProgramChip<F> {
                 step: self.program.step,
                 pc_base: self.program.pc_base,
                 program_len: self.program.len(),
-            })
+            })?;
+        
+        // Increase the execution frequency for this instruction.
+        self.execution_frequencies[pc_index] += 1;
+
+        Ok(res)
     }
 }
 
