@@ -591,6 +591,12 @@ fn get_pre_compute_max_size<F, E: Executor<F>>(
                 0
             }
         })
+        .chain(program.apc_by_pc_index.values().map(|(inst, _)| {
+                inventory
+                    .get_executor(inst.opcode)
+                    .map(|executor| executor.pre_compute_size())
+                    .unwrap()
+        }))
         .max()
         .unwrap()
         .next_power_of_two()
@@ -617,6 +623,12 @@ fn get_metered_pre_compute_max_size<F, E: MeteredExecutor<F>>(
                 0
             }
         })
+        .chain(program.apc_by_pc_index.values().map(|(inst, _)| {
+                inventory
+                    .get_executor(inst.opcode)
+                    .map(|executor| executor.metered_pre_compute_size())
+                    .unwrap()
+        }))
         .max()
         .unwrap()
         .next_power_of_two()
@@ -648,6 +660,10 @@ where
         .zip_eq(pre_compute.iter_mut())
         .enumerate()
         .map(|(i, (inst_opt, buf))| {
+
+            // If an apc exists at this pc index, override the instruction
+            let inst_opt = program.apc_by_pc_index.get(&i).or(inst_opt.as_ref());
+
             // SAFETY: we cast to raw pointer and then borrow to remove the lifetime. This
             // is safe only in the current context because `buf` comes
             // from `pre_compute_buf` which will outlive the returned
@@ -703,6 +719,10 @@ where
         .zip_eq(pre_compute.iter_mut())
         .enumerate()
         .map(|(i, (inst_opt, buf))| {
+
+            // If an apc exists at this pc index, override the instruction
+            let inst_opt = program.apc_by_pc_index.get(&i).or(inst_opt.as_ref());
+
             // SAFETY: we cast to raw pointer and then borrow to remove the lifetime. This
             // is safe only in the current context because `buf` comes
             // from `pre_compute_buf` which will outlive the returned
