@@ -88,13 +88,18 @@ impl<F: PrimeField64> ProgramChip<F> {
             })
     }
 
-    pub fn get_instruction_and_maybe_increase_count<E: InstructionExecutor<F>, P>(
+    pub fn get_instruction_and_maybe_increase_count(
         &mut self,
         pc: u32,
-        inventory: &VmInventory<E, P>,
     ) -> Result<&(Instruction<F>, Option<DebugInfo>), ExecutionError> {
         let pc_index = self.get_pc_index(pc)?;
-        let res = self
+
+        // Check if there is an apc instruction at this pc.
+        if let Some(res) = self.program.get_apc_instruction(pc_index) {
+            return Ok(res);
+        }
+
+        self
             .program
             .get_instruction_and_debug_info(pc_index)
             .ok_or(ExecutionError::PcNotFound {
@@ -102,18 +107,7 @@ impl<F: PrimeField64> ProgramChip<F> {
                 step: self.program.step,
                 pc_base: self.program.pc_base,
                 program_len: self.program.len(),
-            })?;
-
-        let instruction = &res.0;
-
-        // Iff the executor receives from the program chip or we don't have an executor for this opcode (system opcode), we increase the frequency count.
-        if inventory
-            .get_executor(instruction.opcode)
-            .map_or(true, |executor| executor.receives_from_program_chip())
-        {
-            self.execution_frequencies[pc_index] += 1;
-        }
-        Ok(res)
+            })
     }
 }
 
