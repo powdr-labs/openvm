@@ -614,7 +614,7 @@ where
     /// - initial memory image was already sent to device via
     ///   [`transport_init_memory_to_device`](Self::transport_init_memory_to_device).
     /// - all other state should be given by `system_records` and `record_arenas`
-    #[instrument(name = "tracegen", skip_all)]
+    #[instrument(name = "trace_gen", skip_all)]
     pub fn generate_proving_ctx(
         &mut self,
         system_records: SystemRecords<Val<E::SC>>,
