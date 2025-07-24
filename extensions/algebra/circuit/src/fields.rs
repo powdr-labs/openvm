@@ -281,6 +281,7 @@ pub fn field_element_to_blocks<F: PrimeField<Repr = [u8; 32]>, const BLOCK_SIZE:
     field_element: &F,
     output: &mut [[u8; BLOCK_SIZE]],
 ) {
+    debug_assert!(output.len() * BLOCK_SIZE == 32);
     let bytes = field_element.to_repr();
     let mut byte_idx = 0;
 
@@ -312,6 +313,7 @@ pub fn field_element_to_blocks_bls12_381_coordinate<const BLOCK_SIZE: usize>(
     field_element: &halo2curves_axiom::bls12_381::Fq,
     output: &mut [[u8; BLOCK_SIZE]],
 ) {
+    debug_assert!(output.len() * BLOCK_SIZE == 48);
     let bytes = field_element.to_bytes();
     let mut byte_idx = 0;
 
