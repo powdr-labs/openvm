@@ -7,7 +7,7 @@ mod tests {
     use openvm_native_compiler::conversion::CompilerOptions;
     use openvm_sdk::{
         commit::AppExecutionCommit,
-        config::{AggStarkConfig, AppConfig, SdkSystemConfig, SdkVmConfig},
+        config::{AggStarkConfig, AppConfig, SdkSystemConfig, SdkVmConfig, SdkVmCpuBuilder},
         keygen::AggStarkProvingKey,
         Sdk, StdIn,
     };
@@ -71,7 +71,7 @@ mod tests {
                 ..Default::default()
             },
             root_max_constraint_degree: (1 << ROOT_LOG_BLOWUP) + 1,
-        });
+        })?;
         let asm = sdk.generate_root_verifier_asm(&agg_pk);
         let asm_path = format!(
             "{}/examples/verify_openvm_stark/{}",
@@ -81,6 +81,7 @@ mod tests {
         std::fs::write(asm_path, asm)?;
 
         let e2e_stark_proof = sdk.generate_e2e_stark_proof(
+            SdkVmCpuBuilder,
             Arc::new(app_pk),
             committed_app_exe,
             agg_pk,

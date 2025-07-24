@@ -9,19 +9,23 @@ mod bn254 {
         bn256::{Fq12, Fq2, Fr, G1Affine, G2Affine},
         ff::Field,
     };
-    use openvm_algebra_circuit::{Fp2Extension, ModularExtension};
+    use openvm_algebra_circuit::{Fp2Extension, Rv32ModularConfig};
     use openvm_algebra_transpiler::{Fp2TranspilerExtension, ModularTranspilerExtension};
     use openvm_circuit::utils::{
         air_test, air_test_impl, air_test_with_min_segments, test_system_config_with_continuations,
     };
-    use openvm_ecc_circuit::{CurveConfig, Rv32WeierstrassConfig, WeierstrassExtension};
+    use openvm_ecc_circuit::{
+        CurveConfig, Rv32WeierstrassConfig, Rv32WeierstrassCpuBuilder, WeierstrassExtension,
+    };
     use openvm_ecc_guest::{
         algebra::{field::FieldExtension, IntMod},
         AffinePoint,
     };
     use openvm_ecc_transpiler::EccTranspilerExtension;
     use openvm_instructions::exe::VmExe;
-    use openvm_pairing_circuit::{PairingCurve, PairingExtension, Rv32PairingConfig};
+    use openvm_pairing_circuit::{
+        PairingCurve, PairingExtension, Rv32PairingConfig, Rv32PairingCpuBuilder,
+    };
     use openvm_pairing_guest::{
         bn254::{BN254_COMPLEX_STRUCT_NAME, BN254_MODULUS},
         halo2curves_shims::bn254::Bn254,
@@ -31,7 +35,11 @@ mod bn254 {
     use openvm_rv32im_transpiler::{
         Rv32ITranspilerExtension, Rv32IoTranspilerExtension, Rv32MTranspilerExtension,
     };
-    use openvm_stark_sdk::{openvm_stark_backend::p3_field::FieldAlgebra, p3_baby_bear::BabyBear};
+    use openvm_stark_sdk::{
+        config::{baby_bear_poseidon2::BabyBearPoseidon2Engine, FriParameters},
+        openvm_stark_backend::p3_field::FieldAlgebra,
+        p3_baby_bear::BabyBear,
+    };
     use openvm_toolchain_tests::{build_example_program_at_path_with_features, get_programs_dir};
     use openvm_transpiler::{transpiler::Transpiler, FromElf};
     use rand::SeedableRng;
@@ -47,11 +55,7 @@ mod bn254 {
             .zip(primes.clone())
             .collect::<Vec<_>>();
         Rv32PairingConfig {
-            system: test_system_config_with_continuations(),
-            base: Default::default(),
-            mul: Default::default(),
-            io: Default::default(),
-            modular: ModularExtension::new(primes.to_vec()),
+            modular: Rv32ModularConfig::new(primes.to_vec()),
             fp2: Fp2Extension::new(primes_with_names),
             weierstrass: WeierstrassExtension::new(vec![]),
             pairing: PairingExtension::new(vec![PairingCurve::Bn254]),
@@ -61,7 +65,7 @@ mod bn254 {
     #[cfg(test)]
     fn test_rv32weierstrass_config(curves: Vec<CurveConfig>) -> Rv32WeierstrassConfig {
         let mut config = Rv32WeierstrassConfig::new(curves);
-        config.system = test_system_config_with_continuations();
+        *config.as_mut() = test_system_config_with_continuations();
         config
     }
 
@@ -84,7 +88,7 @@ mod bn254 {
                 .with_extension(EccTranspilerExtension)
                 .with_extension(ModularTranspilerExtension),
         )?;
-        air_test(config, openvm_exe);
+        air_test(Rv32WeierstrassCpuBuilder, config, openvm_exe);
         Ok(())
     }
 
@@ -117,10 +121,10 @@ mod bn254 {
             .into_iter()
             .flat_map(|fp12| fp12.to_coeffs())
             .flat_map(|fp2| fp2.to_bytes())
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(F::from_canonical_u8)
             .collect::<Vec<_>>();
 
-        air_test_with_min_segments(config, openvm_exe, vec![io], 1);
+        air_test_with_min_segments(Rv32PairingCpuBuilder, config, openvm_exe, vec![io], 1);
         Ok(())
     }
 
@@ -161,7 +165,7 @@ mod bn254 {
             .chain(r0)
             .flat_map(|fp2| fp2.to_coeffs())
             .flat_map(|fp| fp.to_bytes())
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(F::from_canonical_u8)
             .collect::<Vec<_>>();
 
         // Test mul_by_01234
@@ -173,12 +177,12 @@ mod bn254 {
             .chain(r1.to_coeffs())
             .flat_map(|fp2| fp2.to_coeffs())
             .flat_map(|fp| fp.to_bytes())
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(F::from_canonical_u8)
             .collect::<Vec<_>>();
 
         let io_all = io0.into_iter().chain(io1).collect::<Vec<_>>();
 
-        air_test_with_min_segments(config, openvm_exe, vec![io_all], 1);
+        air_test_with_min_segments(Rv32PairingCpuBuilder, config, openvm_exe, vec![io_all], 1);
         Ok(())
     }
 
@@ -214,7 +218,7 @@ mod bn254 {
         let io0 = [s.x, s.y, pt.x, pt.y, l.b, l.c]
             .into_iter()
             .flat_map(|fp| fp.to_bytes())
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(F::from_canonical_u8)
             .collect::<Vec<_>>();
 
         // Test miller_double_and_add_step
@@ -222,12 +226,12 @@ mod bn254 {
         let io1 = [s.x, s.y, q.x, q.y, pt.x, pt.y, l0.b, l0.c, l1.b, l1.c]
             .into_iter()
             .flat_map(|fp| fp.to_bytes())
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(F::from_canonical_u8)
             .collect::<Vec<_>>();
 
         let io_all = io0.into_iter().chain(io1).collect::<Vec<_>>();
 
-        air_test_with_min_segments(config, openvm_exe, vec![io_all], 1);
+        air_test_with_min_segments(Rv32PairingCpuBuilder, config, openvm_exe, vec![io_all], 1);
         Ok(())
     }
 
@@ -266,7 +270,7 @@ mod bn254 {
         let io0 = s
             .into_iter()
             .flat_map(|pt| [pt.x, pt.y].into_iter().flat_map(|fp| fp.to_bytes()))
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(F::from_canonical_u8)
             .collect::<Vec<_>>();
 
         let io1 = q
@@ -275,12 +279,12 @@ mod bn254 {
             .chain(f.to_coeffs())
             .flat_map(|fp2| fp2.to_coeffs())
             .flat_map(|fp| fp.to_bytes())
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(F::from_canonical_u8)
             .collect::<Vec<_>>();
 
         let io_all = io0.into_iter().chain(io1).collect::<Vec<_>>();
 
-        air_test_with_min_segments(config, openvm_exe, vec![io_all], 1);
+        air_test_with_min_segments(Rv32PairingCpuBuilder, config, openvm_exe, vec![io_all], 1);
         Ok(())
     }
 
@@ -324,7 +328,7 @@ mod bn254 {
         let io0 = s
             .into_iter()
             .flat_map(|pt| [pt.x, pt.y].into_iter().flat_map(|fp| fp.to_bytes()))
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(F::from_canonical_u8)
             .collect::<Vec<_>>();
 
         let io1 = q
@@ -332,12 +336,12 @@ mod bn254 {
             .flat_map(|pt| [pt.x, pt.y].into_iter())
             .flat_map(|fp2| fp2.to_coeffs())
             .flat_map(|fp| fp.to_bytes())
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(F::from_canonical_u8)
             .collect::<Vec<_>>();
 
         let io_all = io0.into_iter().chain(io1).collect::<Vec<_>>();
 
-        air_test_with_min_segments(config, openvm_exe, vec![io_all], 1);
+        air_test_with_min_segments(Rv32PairingCpuBuilder, config, openvm_exe, vec![io_all], 1);
         Ok(())
     }
 
@@ -381,7 +385,7 @@ mod bn254 {
         let io0 = s
             .into_iter()
             .flat_map(|pt| [pt.x, pt.y].into_iter().flat_map(|fp| fp.to_bytes()))
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(F::from_canonical_u8)
             .collect::<Vec<_>>();
 
         let io1 = q
@@ -389,12 +393,20 @@ mod bn254 {
             .flat_map(|pt| [pt.x, pt.y].into_iter())
             .flat_map(|fp2| fp2.to_coeffs())
             .flat_map(|fp| fp.to_bytes())
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(F::from_canonical_u8)
             .collect::<Vec<_>>();
 
         let io_all = io0.into_iter().chain(io1).collect::<Vec<_>>();
         // Don't run debugger because it's slow
-        air_test_impl(get_testing_config(), openvm_exe, vec![io_all], 1, false);
+        air_test_impl::<BabyBearPoseidon2Engine, _>(
+            FriParameters::new_for_testing(1),
+            Rv32PairingCpuBuilder,
+            get_testing_config(),
+            openvm_exe,
+            vec![io_all],
+            1,
+            false,
+        )?;
         Ok(())
     }
 
@@ -448,7 +460,7 @@ mod bn254 {
             .flat_map(|w| w.to_le_bytes())
             .map(F::from_canonical_u8)
             .collect();
-        air_test_with_min_segments(config, openvm_exe, vec![io], 1);
+        air_test_with_min_segments(Rv32PairingCpuBuilder, config, openvm_exe, vec![io], 1);
         Ok(())
     }
 }
@@ -462,7 +474,7 @@ mod bls12_381 {
     };
     use num_bigint::BigUint;
     use num_traits::{self, FromPrimitive};
-    use openvm_algebra_circuit::{Fp2Extension, ModularExtension};
+    use openvm_algebra_circuit::{Fp2Extension, Rv32ModularConfig};
     use openvm_algebra_transpiler::{Fp2TranspilerExtension, ModularTranspilerExtension};
     use openvm_circuit::{
         arch::instructions::exe::VmExe,
@@ -471,13 +483,17 @@ mod bls12_381 {
             test_system_config_with_continuations,
         },
     };
-    use openvm_ecc_circuit::{CurveConfig, Rv32WeierstrassConfig, WeierstrassExtension};
+    use openvm_ecc_circuit::{
+        CurveConfig, Rv32WeierstrassConfig, Rv32WeierstrassCpuBuilder, WeierstrassExtension,
+    };
     use openvm_ecc_guest::{
         algebra::{field::FieldExtension, IntMod},
         AffinePoint,
     };
     use openvm_ecc_transpiler::EccTranspilerExtension;
-    use openvm_pairing_circuit::{PairingCurve, PairingExtension, Rv32PairingConfig};
+    use openvm_pairing_circuit::{
+        PairingCurve, PairingExtension, Rv32PairingConfig, Rv32PairingCpuBuilder,
+    };
     use openvm_pairing_guest::{
         bls12_381::{
             BLS12_381_COMPLEX_STRUCT_NAME, BLS12_381_ECC_STRUCT_NAME, BLS12_381_MODULUS,
@@ -490,7 +506,11 @@ mod bls12_381 {
     use openvm_rv32im_transpiler::{
         Rv32ITranspilerExtension, Rv32IoTranspilerExtension, Rv32MTranspilerExtension,
     };
-    use openvm_stark_sdk::{openvm_stark_backend::p3_field::FieldAlgebra, p3_baby_bear::BabyBear};
+    use openvm_stark_sdk::{
+        config::{baby_bear_poseidon2::BabyBearPoseidon2Engine, FriParameters},
+        openvm_stark_backend::p3_field::FieldAlgebra,
+        p3_baby_bear::BabyBear,
+    };
     use openvm_toolchain_tests::{build_example_program_at_path_with_features, get_programs_dir};
     use openvm_transpiler::{transpiler::Transpiler, FromElf};
     use rand::SeedableRng;
@@ -506,11 +526,7 @@ mod bls12_381 {
             .zip(primes.clone())
             .collect::<Vec<_>>();
         Rv32PairingConfig {
-            system: test_system_config_with_continuations(),
-            base: Default::default(),
-            mul: Default::default(),
-            io: Default::default(),
-            modular: ModularExtension::new(primes.to_vec()),
+            modular: Rv32ModularConfig::new(primes.to_vec()),
             fp2: Fp2Extension::new(primes_with_names),
             weierstrass: WeierstrassExtension::new(vec![]),
             pairing: PairingExtension::new(vec![PairingCurve::Bls12_381]),
@@ -520,7 +536,7 @@ mod bls12_381 {
     #[cfg(test)]
     fn test_rv32weierstrass_config(curves: Vec<CurveConfig>) -> Rv32WeierstrassConfig {
         let mut config = Rv32WeierstrassConfig::new(curves);
-        config.system = test_system_config_with_continuations();
+        *config.as_mut() = test_system_config_with_continuations();
         config
     }
 
@@ -549,7 +565,7 @@ mod bls12_381 {
                 .with_extension(EccTranspilerExtension)
                 .with_extension(ModularTranspilerExtension),
         )?;
-        air_test(config, openvm_exe);
+        air_test(Rv32WeierstrassCpuBuilder, config, openvm_exe);
         Ok(())
     }
 
@@ -582,10 +598,10 @@ mod bls12_381 {
             .into_iter()
             .flat_map(|fp12| fp12.to_coeffs())
             .flat_map(|fp2| fp2.to_bytes())
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(F::from_canonical_u8)
             .collect::<Vec<_>>();
 
-        air_test_with_min_segments(config, openvm_exe, vec![io], 1);
+        air_test_with_min_segments(Rv32PairingCpuBuilder, config, openvm_exe, vec![io], 1);
         Ok(())
     }
 
@@ -626,7 +642,7 @@ mod bls12_381 {
             .chain(r0)
             .flat_map(|fp2| fp2.to_coeffs())
             .flat_map(|fp| fp.to_bytes())
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(F::from_canonical_u8)
             .collect::<Vec<_>>();
 
         // Test mul_by_02345
@@ -639,12 +655,12 @@ mod bls12_381 {
             .chain(r1.to_coeffs())
             .flat_map(|fp2| fp2.to_coeffs())
             .flat_map(|fp| fp.to_bytes())
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(F::from_canonical_u8)
             .collect::<Vec<_>>();
 
         let io_all = io0.into_iter().chain(io1).collect::<Vec<_>>();
 
-        air_test_with_min_segments(config, openvm_exe, vec![io_all], 1);
+        air_test_with_min_segments(Rv32PairingCpuBuilder, config, openvm_exe, vec![io_all], 1);
         Ok(())
     }
 
@@ -680,7 +696,7 @@ mod bls12_381 {
         let io0 = [s.x, s.y, pt.x, pt.y, l.b, l.c]
             .into_iter()
             .flat_map(|fp| fp.to_bytes())
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(F::from_canonical_u8)
             .collect::<Vec<_>>();
 
         // Test miller_double_and_add_step
@@ -688,12 +704,12 @@ mod bls12_381 {
         let io1 = [s.x, s.y, q.x, q.y, pt.x, pt.y, l0.b, l0.c, l1.b, l1.c]
             .into_iter()
             .flat_map(|fp| fp.to_bytes())
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(F::from_canonical_u8)
             .collect::<Vec<_>>();
 
         let io_all = io0.into_iter().chain(io1).collect::<Vec<_>>();
 
-        air_test_with_min_segments(config, openvm_exe, vec![io_all], 1);
+        air_test_with_min_segments(Rv32PairingCpuBuilder, config, openvm_exe, vec![io_all], 1);
         Ok(())
     }
 
@@ -738,7 +754,7 @@ mod bls12_381 {
         let io0 = s
             .into_iter()
             .flat_map(|pt| [pt.x, pt.y].into_iter().flat_map(|fp| fp.to_bytes()))
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(F::from_canonical_u8)
             .collect::<Vec<_>>();
 
         let io1 = q
@@ -747,12 +763,12 @@ mod bls12_381 {
             .chain(f.to_coeffs())
             .flat_map(|fp2| fp2.to_coeffs())
             .flat_map(|fp| fp.to_bytes())
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(F::from_canonical_u8)
             .collect::<Vec<_>>();
 
         let io_all = io0.into_iter().chain(io1).collect::<Vec<_>>();
 
-        air_test_with_min_segments(config, openvm_exe, vec![io_all], 1);
+        air_test_with_min_segments(Rv32PairingCpuBuilder, config, openvm_exe, vec![io_all], 1);
         Ok(())
     }
 
@@ -795,7 +811,7 @@ mod bls12_381 {
         let io0 = s
             .into_iter()
             .flat_map(|pt| [pt.x, pt.y].into_iter().flat_map(|fp| fp.to_bytes()))
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(F::from_canonical_u8)
             .collect::<Vec<_>>();
 
         let io1 = q
@@ -803,12 +819,12 @@ mod bls12_381 {
             .flat_map(|pt| [pt.x, pt.y].into_iter())
             .flat_map(|fp2| fp2.to_coeffs())
             .flat_map(|fp| fp.to_bytes())
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(F::from_canonical_u8)
             .collect::<Vec<_>>();
 
         let io_all = io0.into_iter().chain(io1).collect::<Vec<_>>();
 
-        air_test_with_min_segments(config, openvm_exe, vec![io_all], 1);
+        air_test_with_min_segments(Rv32PairingCpuBuilder, config, openvm_exe, vec![io_all], 1);
         Ok(())
     }
 
@@ -852,7 +868,7 @@ mod bls12_381 {
         let io0 = s
             .into_iter()
             .flat_map(|pt| [pt.x, pt.y].into_iter().flat_map(|fp| fp.to_bytes()))
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(F::from_canonical_u8)
             .collect::<Vec<_>>();
 
         let io1 = q
@@ -860,12 +876,20 @@ mod bls12_381 {
             .flat_map(|pt| [pt.x, pt.y].into_iter())
             .flat_map(|fp2| fp2.to_coeffs())
             .flat_map(|fp| fp.to_bytes())
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(F::from_canonical_u8)
             .collect::<Vec<_>>();
 
         let io_all = io0.into_iter().chain(io1).collect::<Vec<_>>();
         // Don't run debugger because it's slow
-        air_test_impl(get_testing_config(), openvm_exe, vec![io_all], 1, false);
+        air_test_impl::<BabyBearPoseidon2Engine, _>(
+            FriParameters::new_for_testing(1),
+            Rv32PairingCpuBuilder,
+            get_testing_config(),
+            openvm_exe,
+            vec![io_all],
+            1,
+            false,
+        )?;
         Ok(())
     }
 
@@ -919,7 +943,7 @@ mod bls12_381 {
             .flat_map(|w| w.to_le_bytes())
             .map(F::from_canonical_u8)
             .collect();
-        air_test_with_min_segments(config, openvm_exe, vec![io], 1);
+        air_test_with_min_segments(Rv32PairingCpuBuilder, config, openvm_exe, vec![io], 1);
         Ok(())
     }
 }
