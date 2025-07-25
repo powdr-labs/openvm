@@ -1,7 +1,7 @@
 use openvm_instructions::{
     instruction::Instruction,
     program::{Program, DEFAULT_PC_STEP},
-    LocalOpcode, SystemOpcode, VmOpcode,
+    LocalOpcode, SystemOpcode,
 };
 use openvm_stark_backend::{
     config::StarkGenericConfig,
@@ -9,9 +9,8 @@ use openvm_stark_backend::{
     p3_maybe_rayon::prelude::*,
     prover::{cpu::CpuBackend, types::CommittedTraceData},
 };
-use thiserror::Error;
 
-use crate::arch::{ExecutionError, ExecutorId, ExecutorInventory};
+use crate::arch::{ExecutionError, ExecutorId, ExecutorInventory, StaticProgramError};
 
 #[cfg(test)]
 pub mod tests;
@@ -157,15 +156,6 @@ impl<F: Field, E> ProgramHandler<F, E> {
             .filter_map(|(i, entry)| entry.is_some().then(|| self.execution_frequencies[i]))
             .collect()
     }
-}
-
-/// Errors in the program that can be statically analyzed before runtime.
-#[derive(Error, Debug)]
-pub enum StaticProgramError {
-    #[error("Too many executors")]
-    TooManyExecutors,
-    #[error("Executor not found for opcode {opcode}")]
-    ExecutorNotFound { opcode: VmOpcode },
 }
 
 // For CPU backend only

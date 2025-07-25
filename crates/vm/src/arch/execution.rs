@@ -18,11 +18,9 @@ use crate::{
     arch::{execution_mode::E2ExecutionCtx, ExecutorInventoryError, MatrixRecordArena},
     system::{
         memory::online::{GuestMemory, TracingMemory},
-        program::{ProgramBus, StaticProgramError},
+        program::ProgramBus,
     },
 };
-
-pub type Result<T> = std::result::Result<T, ExecutionError>;
 
 #[derive(Error, Debug)]
 pub enum ExecutionError {
@@ -72,9 +70,17 @@ pub enum ExecutionError {
     Inventory(#[from] ExecutorInventoryError),
     #[error("static program error: {0}")]
     Static(#[from] StaticProgramError),
-    // TODO[jpw]: this should be in StaticProgramError
+}
+
+/// Errors in the program that can be statically analyzed before runtime.
+#[derive(Error, Debug)]
+pub enum StaticProgramError {
     #[error("invalid instruction at pc {0}")]
     InvalidInstruction(u32),
+    #[error("Too many executors")]
+    TooManyExecutors,
+    #[error("Executor not found for opcode {opcode}")]
+    ExecutorNotFound { opcode: VmOpcode },
 }
 
 /// Global VM state accessible during instruction execution.
@@ -99,7 +105,7 @@ pub trait InstructionExecutor<F, RA = MatrixRecordArena<F>>: Clone {
         &mut self,
         state: VmStateMut<F, TracingMemory, RA>,
         instruction: &Instruction<F>,
-    ) -> Result<()>;
+    ) -> Result<(), ExecutionError>;
 
     /// For display purposes. From absolute opcode as `usize`, return the string name of the opcode
     /// if it is a supported opcode by the present executor.
@@ -129,7 +135,7 @@ pub trait InsExecutorE1<F> {
         pc: u32,
         inst: &Instruction<F>,
         data: &mut [u8],
-    ) -> Result<ExecuteFunc<F, Ctx>>
+    ) -> Result<ExecuteFunc<F, Ctx>, StaticProgramError>
     where
         Ctx: E1ExecutionCtx;
 }
@@ -143,7 +149,7 @@ pub trait InsExecutorE2<F> {
         pc: u32,
         inst: &Instruction<F>,
         data: &mut [u8],
-    ) -> Result<ExecuteFunc<F, Ctx>>
+    ) -> Result<ExecuteFunc<F, Ctx>, StaticProgramError>
     where
         Ctx: E2ExecutionCtx;
 }

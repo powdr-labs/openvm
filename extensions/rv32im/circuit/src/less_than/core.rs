@@ -4,13 +4,7 @@ use std::{
 };
 
 use openvm_circuit::{
-    arch::{
-        execution_mode::{E1ExecutionCtx, E2ExecutionCtx},
-        get_record_from_slice, AdapterAirContext, AdapterTraceFiller, AdapterTraceStep,
-        E2PreCompute, EmptyAdapterCoreLayout, ExecuteFunc, ExecutionError, InsExecutorE1,
-        InsExecutorE2, InstructionExecutor, MinimalInstruction, RecordArena, Result, TraceFiller,
-        VmAdapterInterface, VmCoreAir, VmSegmentState, VmStateMut,
-    },
+    arch::*,
     system::memory::{
         online::{GuestMemory, TracingMemory},
         MemoryAuxColsFactory,
@@ -226,7 +220,7 @@ where
         &mut self,
         state: VmStateMut<F, TracingMemory, RA>,
         instruction: &Instruction<F>,
-    ) -> Result<()> {
+    ) -> Result<(), ExecutionError> {
         debug_assert!(LIMB_BITS <= 8);
         let Instruction { opcode, .. } = instruction;
 
@@ -365,7 +359,7 @@ where
         pc: u32,
         inst: &Instruction<F>,
         data: &mut [u8],
-    ) -> Result<ExecuteFunc<F, Ctx>> {
+    ) -> Result<ExecuteFunc<F, Ctx>, StaticProgramError> {
         let pre_compute: &mut LessThanPreCompute = data.borrow_mut();
         let (is_imm, is_sltu) = self.pre_compute_impl(pc, inst, pre_compute)?;
         let fn_ptr = match (is_imm, is_sltu) {
@@ -393,7 +387,7 @@ where
         pc: u32,
         inst: &Instruction<F>,
         data: &mut [u8],
-    ) -> Result<ExecuteFunc<F, Ctx>>
+    ) -> Result<ExecuteFunc<F, Ctx>, StaticProgramError>
     where
         Ctx: E2ExecutionCtx,
     {
@@ -473,7 +467,7 @@ impl<A, const LIMB_BITS: usize> LessThanStep<A, { RV32_REGISTER_NUM_LIMBS }, LIM
         pc: u32,
         inst: &Instruction<F>,
         data: &mut LessThanPreCompute,
-    ) -> Result<(bool, bool)> {
+    ) -> Result<(bool, bool), StaticProgramError> {
         let Instruction {
             opcode,
             a,
@@ -487,7 +481,7 @@ impl<A, const LIMB_BITS: usize> LessThanStep<A, { RV32_REGISTER_NUM_LIMBS }, LIM
         if d.as_canonical_u32() != RV32_REGISTER_AS
             || !(e_u32 == RV32_IMM_AS || e_u32 == RV32_REGISTER_AS)
         {
-            return Err(ExecutionError::InvalidInstruction(pc));
+            return Err(StaticProgramError::InvalidInstruction(pc));
         }
         let local_opcode = LessThanOpcode::from_usize(opcode.local_opcode_idx(self.offset));
         let is_imm = e_u32 == RV32_IMM_AS;
