@@ -9,14 +9,16 @@ use super::{
 };
 use crate::{
     arch::{
-        execution_mode::{E1ExecutionCtx, E2ExecutionCtx},
+        execution_mode::{
+            metered::segment_ctx::SegmentationLimits, E1ExecutionCtx, E2ExecutionCtx,
+        },
         VmSegmentState,
     },
     system::memory::{dimensions::MemoryDimensions, online::GuestMemory},
 };
 
 pub const DEFAULT_PAGE_BITS: usize = 6;
-const DEFAULT_SEGMENT_CHECK_INSNS: u64 = 1000;
+pub const DEFAULT_SEGMENT_CHECK_INSNS: u64 = 1000;
 
 #[derive(Clone, Debug, WithSetters)]
 pub struct MeteredCtx<const PAGE_BITS: usize = DEFAULT_PAGE_BITS> {
@@ -45,6 +47,7 @@ impl<const PAGE_BITS: usize> MeteredCtx<PAGE_BITS> {
         air_names: Vec<String>,
         widths: Vec<usize>,
         interactions: Vec<usize>,
+        segmentation_limits: SegmentationLimits,
     ) -> Self {
         let (trace_heights, is_trace_height_constant): (Vec<u32>, Vec<bool>) =
             constant_trace_heights
@@ -84,7 +87,8 @@ impl<const PAGE_BITS: usize> MeteredCtx<PAGE_BITS> {
             air_names[memory_ctx.adapter_offset]
         );
 
-        let segmentation_ctx = SegmentationCtx::new(air_names, widths, interactions);
+        let segmentation_ctx =
+            SegmentationCtx::new(air_names, widths, interactions, segmentation_limits);
 
         let mut ctx = Self {
             trace_heights,

@@ -1,6 +1,7 @@
-use std::{fs::File, io::Write, path::Path, sync::Arc};
+use std::{fs::File, io::Write, path::Path};
 
 use derive_new::new;
+use getset::{Setters, WithSetters};
 use openvm_instructions::NATIVE_AS;
 use openvm_poseidon2_air::Poseidon2Config;
 use openvm_stark_backend::{
@@ -10,14 +11,11 @@ use openvm_stark_backend::{
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use super::{
-    segmentation_strategy::{DefaultSegmentationStrategy, SegmentationStrategy},
-    AnyEnum, VmChipComplex, PUBLIC_VALUES_AIR_ID,
-};
+use super::{AnyEnum, VmChipComplex, PUBLIC_VALUES_AIR_ID};
 use crate::{
     arch::{
-        AirInventory, AirInventoryError, Arena, ChipInventoryError, ExecutorInventory,
-        ExecutorInventoryError,
+        execution_mode::metered::segment_ctx::SegmentationLimits, AirInventory, AirInventoryError,
+        Arena, ChipInventoryError, ExecutorInventory, ExecutorInventoryError,
     },
     system::{
         memory::{merkle::public_values::PUBLIC_VALUES_AS, num_memory_airs, CHUNK},
@@ -172,9 +170,10 @@ impl MemoryConfig {
 
 /// System-level configuration for the virtual machine. Contains all configuration parameters that
 /// are managed by the architecture, including configuration for continuations support.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Setters, WithSetters)]
 pub struct SystemConfig {
     /// The maximum constraint degree any chip is allowed to use.
+    #[getset(set_with = "pub")]
     pub max_constraint_degree: usize,
     /// True if the VM is in continuation mode. In this mode, an execution could be segmented and
     /// each segment is proved by a proof. Each proof commits the before and after state of the
@@ -195,15 +194,12 @@ pub struct SystemConfig {
     /// Whether to collect detailed profiling metrics.
     /// **Warning**: this slows down the runtime.
     pub profiling: bool,
-    /// Segmentation strategy
+    /// Segmentation limits
     /// This field is skipped in serde as it's only used in execution and
     /// not needed after any serialize/deserialize.
-    #[serde(skip, default = "get_default_segmentation_strategy")]
-    pub segmentation_strategy: Arc<dyn SegmentationStrategy>,
-}
-
-pub fn get_default_segmentation_strategy() -> Arc<DefaultSegmentationStrategy> {
-    Arc::new(DefaultSegmentationStrategy::default())
+    #[serde(skip, default = "SegmentationLimits::default")]
+    #[getset(set = "pub")]
+    pub segmentation_limits: SegmentationLimits,
 }
 
 impl SystemConfig {
@@ -212,7 +208,6 @@ impl SystemConfig {
         mut memory_config: MemoryConfig,
         num_public_values: usize,
     ) -> Self {
-        let segmentation_strategy = get_default_segmentation_strategy();
         assert!(
             memory_config.clk_max_bits <= 29,
             "Timestamp max bits must be <= 29 for LessThan to work in 31-bit field"
@@ -223,8 +218,8 @@ impl SystemConfig {
             continuation_enabled: false,
             memory_config,
             num_public_values,
-            segmentation_strategy,
             profiling: false,
+            segmentation_limits: SegmentationLimits::default(),
         }
     }
 
@@ -234,11 +229,6 @@ impl SystemConfig {
             memory_config,
             DEFAULT_MAX_NUM_PUBLIC_VALUES,
         )
-    }
-
-    pub fn with_max_constraint_degree(mut self, max_constraint_degree: usize) -> Self {
-        self.max_constraint_degree = max_constraint_degree;
-        self
     }
 
     pub fn with_continuations(mut self) -> Self {
@@ -258,14 +248,8 @@ impl SystemConfig {
     }
 
     pub fn with_max_segment_len(mut self, max_segment_len: usize) -> Self {
-        self.segmentation_strategy = Arc::new(
-            DefaultSegmentationStrategy::new_with_max_segment_len(max_segment_len),
-        );
+        self.segmentation_limits.max_trace_height = max_segment_len as u32;
         self
-    }
-
-    pub fn set_segmentation_strategy(&mut self, strategy: Arc<dyn SegmentationStrategy>) {
-        self.segmentation_strategy = strategy;
     }
 
     pub fn with_profiling(mut self) -> Self {

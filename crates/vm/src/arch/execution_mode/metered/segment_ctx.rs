@@ -1,3 +1,4 @@
+use getset::WithSetters;
 use openvm_stark_backend::p3_field::PrimeField32;
 use p3_baby_bear::BabyBear;
 use serde::{Deserialize, Serialize};
@@ -13,10 +14,13 @@ pub struct Segment {
     pub trace_heights: Vec<u32>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, WithSetters)]
 pub struct SegmentationLimits {
+    #[getset(set_with = "pub")]
     pub max_trace_height: u32,
+    #[getset(set_with = "pub")]
     pub max_cells: usize,
+    #[getset(set_with = "pub")]
     pub max_interactions: usize,
 }
 
@@ -40,7 +44,26 @@ pub struct SegmentationCtx {
 }
 
 impl SegmentationCtx {
-    pub fn new(air_names: Vec<String>, widths: Vec<usize>, interactions: Vec<usize>) -> Self {
+    pub fn new(
+        air_names: Vec<String>,
+        widths: Vec<usize>,
+        interactions: Vec<usize>,
+        segmentation_limits: SegmentationLimits,
+    ) -> Self {
+        Self {
+            segments: Vec::new(),
+            air_names,
+            widths,
+            interactions,
+            segmentation_limits,
+        }
+    }
+
+    pub fn new_with_default_segmentation_limits(
+        air_names: Vec<String>,
+        widths: Vec<usize>,
+        interactions: Vec<usize>,
+    ) -> Self {
         Self {
             segments: Vec::new(),
             air_names,
