@@ -7,7 +7,7 @@ use openvm_circuit_primitives::{
         SharedVariableRangeCheckerChip, VariableRangeCheckerBus, VariableRangeCheckerChip,
     },
 };
-use openvm_instructions::{instruction::Instruction, NATIVE_AS};
+use openvm_instructions::{instruction::Instruction, riscv::RV32_REGISTER_AS, NATIVE_AS};
 use openvm_stark_backend::{
     config::{StarkGenericConfig, Val},
     engine::VerificationData,
@@ -272,7 +272,7 @@ impl<F: PrimeField32> VmChipTestBuilder<F> {
     }
 
     pub fn address_bits(&self) -> usize {
-        self.memory.controller.mem_config.pointer_max_bits
+        self.memory.controller.memory_config().pointer_max_bits
     }
 
     pub fn get_default_register(&mut self, increment: usize) -> usize {
@@ -336,7 +336,8 @@ impl VmChipTestBuilder<BabyBear> {
 impl<F: PrimeField32> VmChipTestBuilder<F> {
     pub fn default_persistent() -> Self {
         let mut mem_config = MemoryConfig::default();
-        mem_config.addr_space_sizes[NATIVE_AS as usize] = 0;
+        mem_config.addr_spaces[RV32_REGISTER_AS as usize].num_cells = 1 << 29;
+        mem_config.addr_spaces[NATIVE_AS as usize].num_cells = 0;
         Self::persistent(mem_config)
     }
 
@@ -411,7 +412,10 @@ impl<F: PrimeField32> VmChipTestBuilder<F> {
 impl<F: PrimeField32> Default for VmChipTestBuilder<F> {
     fn default() -> Self {
         let mut mem_config = MemoryConfig::default();
-        mem_config.addr_space_sizes[NATIVE_AS as usize] = 0;
+        // TODO[jpw]: this is because old tests use `gen_pointer` on address space 1; this can be
+        // removed when tests are updated.
+        mem_config.addr_spaces[RV32_REGISTER_AS as usize].num_cells = 1 << 29;
+        mem_config.addr_spaces[NATIVE_AS as usize].num_cells = 0;
         Self::volatile(mem_config)
     }
 }
@@ -487,7 +491,7 @@ where
             }
             let mem_inventory = MemoryAirInventory::new(
                 memory_controller.memory_bridge(),
-                &memory_controller.mem_config,
+                memory_controller.memory_config(),
                 range_checker.bus(),
                 is_persistent.then_some((
                     PermutationCheckBus::new(MEMORY_MERKLE_BUS),
