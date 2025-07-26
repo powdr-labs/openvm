@@ -50,6 +50,9 @@ impl SegmentationCtx {
         interactions: Vec<usize>,
         segmentation_limits: SegmentationLimits,
     ) -> Self {
+        assert_eq!(air_names.len(), widths.len());
+        assert_eq!(air_names.len(), interactions.len());
+
         Self {
             segments: Vec::new(),
             air_names,
@@ -64,6 +67,9 @@ impl SegmentationCtx {
         widths: Vec<usize>,
         interactions: Vec<usize>,
     ) -> Self {
+        assert_eq!(air_names.len(), widths.len());
+        assert_eq!(air_names.len(), interactions.len());
+
         Self {
             segments: Vec::new(),
             air_names,
@@ -88,9 +94,14 @@ impl SegmentationCtx {
     /// Calculate the total cells used based on trace heights and widths
     #[inline(always)]
     fn calculate_total_cells(&self, trace_heights: &[u32]) -> usize {
+        debug_assert_eq!(trace_heights.len(), self.widths.len());
+
+        // SAFETY: Length equality is asserted during initialization
+        let widths_slice = unsafe { self.widths.get_unchecked(..trace_heights.len()) };
+
         trace_heights
             .iter()
-            .zip(&self.widths)
+            .zip(widths_slice)
             .map(|(&height, &width)| height as usize * width)
             .sum()
     }
@@ -98,9 +109,14 @@ impl SegmentationCtx {
     /// Calculate the total interactions based on trace heights and interaction counts
     #[inline(always)]
     fn calculate_total_interactions(&self, trace_heights: &[u32]) -> usize {
+        debug_assert_eq!(trace_heights.len(), self.interactions.len());
+
+        // SAFETY: Length equality is asserted during initialization
+        let interactions_slice = unsafe { self.interactions.get_unchecked(..trace_heights.len()) };
+
         trace_heights
             .iter()
-            .zip(&self.interactions)
+            .zip(interactions_slice)
             // We add 1 for the zero messages from the padding rows
             .map(|(&height, &interactions)| (height + 1) as usize * interactions)
             .sum()
@@ -113,24 +129,34 @@ impl SegmentationCtx {
         trace_heights: &[u32],
         is_trace_height_constant: &[bool],
     ) -> bool {
+        debug_assert_eq!(trace_heights.len(), is_trace_height_constant.len());
+        debug_assert_eq!(trace_heights.len(), self.air_names.len());
+
         let instret_start = self
             .segments
             .last()
             .map_or(0, |s| s.instret_start + s.num_insns);
         let num_insns = instret - instret_start;
+
         // Segment should contain at least one cycle
         if num_insns == 0 {
             return false;
         }
-        for (i, &height) in trace_heights.iter().enumerate() {
+
+        for (i, (height, is_constant)) in trace_heights
+            .iter()
+            .zip(is_trace_height_constant.iter())
+            .enumerate()
+        {
             // Only segment if the height is not constant and exceeds the maximum height
-            if !is_trace_height_constant[i] && height > self.segmentation_limits.max_trace_height {
+            if !is_constant && *height > self.segmentation_limits.max_trace_height {
+                let air_name = &self.air_names[i];
                 tracing::info!(
                     "Segment {:2} | instret {:9} | chip {} ({}) height ({:8}) > max ({:8})",
                     self.segments.len(),
                     instret,
                     i,
-                    self.air_names[i],
+                    air_name,
                     height,
                     self.segmentation_limits.max_trace_height
                 );
@@ -172,7 +198,6 @@ impl SegmentationCtx {
         trace_heights: &[u32],
         is_trace_height_constant: &[bool],
     ) -> bool {
-        // Avoid checking segment too often.
         let ret = self.should_segment(instret, trace_heights, is_trace_height_constant);
         if ret {
             self.segment(instret, trace_heights);
@@ -188,6 +213,9 @@ impl SegmentationCtx {
             .last()
             .map_or(0, |s| s.instret_start + s.num_insns);
         let num_insns = instret - instret_start;
+
+        debug_assert!(num_insns > 0, "Segment should contain at least one cycle");
+
         self.segments.push(Segment {
             instret_start,
             num_insns,
