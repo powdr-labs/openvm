@@ -186,6 +186,7 @@ impl VmMetrics {
         *self = self.partial_take();
     }
 
+    #[cfg(any(debug_assertions, feature = "perf-metrics"))]
     pub fn update_backtrace(&mut self, pc: u32) {
         if let Some(info) = self.debug_infos.get(pc) {
             if let Some(trace) = &info.trace {

@@ -134,7 +134,10 @@ where
             tracing::trace!("pc: {pc:#x} | system phantom: {sys:?}");
             match sys {
                 SysPhantom::DebugPanic => {
-                    #[cfg(feature = "metrics")]
+                    #[cfg(all(
+                        feature = "metrics",
+                        any(debug_assertions, feature = "perf-metrics")
+                    ))]
                     {
                         let metrics = state.metrics;
                         metrics.update_backtrace(pc);
