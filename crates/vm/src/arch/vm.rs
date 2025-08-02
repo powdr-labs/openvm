@@ -172,29 +172,30 @@ pub enum ExitCode {
     Suspended = -1, // Continuations
 }
 
-pub struct VmState<F> {
+/// Represents the core state of a VM.
+pub struct VmState<F, MEM = GuestMemory> {
     pub instret: u64,
     pub pc: u32,
-    pub memory: GuestMemory,
-    pub input: Streams<F>,
+    pub memory: MEM,
+    pub streams: Streams<F>,
     pub rng: StdRng,
     #[cfg(feature = "metrics")]
     pub metrics: VmMetrics,
 }
 
-impl<F> VmState<F> {
+impl<F, MEM> VmState<F, MEM> {
     pub fn new(
         instret: u64,
         pc: u32,
-        memory: GuestMemory,
-        input: impl Into<Streams<F>>,
+        memory: MEM,
+        streams: impl Into<Streams<F>>,
         seed: u64,
     ) -> Self {
         Self {
             instret,
             pc,
             memory,
-            input: input.into(),
+            streams: streams.into(),
             rng: StdRng::seed_from_u64(seed),
             #[cfg(feature = "metrics")]
             metrics: VmMetrics::default(),
@@ -205,7 +206,7 @@ impl<F> VmState<F> {
 pub struct PreflightExecutionOutput<F, RA> {
     pub system_records: SystemRecords<F>,
     pub record_arenas: Vec<RA>,
-    pub to_state: VmState<F>,
+    pub to_state: VmState<F, GuestMemory>,
 }
 
 impl<F, VC> VmExecutor<F, VC>
@@ -257,7 +258,11 @@ where
         )
     }
 
-    pub fn create_initial_state(&self, exe: &VmExe<F>, input: impl Into<Streams<F>>) -> VmState<F> {
+    pub fn create_initial_state(
+        &self,
+        exe: &VmExe<F>,
+        input: impl Into<Streams<F>>,
+    ) -> VmState<F, GuestMemory> {
         let memory_config = &self.config.as_ref().memory_config;
         let memory = create_memory_image(memory_config, exe.init_memory.clone());
         let seed = 0;
@@ -336,21 +341,13 @@ where
         exe: impl Into<VmExe<F>>,
         inputs: impl Into<Streams<F>>,
         num_insns: Option<u64>,
-    ) -> Result<VmState<F>, ExecutionError> {
+    ) -> Result<VmState<F, GuestMemory>, ExecutionError> {
         let interpreter = InterpretedInstance::new(self.config.clone(), exe)?;
 
         let ctx = E1Ctx::new(num_insns);
         let state = interpreter.execute(ctx, inputs)?;
 
-        Ok(VmState {
-            instret: state.instret,
-            pc: state.pc,
-            memory: state.memory,
-            input: state.streams,
-            rng: state.rng,
-            #[cfg(feature = "metrics")]
-            metrics: Default::default(),
-        })
+        Ok(state.vm_state)
     }
 
     pub fn execute_metered(
@@ -365,7 +362,8 @@ where
         let state = interpreter.execute_e2(ctx, input, executor_idx_to_air_idx)?;
         check_termination(state.exit_code)?;
 
-        Ok((state.ctx.into_segments(), state.memory))
+        let VmSegmentState { vm_state, ctx, .. } = state;
+        Ok((ctx.into_segments(), vm_state.memory))
     }
 }
 
@@ -497,7 +495,7 @@ where
     pub fn execute_preflight(
         &self,
         exe: &VmExe<Val<E::SC>>,
-        state: VmState<Val<E::SC>>,
+        state: VmState<Val<E::SC>, GuestMemory>,
         num_insns: Option<u64>,
         trace_heights: &[u32],
     ) -> Result<PreflightExecutionOutput<Val<E::SC>, VB::RecordArena>, ExecutionError>
@@ -525,12 +523,7 @@ where
         let capacities = zip_eq(trace_heights, main_widths)
             .map(|(&h, w)| (h as usize, w))
             .collect::<Vec<_>>();
-        let ctx = TracegenCtx::new_with_capacity(
-            &capacities,
-            instret_end,
-            #[cfg(feature = "metrics")]
-            state.metrics,
-        );
+        let ctx = TracegenCtx::new_with_capacity(&capacities, instret_end);
 
         let system_config: &SystemConfig = self.config().as_ref();
         let adapter_offset = system_config.access_adapter_air_id_offset();
@@ -546,14 +539,22 @@ where
             access_adapter_arena_size_bound,
         );
         let from_state = ExecutionState::new(state.pc, memory.timestamp());
-        let mut exec_state =
-            VmSegmentState::new(state.instret, state.pc, memory, state.input, state.rng, ctx);
+        let vm_state = VmState {
+            instret: state.instret,
+            pc: state.pc,
+            memory,
+            streams: state.streams,
+            rng: state.rng,
+            #[cfg(feature = "metrics")]
+            metrics: state.metrics,
+        };
+        let mut exec_state = VmSegmentState::new(vm_state, ctx);
         execute_spanned!("execute_e3", instance, &mut exec_state)?;
         let filtered_exec_frequencies = instance.handler.filtered_execution_frequencies();
-        let mut memory = exec_state.memory;
+        let mut memory = exec_state.vm_state.memory;
         let touched_memory = memory.finalize::<Val<E::SC>>(system_config.continuation_enabled);
 
-        let to_state = ExecutionState::new(exec_state.pc, memory.timestamp());
+        let to_state = ExecutionState::new(exec_state.vm_state.pc, memory.timestamp());
         let public_values = system_config
             .has_public_values_chip()
             .then(|| {
@@ -576,13 +577,13 @@ where
         };
         let record_arenas = exec_state.ctx.arenas;
         let to_state = VmState {
-            instret: exec_state.instret,
-            pc: exec_state.pc,
+            instret: exec_state.vm_state.instret,
+            pc: exec_state.vm_state.pc,
             memory: memory.data,
-            input: exec_state.streams,
-            rng: exec_state.rng,
+            streams: exec_state.vm_state.streams,
+            rng: exec_state.vm_state.rng,
             #[cfg(feature = "metrics")]
-            metrics: exec_state.ctx.metrics,
+            metrics: exec_state.vm_state.metrics,
         };
         Ok(PreflightExecutionOutput {
             system_records,
@@ -597,7 +598,7 @@ where
         &self,
         exe: &VmExe<Val<E::SC>>,
         input: impl Into<Streams<Val<E::SC>>>,
-    ) -> VmState<Val<E::SC>> {
+    ) -> VmState<Val<E::SC>, GuestMemory> {
         #[allow(unused_mut)]
         let mut state = self.executor.create_initial_state(exe, input);
         #[cfg(feature = "perf-metrics")]
@@ -697,7 +698,7 @@ where
     pub fn prove(
         &mut self,
         exe: &VmExe<Val<E::SC>>,
-        state: VmState<Val<E::SC>>,
+        state: VmState<Val<E::SC>, GuestMemory>,
         num_insns: Option<u64>,
         trace_heights: &[u32],
     ) -> Result<(Proof<E::SC>, Option<GuestMemory>), VirtualMachineError>

@@ -1,9 +1,11 @@
-use std::fmt::Debug;
+use std::{
+    fmt::Debug,
+    ops::{Deref, DerefMut},
+};
 
 use openvm_stark_backend::p3_field::PrimeField32;
-use rand::rngs::StdRng;
 
-use super::{ExecutionError, Streams};
+use super::{ExecutionError, VmState};
 use crate::{
     arch::{
         execution_mode::{
@@ -19,34 +21,36 @@ use crate::{
     },
 };
 
+/// Represents the full execution state of a VM during segment execution.
 pub struct VmSegmentState<F, MEM, CTX> {
-    pub instret: u64,
-    pub pc: u32,
-    pub memory: MEM,
-    pub streams: Streams<F>,
-    pub rng: StdRng,
+    /// Core VM state
+    pub vm_state: VmState<F, MEM>,
+    /// Execution-specific fields
     pub exit_code: Result<Option<u32>, ExecutionError>,
     pub ctx: CTX,
 }
 
 impl<F, MEM, CTX> VmSegmentState<F, MEM, CTX> {
-    pub fn new(
-        instret: u64,
-        pc: u32,
-        memory: MEM,
-        streams: Streams<F>,
-        rng: StdRng,
-        ctx: CTX,
-    ) -> Self {
+    pub fn new(vm_state: VmState<F, MEM>, ctx: CTX) -> Self {
         Self {
-            instret,
-            pc,
-            memory,
-            streams,
-            rng,
+            vm_state,
             ctx,
             exit_code: Ok(None),
         }
+    }
+}
+
+impl<F, MEM, CTX> Deref for VmSegmentState<F, MEM, CTX> {
+    type Target = VmState<F, MEM>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.vm_state
+    }
+}
+
+impl<F, MEM, CTX> DerefMut for VmSegmentState<F, MEM, CTX> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.vm_state
     }
 }
 
