@@ -11,12 +11,7 @@ use openvm_benchmarks_utils::{get_elf_path, get_programs_dir, read_elf_file};
 use openvm_bigint_circuit::{Int256, Int256CpuProverExt, Int256Executor};
 use openvm_bigint_transpiler::Int256TranspilerExtension;
 use openvm_circuit::{
-    arch::{
-        execution_mode::{e1::E1Ctx, metered::MeteredCtx},
-        instructions::exe::VmExe,
-        interpreter::InterpretedInstance,
-        *,
-    },
+    arch::{execution_mode::metered::MeteredCtx, instructions::exe::VmExe, *},
     derive::VmConfig,
     system::*,
 };
@@ -67,6 +62,7 @@ static AVAILABLE_PROGRAMS: &[&str] = &[
 ];
 
 static METERED_CTX: OnceLock<(MeteredCtx, Vec<usize>)> = OnceLock::new();
+static EXECUTOR: OnceLock<VmExecutor<BabyBear, ExecuteConfig>> = OnceLock::new();
 
 #[derive(Clone, Debug, VmConfig, Serialize, Deserialize)]
 pub struct ExecuteConfig {
@@ -218,18 +214,24 @@ fn metering_setup() -> &'static (MeteredCtx, Vec<usize>) {
     })
 }
 
+fn executor() -> &'static VmExecutor<BabyBear, ExecuteConfig> {
+    EXECUTOR.get_or_init(|| {
+        let vm_config = ExecuteConfig::default();
+        VmExecutor::<BabyBear, _>::new(vm_config).unwrap()
+    })
+}
+
 #[divan::bench(args = AVAILABLE_PROGRAMS, sample_count=10)]
 fn benchmark_execute(bencher: Bencher, program: &str) {
     bencher
         .with_inputs(|| {
-            let vm_config = ExecuteConfig::default();
             let exe = load_program_executable(program).expect("Failed to load program executable");
-            let interpreter = InterpretedInstance::new(vm_config, exe).unwrap();
+            let interpreter = executor().instance(&exe).unwrap();
             (interpreter, vec![])
         })
         .bench_values(|(interpreter, input)| {
             interpreter
-                .execute(E1Ctx::new(None), input)
+                .execute(input, None)
                 .expect("Failed to execute program in interpreted mode");
         });
 }
@@ -238,17 +240,16 @@ fn benchmark_execute(bencher: Bencher, program: &str) {
 fn benchmark_execute_metered(bencher: Bencher, program: &str) {
     bencher
         .with_inputs(|| {
-            let vm_config = ExecuteConfig::default();
             let exe = load_program_executable(program).expect("Failed to load program executable");
-
             let (ctx, executor_idx_to_air_idx) = metering_setup();
-            let interpreter = InterpretedInstance::new(vm_config, exe).unwrap();
-
-            (interpreter, vec![], ctx.clone(), executor_idx_to_air_idx)
+            let interpreter = executor()
+                .metered_instance(&exe, executor_idx_to_air_idx)
+                .unwrap();
+            (interpreter, vec![], ctx.clone())
         })
-        .bench_values(|(interpreter, input, ctx, executor_idx_to_air_idx)| {
+        .bench_values(|(interpreter, input, ctx)| {
             interpreter
-                .execute_e2(ctx, input, executor_idx_to_air_idx)
+                .execute_metered(input, ctx)
                 .expect("Failed to execute program");
         });
 }
