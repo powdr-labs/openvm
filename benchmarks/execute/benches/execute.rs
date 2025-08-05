@@ -1,4 +1,4 @@
-use std::{path::Path, sync::OnceLock};
+use std::{fs, path::Path, sync::OnceLock};
 
 use divan::Bencher;
 use eyre::Result;
@@ -7,18 +7,23 @@ use openvm_algebra_circuit::{
     ModularExtensionExecutor,
 };
 use openvm_algebra_transpiler::{Fp2TranspilerExtension, ModularTranspilerExtension};
-use openvm_benchmarks_utils::{get_elf_path, get_programs_dir, read_elf_file};
+use openvm_benchmarks_utils::{get_elf_path, get_fixtures_dir, get_programs_dir, read_elf_file};
 use openvm_bigint_circuit::{Int256, Int256CpuProverExt, Int256Executor};
 use openvm_bigint_transpiler::Int256TranspilerExtension;
 use openvm_circuit::{
-    arch::{execution_mode::metered::MeteredCtx, instructions::exe::VmExe, *},
+    arch::{execution_mode::metered::MeteredCtx, instructions::exe::VmExe, ContinuationVmProof, *},
     derive::VmConfig,
     system::*,
+};
+use openvm_continuations::{
+    verifier::{common::types::VmVerifierPvs, leaf::types::LeafVmVerifierInput},
+    SC,
 };
 use openvm_ecc_circuit::{EccCpuProverExt, WeierstrassExtension, WeierstrassExtensionExecutor};
 use openvm_ecc_transpiler::EccTranspilerExtension;
 use openvm_keccak256_circuit::{Keccak256, Keccak256CpuProverExt, Keccak256Executor};
 use openvm_keccak256_transpiler::Keccak256TranspilerExtension;
+use openvm_native_circuit::{NativeConfig, NativeCpuBuilder, NATIVE_MAX_TRACE_HEIGHTS};
 use openvm_pairing_circuit::{
     PairingCurve, PairingExtension, PairingExtensionExecutor, PairingProverExt,
 };
@@ -30,6 +35,7 @@ use openvm_rv32im_circuit::{
 use openvm_rv32im_transpiler::{
     Rv32ITranspilerExtension, Rv32IoTranspilerExtension, Rv32MTranspilerExtension,
 };
+use openvm_sdk::config::{DEFAULT_LEAF_LOG_BLOWUP, SBOX_SIZE};
 use openvm_sha256_circuit::{Sha256, Sha256Executor, Sha2CpuProverExt};
 use openvm_sha256_transpiler::Sha256TranspilerExtension;
 use openvm_stark_sdk::{
@@ -39,7 +45,10 @@ use openvm_stark_sdk::{
         self,
         config::{StarkGenericConfig, Val},
         p3_field::PrimeField32,
-        prover::cpu::{CpuBackend, CpuDevice},
+        prover::{
+            cpu::{CpuBackend, CpuDevice},
+            hal::DeviceDataTransporter,
+        },
     },
     p3_baby_bear::BabyBear,
 };
@@ -254,26 +263,41 @@ fn benchmark_execute_metered(bencher: Bencher, program: &str) {
         });
 }
 
-// #[divan::bench(args = AVAILABLE_PROGRAMS, sample_count=3)]
-// fn benchmark_execute_e3(bencher: Bencher, program: &str) {
-//     bencher
-//         .with_inputs(|| {
-//             let vm = create_default_vm();
-//             let exe = load_program_executable(program).expect("Failed to load program
-// executable");             let state = create_initial_state(&vm.config().system.memory_config,
-// &exe, vec![], 0);
+#[divan::bench(sample_count = 3)]
+fn benchmark_leaf_verifier_execute_preflight(bencher: Bencher) {
+    bencher
+        .with_inputs(|| {
+            let fixtures_dir = get_fixtures_dir();
+            let app_proof_bytes = fs::read(fixtures_dir.join("kitchen-sink.app.proof")).unwrap();
+            let app_proof: ContinuationVmProof<SC> =
+                bitcode::deserialize(&app_proof_bytes).unwrap();
 
-//             let (widths, interactions) = shared_widths_and_interactions();
-//             let (segments, _) = vm
-//                 .executor
-//                 .execute_metered(exe.clone(), vec![], interactions)
-//                 .expect("Failed to execute program");
+            let leaf_exe_bytes = fs::read(fixtures_dir.join("kitchen-sink.leaf.exe")).unwrap();
+            let leaf_exe: VmExe<BabyBear> = bitcode::deserialize(&leaf_exe_bytes).unwrap();
 
-//             (vm.executor, exe, state, segments)
-//         })
-//         .bench_values(|(executor, exe, state, segments)| {
-//             executor
-//                 .execute_from_state(exe, state, &segments)
-//                 .expect("Failed to execute program");
-//         });
-// }
+            let leaf_pk_bytes = fs::read(fixtures_dir.join("kitchen-sink.leaf.pk")).unwrap();
+            let leaf_pk = bitcode::deserialize(&leaf_pk_bytes).unwrap();
+
+            let leaf_inputs = LeafVmVerifierInput::chunk_continuation_vm_proof(&app_proof, 2);
+            let leaf_input = leaf_inputs.first().expect("No leaf input available");
+
+            let config = NativeConfig::aggregation(
+                VmVerifierPvs::<u8>::width(),
+                SBOX_SIZE.min(FriParameters::standard_fast().max_constraint_degree()),
+            );
+            let fri_params =
+                FriParameters::standard_with_100_bits_conjectured_security(DEFAULT_LEAF_LOG_BLOWUP);
+            let engine = BabyBearPoseidon2Engine::new(fri_params);
+            let d_pk = engine.device().transport_pk_to_device(&leaf_pk);
+            let vm = VirtualMachine::new(engine, NativeCpuBuilder, config, d_pk).unwrap();
+            let input_stream = leaf_input.write_to_stream();
+            let state = vm.create_initial_state(&leaf_exe, input_stream);
+
+            (vm, leaf_exe, state)
+        })
+        .bench_values(|(vm, leaf_exe, state)| {
+            let _out = vm
+                .execute_preflight(&leaf_exe, state, None, NATIVE_MAX_TRACE_HEIGHTS)
+                .expect("Failed to execute preflight");
+        });
+}
