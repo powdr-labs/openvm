@@ -17,14 +17,13 @@ use tracing::info_span;
 
 use crate::{
     arch::{
-        create_memory_image,
         execution_mode::{
             e1::E1Ctx,
             metered::{MeteredCtx, Segment},
             E1ExecutionCtx, E2ExecutionCtx,
         },
         ExecuteFunc, ExecutionError, ExecutorInventory, ExitCode, InsExecutorE1, InsExecutorE2,
-        StaticProgramError, Streams, SystemConfig, VmSegmentState, VmState,
+        StaticProgramError, Streams, SystemConfig, VmExecState, VmState,
     },
     system::memory::online::GuestMemory,
 };
@@ -84,15 +83,6 @@ macro_rules! execute_with_metrics {
                 .set(insns as f64 / elapsed.as_micros() as f64);
         }
     }};
-}
-
-impl<F, Ctx> InterpretedInstance<'_, F, Ctx> {
-    pub fn create_initial_state(&self, inputs: impl Into<Streams<F>>) -> VmState<F, GuestMemory> {
-        let memory_config = &self.system_config.memory_config;
-        let memory = create_memory_image(memory_config, self.init_memory.clone());
-        let seed = 0;
-        VmState::new(0, self.pc_start, memory, inputs.into(), seed)
-    }
 }
 
 // Constructors for E1 and E2 respectively, which generate pre-computed buffers and function
@@ -196,7 +186,12 @@ where
         inputs: impl Into<Streams<F>>,
         num_insns: Option<u64>,
     ) -> Result<VmState<F, GuestMemory>, ExecutionError> {
-        let vm_state = self.create_initial_state(inputs);
+        let vm_state = VmState::initial(
+            &self.system_config.memory_config,
+            self.init_memory.clone(),
+            self.pc_start,
+            inputs,
+        );
         self.execute_from_state(vm_state, num_insns)
     }
 
@@ -211,7 +206,7 @@ where
         num_insns: Option<u64>,
     ) -> Result<VmState<F, GuestMemory>, ExecutionError> {
         let ctx = E1Ctx::new(num_insns);
-        let mut exec_state = VmSegmentState::new(from_state, ctx);
+        let mut exec_state = VmExecState::new(from_state, ctx);
         // Start execution
         execute_with_metrics!(
             "execute_e1",
@@ -241,7 +236,12 @@ where
         inputs: impl Into<Streams<F>>,
         ctx: MeteredCtx,
     ) -> Result<(Vec<Segment>, VmState<F, GuestMemory>), ExecutionError> {
-        let vm_state = self.create_initial_state(inputs);
+        let vm_state = VmState::initial(
+            &self.system_config.memory_config,
+            self.init_memory.clone(),
+            self.pc_start,
+            inputs,
+        );
         self.execute_metered_from_state(vm_state, ctx)
     }
 
@@ -258,7 +258,7 @@ where
         from_state: VmState<F, GuestMemory>,
         ctx: MeteredCtx,
     ) -> Result<(Vec<Segment>, VmState<F, GuestMemory>), ExecutionError> {
-        let mut exec_state = VmSegmentState::new(from_state, ctx);
+        let mut exec_state = VmExecState::new(from_state, ctx);
         // Start execution
         execute_with_metrics!(
             "execute_metered",
@@ -267,7 +267,7 @@ where
             &self.pre_compute_insns
         );
         check_termination(exec_state.exit_code)?;
-        let VmSegmentState { vm_state, ctx, .. } = exec_state;
+        let VmExecState { vm_state, ctx, .. } = exec_state;
         Ok((ctx.into_segments(), vm_state))
     }
 }
@@ -302,7 +302,7 @@ fn split_pre_compute_buf<'a, F>(
 #[inline(always)]
 unsafe fn execute_trampoline<F: PrimeField32, Ctx: E1ExecutionCtx>(
     pc_base: u32,
-    vm_state: &mut VmSegmentState<F, GuestMemory, Ctx>,
+    vm_state: &mut VmExecState<F, GuestMemory, Ctx>,
     fn_ptrs: &[PreComputeInstruction<F, Ctx>],
 ) {
     while vm_state
@@ -379,7 +379,7 @@ impl Drop for AlignedBuf {
 
 unsafe fn terminate_execute_e12_impl<F: PrimeField32, CTX: E1ExecutionCtx>(
     pre_compute: &[u8],
-    vm_state: &mut VmSegmentState<F, GuestMemory, CTX>,
+    vm_state: &mut VmExecState<F, GuestMemory, CTX>,
 ) {
     let pre_compute: &TerminatePreCompute = pre_compute.borrow();
     vm_state.instret += 1;
@@ -520,7 +520,7 @@ where
             // outlive the returned `PreComputeInstruction`s.
             let buf: &mut [u8] = unsafe { &mut *(*buf as *mut [u8]) };
             let pre_inst = if let Some((inst, _)) = inst_opt {
-                tracing::trace!("get_e2_pre_compute_instruction {inst:?}");
+                tracing::trace!("get_metered_pre_compute_instruction {inst:?}");
                 let pc = program.pc_base + i as u32 * DEFAULT_PC_STEP;
                 if let Some(handler) = get_system_opcode_handler(inst, buf) {
                     PreComputeInstruction {

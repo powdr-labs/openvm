@@ -32,7 +32,6 @@ use openvm_stark_backend::{
     verifier::VerificationError,
 };
 use p3_baby_bear::BabyBear;
-use rand::{rngs::StdRng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{info_span, instrument};
@@ -41,20 +40,19 @@ use super::{
     execution_mode::e1::E1Ctx, ExecutionError, InsExecutorE1, MemoryConfig, VmChipComplex,
     CONNECTOR_AIR_ID, MERKLE_AIR_ID, PROGRAM_AIR_ID, PROGRAM_CACHED_TRACE_INDEX,
 };
-#[cfg(feature = "metrics")]
-use crate::metrics::VmMetrics;
 use crate::{
     arch::{
         execution_mode::{
             metered::{MeteredCtx, Segment},
-            tracegen::{TracegenCtx, TracegenExecutionControl},
+            tracegen::TracegenCtx,
         },
         hasher::poseidon2::vm_poseidon2_hasher,
         interpreter::InterpretedInstance,
+        interpreter_preflight::PreflightInterpretedInstance,
         AirInventoryError, AnyEnum, ChipInventoryError, ExecutionState, ExecutorInventory,
         ExecutorInventoryError, InsExecutorE2, InstructionExecutor, StaticProgramError,
-        SystemConfig, TraceFiller, VmBuilder, VmCircuitConfig, VmExecutionConfig,
-        VmSegmentExecutor, VmSegmentState, PUBLIC_VALUES_AIR_ID,
+        SystemConfig, TraceFiller, VmBuilder, VmCircuitConfig, VmExecState, VmExecutionConfig,
+        VmState, PUBLIC_VALUES_AIR_ID,
     },
     execute_spanned,
     system::{
@@ -170,37 +168,6 @@ pub enum ExitCode {
     Success = 0,
     Error = 1,
     Suspended = -1, // Continuations
-}
-
-/// Represents the core state of a VM.
-pub struct VmState<F, MEM = GuestMemory> {
-    pub instret: u64,
-    pub pc: u32,
-    pub memory: MEM,
-    pub streams: Streams<F>,
-    pub rng: StdRng,
-    #[cfg(feature = "metrics")]
-    pub metrics: VmMetrics,
-}
-
-impl<F, MEM> VmState<F, MEM> {
-    pub fn new(
-        instret: u64,
-        pc: u32,
-        memory: MEM,
-        streams: impl Into<Streams<F>>,
-        seed: u64,
-    ) -> Self {
-        Self {
-            instret,
-            pc,
-            memory,
-            streams: streams.into(),
-            rng: StdRng::seed_from_u64(seed),
-            #[cfg(feature = "metrics")]
-            metrics: VmMetrics::default(),
-        }
-    }
 }
 
 pub struct PreflightExecutionOutput<F, RA> {
@@ -438,8 +405,7 @@ where
         debug_assert!(executor_idx_to_air_idx
             .iter()
             .all(|&air_idx| air_idx < trace_heights.len()));
-        let ctrl = TracegenExecutionControl::new(executor_idx_to_air_idx);
-        let mut instance = VmSegmentExecutor::new(handler, ctrl);
+        let mut instance = PreflightInterpretedInstance::new(handler, executor_idx_to_air_idx);
 
         let instret_end = num_insns.map(|ni| state.instret.saturating_add(ni));
         // TODO[jpw]: figure out how to compute RA specific main_widths
@@ -477,7 +443,7 @@ where
             #[cfg(feature = "metrics")]
             metrics: state.metrics,
         };
-        let mut exec_state = VmSegmentState::new(vm_state, ctx);
+        let mut exec_state = VmExecState::new(vm_state, ctx);
         execute_spanned!("execute_e3", instance, &mut exec_state)?;
         let filtered_exec_frequencies = instance.handler.filtered_execution_frequencies();
         let mut memory = exec_state.vm_state.memory;
@@ -521,18 +487,17 @@ where
         })
     }
 
-    /// Same as [`InterpretedInstance::create_initial_state`] but sets more information for
+    /// Calls [`VmState::initial`] but sets more information for
     /// performance metrics when feature "perf-metrics" is enabled.
     pub fn create_initial_state(
         &self,
         exe: &VmExe<Val<E::SC>>,
-        input: impl Into<Streams<Val<E::SC>>>,
+        inputs: impl Into<Streams<Val<E::SC>>>,
     ) -> VmState<Val<E::SC>, GuestMemory> {
         let memory_config = &self.config().as_ref().memory_config;
-        let memory = create_memory_image(memory_config, exe.init_memory.clone());
-        let seed = 0;
         #[allow(unused_mut)]
-        let mut state = VmState::new(0, exe.pc_start, memory, input, seed);
+        let mut state =
+            VmState::initial(memory_config, exe.init_memory.clone(), exe.pc_start, inputs);
         // Add backtrace information for either:
         // - debugging
         // - performance metrics
