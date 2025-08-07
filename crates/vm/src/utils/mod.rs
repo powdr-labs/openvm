@@ -57,28 +57,3 @@ pub unsafe fn slice_as_bytes<T>(slice: &[T]) -> &[u8] {
     // SAFETY: length and alignment are correct.
     unsafe { std::slice::from_raw_parts(slice.as_ptr() as *const u8, len) }
 }
-
-/// Allocates a boxed slice of `T` with all bytes zeroed.
-/// SAFETY: The caller must ensure that zero representation is valid for `T`.
-pub fn get_zeroed_array<T: Sized>(len: usize) -> Box<[T]> {
-    if len == 0 {
-        return Box::new([]);
-    }
-
-    let layout = std::alloc::Layout::array::<T>(len).expect("Layout calculation failed");
-
-    // SAFETY: We're allocating memory and zero-initializing it directly.
-    // This is safe because:
-    // 1. T is Sized, so we know its exact size and alignment
-    // 2. The caller guarantees that zero representation is valid for T
-    // 3. We use the global allocator with the correct layout
-    // 4. We only create the Box after successful allocation and initialization
-    unsafe {
-        let ptr = std::alloc::alloc_zeroed(layout) as *mut T;
-        if ptr.is_null() {
-            std::alloc::handle_alloc_error(layout);
-        }
-        let slice = std::slice::from_raw_parts_mut(ptr, len);
-        Box::from_raw(slice)
-    }
-}
