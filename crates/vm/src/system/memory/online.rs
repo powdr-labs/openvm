@@ -2,7 +2,7 @@ use std::{array::from_fn, fmt::Debug, num::NonZero};
 
 use getset::Getters;
 use itertools::zip_eq;
-use openvm_instructions::{exe::SparseMemoryImage, NATIVE_AS};
+use openvm_instructions::exe::SparseMemoryImage;
 use openvm_stark_backend::{
     p3_field::{Field, PrimeField32},
     p3_maybe_rayon::prelude::*,
@@ -690,6 +690,18 @@ impl TracingMemory {
         pointer: usize,
         prev_values: &[T; BLOCK_SIZE],
     ) -> u32 {
+        debug_assert_eq!(ALIGN, self.data.memory.config[address_space].min_block_size);
+        debug_assert_eq!(
+            unsafe {
+                self.data
+                    .memory
+                    .config
+                    .get_unchecked(address_space)
+                    .layout
+                    .size()
+            },
+            size_of::<T>()
+        );
         // Calculate what splits and merges are needed for this memory access
         let result = if let Some((splits, (merge_ptr, merge_size))) =
             self.calculate_splits_and_merges::<BLOCK_SIZE, ALIGN>(address_space, pointer)
@@ -781,7 +793,6 @@ impl TracingMemory {
         } else {
             // Create a merge record for single-byte initialization
             debug_assert_eq!(self.initial_block_size, 1);
-            debug_assert!((address_space as u32) < NATIVE_AS);
             self.add_merge_record(
                 AccessRecordHeader {
                     timestamp_and_mask: INITIAL_TIMESTAMP,
@@ -789,7 +800,7 @@ impl TracingMemory {
                     pointer: pointer as u32,
                     block_size: ALIGN as u32,
                     lowest_block_size: self.initial_block_size as u32,
-                    type_size: 1,
+                    type_size: size_of::<T>() as u32,
                 },
                 &INITIAL_CELL_BUFFER[..ALIGN],
                 &INITIAL_TIMESTAMP_BUFFER[..ALIGN],
