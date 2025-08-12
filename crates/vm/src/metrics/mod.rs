@@ -11,8 +11,11 @@ use openvm_instructions::{
 use openvm_stark_backend::prover::{hal::ProverBackend, types::DeviceMultiStarkProvingKey};
 
 use crate::{
-    arch::{execution_mode::PreflightCtx, Arena, PreflightExecutor, VmExecState},
-    system::{memory::online::TracingMemory, program::PcEntry},
+    arch::{
+        execution_mode::PreflightCtx, interpreter_preflight::PcEntry, Arena, PreflightExecutor,
+        VmExecState,
+    },
+    system::memory::online::TracingMemory,
 };
 
 pub mod cycle_tracker;
@@ -53,7 +56,7 @@ pub struct VmMetrics {
 #[inline(always)]
 pub fn update_instruction_metrics<F, RA, Executor>(
     state: &mut VmExecState<F, TracingMemory, PreflightCtx<RA>>,
-    executor: &mut Executor,
+    executor: &Executor,
     prev_pc: u32, // the pc of the instruction executed, state.pc is next pc
     pc_entry: &PcEntry<F>,
 ) where

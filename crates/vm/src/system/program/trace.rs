@@ -46,7 +46,7 @@ use crate::{
 #[derivative(Clone(bound = "Com<SC>: Clone"))]
 pub struct VmCommittedExe<SC: StarkGenericConfig> {
     /// Raw executable.
-    pub exe: VmExe<Val<SC>>,
+    pub exe: Arc<VmExe<Val<SC>>>,
     pub commitment: Com<SC>,
     /// Program ROM as cached trace matrix.
     pub trace: Arc<RowMajorMatrix<Val<SC>>>,
@@ -62,7 +62,7 @@ impl<SC: StarkGenericConfig> VmCommittedExe<SC> {
 
         let (commitment, data) = pcs.commit(vec![(domain, trace.clone())]);
         Self {
-            exe,
+            exe: Arc::new(exe),
             commitment,
             trace: Arc::new(trace),
             prover_data: Arc::new(data),
@@ -103,8 +103,8 @@ impl<SC: StarkGenericConfig> VmCommittedExe<SC> {
         let memory_dimensions = memory_config.memory_dimensions();
         let app_program_commit: &[Val<SC>; CHUNK] = self.commitment.as_ref();
         let mem_config = memory_config;
-        let memory_image =
-            AddressMap::from_sparse(mem_config.addr_spaces.clone(), self.exe.init_memory.clone());
+        let mut memory_image = AddressMap::new(mem_config.addr_spaces.clone());
+        memory_image.set_from_sparse(self.exe.init_memory.clone());
         let init_memory_commit =
             MerkleTree::from_memory(&memory_image, &memory_dimensions, &hasher).root();
         Com::<SC>::from(compute_exe_commit(

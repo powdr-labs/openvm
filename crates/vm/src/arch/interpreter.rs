@@ -31,7 +31,7 @@ use crate::{
 ///
 /// The generic `Ctx` and constructor determine whether this supported pure execution or metered
 /// execution.
-// @dev: the lifetime 'a represents the lifetime of borrowed ExecutorInventory, which must outlive
+// NOTE: the lifetime 'a represents the lifetime of borrowed ExecutorInventory, which must outlive
 // the InterpretedInstance because `pre_compute_buf` may contain pointers to references held by
 // executors.
 pub struct InterpretedInstance<'a, F, Ctx> {
@@ -334,7 +334,7 @@ unsafe fn execute_trampoline<F: PrimeField32, Ctx: ExecutionCtxTrait>(
 }
 
 #[inline(always)]
-fn get_pc_index(pc_base: u32, pc: u32) -> usize {
+pub fn get_pc_index(pc_base: u32, pc: u32) -> usize {
     ((pc - pc_base) / DEFAULT_PC_STEP) as usize
 }
 
