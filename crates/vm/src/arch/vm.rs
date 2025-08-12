@@ -37,7 +37,7 @@ use thiserror::Error;
 use tracing::{info_span, instrument};
 
 use super::{
-    execution_mode::{ExecutionCtx, MeteredCtx, PreflightCtx, Segment},
+    execution_mode::{ExecutionCtx, MeteredCostCtx, MeteredCtx, PreflightCtx, Segment},
     hasher::poseidon2::vm_poseidon2_hasher,
     interpreter::InterpretedInstance,
     interpreter_preflight::PreflightInterpretedInstance,
@@ -219,6 +219,23 @@ where
             system_config.segmentation_limits,
         )
     }
+
+    pub fn build_metered_cost_ctx(&self, widths: &[usize]) -> MeteredCostCtx {
+        let system_config = self.config.as_ref();
+        let as_byte_alignment_bits = system_config
+            .memory_config
+            .addr_spaces
+            .iter()
+            .map(|addr_sp| log2_strict_usize(addr_sp.min_block_size) as u8)
+            .collect();
+
+        MeteredCostCtx::new(
+            widths.to_vec(),
+            as_byte_alignment_bits,
+            system_config.has_public_values_chip(),
+            system_config.continuation_enabled,
+        )
+    }
 }
 
 impl<F, VC> VmExecutor<F, VC>
@@ -245,13 +262,22 @@ where
     VC: VmExecutionConfig<F>,
     VC::Executor: MeteredExecutor<F>,
 {
-    /// Creates an instance of the interpreter specialized for pure execution, without metering, of
-    /// the given `exe`.
+    /// Creates an instance of the interpreter specialized for metered execution of the given `exe`.
     pub fn metered_instance(
         &self,
         exe: &VmExe<F>,
         executor_idx_to_air_idx: &[usize],
     ) -> Result<InterpretedInstance<F, MeteredCtx>, StaticProgramError> {
+        InterpretedInstance::new_metered(&self.inventory, exe, executor_idx_to_air_idx)
+    }
+
+    /// Creates an instance of the interpreter specialized for cost metering execution of the given
+    /// `exe`.
+    pub fn metered_cost_instance(
+        &self,
+        exe: &VmExe<F>,
+        executor_idx_to_air_idx: &[usize],
+    ) -> Result<InterpretedInstance<F, MeteredCostCtx>, StaticProgramError> {
         InterpretedInstance::new_metered(&self.inventory, exe, executor_idx_to_air_idx)
     }
 }
@@ -760,6 +786,23 @@ where
             &widths,
             &interactions,
         )
+    }
+
+    /// Convenience method to construct a [MeteredCostCtx] using data from the stored proving key.
+    pub fn build_metered_cost_ctx(&self) -> MeteredCostCtx {
+        let widths: Vec<_> = self
+            .pk
+            .per_air
+            .iter()
+            .map(|pk| {
+                pk.vk
+                    .params
+                    .width
+                    .total_width(<<E::SC as StarkGenericConfig>::Challenge>::D)
+            })
+            .collect();
+
+        self.executor().build_metered_cost_ctx(&widths)
     }
 
     pub fn num_airs(&self) -> usize {
