@@ -270,8 +270,8 @@ impl<M: LinearMemory> AddressMap<M> {
     /// # Safety
     /// - `T` **must** be the correct type for a single memory cell for `addr_space`
     /// - Assumes `addr_space` is within the configured memory and not out of bounds
-    pub fn set_from_sparse(&mut self, sparse_map: SparseMemoryImage) {
-        for ((addr_space, index), data_byte) in sparse_map.into_iter() {
+    pub fn set_from_sparse(&mut self, sparse_map: &SparseMemoryImage) {
+        for (&(addr_space, index), &data_byte) in sparse_map.iter() {
             // SAFETY:
             // - safety assumptions in function doc comments
             unsafe {
