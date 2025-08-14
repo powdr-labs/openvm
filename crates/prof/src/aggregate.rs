@@ -117,6 +117,23 @@ impl GroupedMetrics {
         })
     }
 
+    /// Validates that E1, metered, and preflight instruction counts all match each other
+    fn validate_instruction_counts(group_summaries: &HashMap<MetricName, Stats>) {
+        let e1_insns = group_summaries.get(EXECUTE_E1_INSNS_LABEL);
+        let metered_insns = group_summaries.get(EXECUTE_METERED_INSNS_LABEL);
+        let preflight_insns = group_summaries.get(EXECUTE_PREFLIGHT_INSNS_LABEL);
+
+        if let (Some(e1_insns), Some(preflight_insns)) = (e1_insns, preflight_insns) {
+            assert_eq!(e1_insns.sum.val as u64, preflight_insns.sum.val as u64);
+        }
+        if let (Some(e1_insns), Some(metered_insns)) = (e1_insns, metered_insns) {
+            assert_eq!(e1_insns.sum.val as u64, metered_insns.sum.val as u64);
+        }
+        if let (Some(metered_insns), Some(preflight_insns)) = (metered_insns, preflight_insns) {
+            assert_eq!(metered_insns.sum.val as u64, preflight_insns.sum.val as u64);
+        }
+    }
+
     pub fn aggregate(&self) -> AggregateMetrics {
         let by_group: HashMap<String, _> = self
             .by_group
@@ -133,6 +150,11 @@ impl GroupedMetrics {
                         (metric_name.clone(), summary)
                     })
                     .collect();
+
+                if !group_name.contains("keygen") {
+                    Self::validate_instruction_counts(&group_summaries);
+                }
+
                 (group_name.clone(), group_summaries)
             })
             .collect();
@@ -464,7 +486,9 @@ impl BenchmarkOutput {
 pub const PROOF_TIME_LABEL: &str = "total_proof_time_ms";
 pub const MAIN_CELLS_USED_LABEL: &str = "main_cells_used";
 pub const TOTAL_CELLS_USED_LABEL: &str = "total_cells_used";
-pub const INSNS_LABEL: &str = "insns";
+pub const EXECUTE_E1_INSNS_LABEL: &str = "execute_e1_insns";
+pub const EXECUTE_METERED_INSNS_LABEL: &str = "execute_metered_insns";
+pub const EXECUTE_PREFLIGHT_INSNS_LABEL: &str = "execute_preflight_insns";
 pub const EXECUTE_E1_TIME_LABEL: &str = "execute_e1_time_ms";
 pub const EXECUTE_E1_INSN_MI_S_LABEL: &str = "execute_e1_insn_mi/s";
 pub const EXECUTE_METERED_TIME_LABEL: &str = "execute_metered_time_ms";
@@ -481,11 +505,11 @@ pub const VM_METRIC_NAMES: &[&str] = &[
     PROOF_TIME_LABEL,
     MAIN_CELLS_USED_LABEL,
     TOTAL_CELLS_USED_LABEL,
-    INSNS_LABEL,
     EXECUTE_E1_TIME_LABEL,
     EXECUTE_E1_INSN_MI_S_LABEL,
     EXECUTE_METERED_TIME_LABEL,
     EXECUTE_METERED_INSN_MI_S_LABEL,
+    EXECUTE_PREFLIGHT_INSNS_LABEL,
     EXECUTE_PREFLIGHT_TIME_LABEL,
     EXECUTE_PREFLIGHT_INSN_MI_S_LABEL,
     TRACE_GEN_TIME_LABEL,
