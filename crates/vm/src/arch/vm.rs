@@ -17,7 +17,10 @@ use std::{
 use getset::{Getters, MutGetters, Setters, WithSetters};
 use itertools::{zip_eq, Itertools};
 use openvm_circuit::system::program::trace::compute_exe_commit;
-use openvm_instructions::exe::{SparseMemoryImage, VmExe};
+use openvm_instructions::{
+    exe::{SparseMemoryImage, VmExe},
+    program::Program,
+};
 use openvm_stark_backend::{
     config::{Com, StarkGenericConfig, Val},
     engine::StarkEngine,
@@ -26,7 +29,7 @@ use openvm_stark_backend::{
     p3_util::{log2_ceil_usize, log2_strict_usize},
     proof::Proof,
     prover::{
-        hal::{DeviceDataTransporter, MatrixDimensions},
+        hal::{DeviceDataTransporter, MatrixDimensions, TraceCommitter},
         types::{CommittedTraceData, DeviceMultiStarkProvingKey, ProvingContext},
     },
     verifier::VerificationError,
@@ -61,7 +64,7 @@ use crate::{
             online::{GuestMemory, TracingMemory},
             AddressMap, CHUNK,
         },
-        program::trace::VmCommittedExe,
+        program::trace::{generate_cached_trace, VmCommittedExe},
         SystemChipComplex, SystemRecords, SystemWithFixedTraceHeights,
     },
 };
@@ -149,6 +152,7 @@ type PreflightInterpretedInstance2<F, VC> =
 /// Internally once it is given a program, it will preprocess the program to rewrite it into a more
 /// optimized format for runtime execution. This **instance** of the executor will be a separate
 /// struct specialized to running a _fixed_ program on different program inputs.
+#[derive(Clone)]
 pub struct VmExecutor<F, VC>
 where
     VC: VmExecutionConfig<F>,
@@ -265,6 +269,12 @@ pub enum VmVerificationError {
     #[error("program commit mismatch (index of mismatch proof: {index}")]
     ProgramCommitMismatch { index: usize },
 
+    #[error("exe commit mismatch (expected: {expected:?}, actual: {actual:?})")]
+    ExeCommitMismatch {
+        expected: [u32; CHUNK],
+        actual: [u32; CHUNK],
+    },
+
     #[error("initial pc mismatch (initial: {initial}, prev_final: {prev_final})")]
     InitialPcMismatch { initial: u32, prev_final: u32 },
 
@@ -279,6 +289,9 @@ pub enum VmVerificationError {
 
     #[error("AIR has unexpected public values (expected: {expected}, actual: {actual})")]
     UnexpectedPvs { expected: usize, actual: usize },
+
+    #[error("Invalid number of AIRs: expected at least 3, got {0}")]
+    NotEnoughAirs(usize),
 
     #[error("missing system AIR with ID {air_id}")]
     SystemAirMissing { air_id: usize },
@@ -691,21 +704,39 @@ where
         }
     }
 
-    /// Generates and then commits to program trace entirely on host.
-    pub fn commit_exe(&self, exe: impl Into<VmExe<Val<E::SC>>>) -> VmCommittedExe<E::SC> {
-        let exe = exe.into();
-        VmCommittedExe::commit(exe, self.engine.config().pcs())
+    /// Transforms the program into a cached trace and commits it _on device_ using the proof system
+    /// polynomial commitment scheme.
+    ///
+    /// Returns the cached program trace.
+    /// Note that [`load_program`](Self::load_program) must be called separately to load the cached
+    /// program trace into the VM itself.
+    pub fn commit_program_on_device(
+        &self,
+        program: &Program<Val<E::SC>>,
+    ) -> CommittedTraceData<E::PB> {
+        let trace = generate_cached_trace(program);
+        let d_trace = self
+            .engine
+            .device()
+            .transport_matrix_to_device(&Arc::new(trace));
+        let (commitment, data) = self.engine.device().commit(std::slice::from_ref(&d_trace));
+        CommittedTraceData {
+            commitment,
+            trace: d_trace,
+            data,
+        }
     }
 
-    /// Convenience method to transport a host committed Exe to device. If the Exe has already been
-    /// committed directly on device (either via a different caching mechanism or directly using
-    /// device committer), then you can directly call [`load_program`](Self::load_program) and skip
-    /// this function.
+    /// Convenience method to transport a host committed Exe to device. This can be used if you have
+    /// a pre-committed program and want to transport to device instead of re-committing. One should
+    /// benchmark the latency of this function versus
+    /// [`commit_program_on_device`](Self::commit_program_on_device), which directly re-commits on
+    /// device, to determine which method is more suitable.
     pub fn transport_committed_exe_to_device(
         &self,
         committed_exe: &VmCommittedExe<E::SC>,
     ) -> CommittedTraceData<E::PB> {
-        let commitment = committed_exe.commitment.clone();
+        let commitment = committed_exe.get_program_commit();
         let trace = &committed_exe.trace;
         let prover_data = &committed_exe.prover_data;
         self.engine
@@ -713,6 +744,7 @@ where
             .transport_committed_trace_to_device(commitment, trace, prover_data)
     }
 
+    /// Loads cached program trace into the VM.
     pub fn load_program(&mut self, cached_program_trace: CommittedTraceData<E::PB>) {
         self.chip_complex.system.load_program(cached_program_trace);
     }
@@ -847,7 +879,7 @@ where
     pub vm: VirtualMachine<E, VB>,
     pub interpreter: PreflightInterpretedInstance2<Val<E::SC>, VB::VmConfig>,
     #[getset(get = "pub")]
-    exe_commitment: Com<E::SC>,
+    program_commitment: Com<E::SC>,
     #[getset(get = "pub")]
     exe: Arc<VmExe<Val<E::SC>>>,
     #[getset(get = "pub", get_mut = "pub")]
@@ -864,14 +896,14 @@ where
         exe: Arc<VmExe<Val<E::SC>>>,
         cached_program_trace: CommittedTraceData<E::PB>,
     ) -> Result<Self, StaticProgramError> {
-        let exe_commitment = cached_program_trace.commitment.clone();
+        let program_commitment = cached_program_trace.commitment.clone();
         vm.load_program(cached_program_trace);
         let interpreter = vm.preflight_interpreter(&exe)?;
         let state = vm.create_initial_state(&exe, vec![]);
         Ok(Self {
             vm,
             interpreter,
-            exe_commitment,
+            program_commitment,
             exe,
             state: Some(state),
         })

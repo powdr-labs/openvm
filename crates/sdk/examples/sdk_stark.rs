@@ -1,7 +1,6 @@
 // ANCHOR: dependencies
 use std::fs;
 
-use eyre::Result;
 use openvm_build::GuestOptions;
 use openvm_sdk::{Sdk, StdIn};
 use serde::{Deserialize, Serialize};
@@ -14,7 +13,7 @@ pub struct SomeStruct {
 // ANCHOR_END: dependencies
 
 #[allow(dead_code, unused_variables)]
-fn read_elf() -> Result<(), Box<dyn std::error::Error>> {
+fn read_elf() -> eyre::Result<()> {
     // ANCHOR: read_elf
     // 2b. Load the ELF from a file
     let elf: Vec<u8> = fs::read("your_path_to_elf")?;
@@ -23,7 +22,7 @@ fn read_elf() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[allow(unused_variables, unused_doc_comments)]
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> eyre::Result<()> {
     /// to import example guest code in crate replace `target_path` for:
     /// ```
     /// use std::path::PathBuf;
@@ -42,26 +41,32 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let elf = sdk.build(guest_opts, target_path, &None, None)?;
     // ANCHOR_END: build
 
-    // ANCHOR: input
+    // ANCHOR: execution
     // 3. Format your input into StdIn
     let my_input = SomeStruct { a: 1, b: 2 }; // anything that can be serialized
     let mut stdin = StdIn::default();
     stdin.write(&my_input);
-    // ANCHOR_END: input
 
-    // ANCHOR: evm_verification
-    // 4. Generate the SNARK verifier smart contract
-    let verifier = sdk.generate_halo2_verifier_solidity()?;
+    // 4. Run the program
+    let output = sdk.execute(elf.clone(), stdin.clone())?;
+    println!("public values output: {:?}", output);
+    // ANCHOR_END: execution
 
-    // 5. Generate an EVM proof
-    // NOTE: this will do app_keygen, agg_keygen, halo2_keygen automatically if they have never been
-    // called before. As a consequence, the first call to `prove_evm` will take longer if you do not
-    // explicitly call `app_keygen`, `agg_keygen`, and `halo2_keygen` before calling `prove_evm`.
-    let proof = sdk.prove_evm(elf, stdin)?;
+    // ANCHOR: proof_generation
+    // 5a. Generate a proof
+    let (proof, app_commit) = sdk.prove(elf.clone(), stdin.clone())?;
+    // 5b. Generate a proof with a StarkProver with custom fields
+    let mut prover = sdk.prover(elf)?.with_program_name("test_program");
+    let app_commit = prover.app_commit();
+    let proof = prover.prove(stdin.clone())?;
+    // ANCHOR_END: proof_generation
 
-    // 6. Verify the EVM proof
-    Sdk::verify_evm_halo2_proof(&verifier, proof)?;
-    // ANCHOR_END: evm_verification
+    // ANCHOR: verification
+    // 6. Do this once to save the agg_vk, independent of the proof.
+    let (_agg_pk, agg_vk) = sdk.agg_keygen()?;
+    // 7. Verify your program
+    Sdk::verify_proof(&agg_vk, app_commit, &proof)?;
+    // ANCHOR_END: verification
 
     Ok(())
 }

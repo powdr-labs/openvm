@@ -14,7 +14,7 @@ use openvm_circuit::{
         VmCircuitConfig, VmExecutor, VmInstance, PUBLIC_VALUES_AIR_ID,
     },
     system::{memory::CHUNK, program::trace::VmCommittedExe, SystemCpuBuilder},
-    utils::{air_test, air_test_with_min_segments, test_system_config},
+    utils::{air_test, air_test_with_min_segments, test_system_config_without_continuations},
 };
 use openvm_instructions::{
     exe::VmExe,
@@ -189,9 +189,10 @@ fn test_vm_1_optional_air() -> eyre::Result<()> {
         Instruction::from_isize(TERMINATE.global_opcode(), 0, 0, 0, 0, 0),
     ];
 
-    let com_exe = vm.commit_exe(VmExe::new(Program::from_instructions(&instructions)));
-    let cached_program_trace = vm.transport_committed_exe_to_device(&com_exe);
-    let mut prover = VmInstance::new(vm, com_exe.exe, cached_program_trace)?;
+    let program = Program::from_instructions(&instructions);
+    let cached_program_trace = vm.commit_program_on_device(&program);
+    let exe = Arc::new(VmExe::new(program));
+    let mut prover = VmInstance::new(vm, exe, cached_program_trace)?;
     let proof = SingleSegmentVmProver::prove(&mut prover, vec![], &vec![256; num_airs])?;
     assert!(proof.per_air.len() < num_airs, "Expect less used AIRs");
     verify_single(&prover.vm.engine, &pk.get_vk(), &proof)?;
@@ -202,7 +203,7 @@ fn test_vm_1_optional_air() -> eyre::Result<()> {
 fn test_vm_public_values() -> eyre::Result<()> {
     setup_tracing();
     let num_public_values = 100;
-    let config = test_system_config().with_public_values(num_public_values);
+    let config = test_system_config_without_continuations().with_public_values(num_public_values);
     assert!(!config.continuation_enabled);
     let engine =
         BabyBearPoseidon2Engine::new(standard_fri_params_with_100_bits_conjectured_security(3));
@@ -212,9 +213,10 @@ fn test_vm_public_values() -> eyre::Result<()> {
         Instruction::from_usize(PUBLISH.global_opcode(), [0, 12, 2, 0, 0, 0]),
         Instruction::from_isize(TERMINATE.global_opcode(), 0, 0, 0, 0, 0),
     ];
-    let com_exe = vm.commit_exe(VmExe::new(Program::from_instructions(&instructions)));
-    let cached_program_trace = vm.transport_committed_exe_to_device(&com_exe);
-    let mut prover = VmInstance::new(vm, com_exe.exe, cached_program_trace)?;
+    let program = Program::from_instructions(&instructions);
+    let cached_program_trace = vm.commit_program_on_device(&program);
+    let exe = Arc::new(VmExe::new(program));
+    let mut prover = VmInstance::new(vm, exe, cached_program_trace)?;
     let proof = SingleSegmentVmProver::prove(&mut prover, vec![], &vec![256; pk.per_air.len()])?;
     assert_eq!(
         proof.per_air[PUBLIC_VALUES_AIR_ID].air_id,
@@ -297,9 +299,10 @@ fn test_vm_1_persistent() -> eyre::Result<()> {
         Instruction::from_isize(TERMINATE.global_opcode(), 0, 0, 0, 0, 0),
     ];
 
-    let com_exe = vm.commit_exe(VmExe::new(Program::from_instructions(&instructions)));
-    let cached_program_trace = vm.transport_committed_exe_to_device(&com_exe);
-    let mut prover = VmInstance::new(vm, com_exe.exe, cached_program_trace)?;
+    let program = Program::from_instructions(&instructions);
+    let cached_program_trace = vm.commit_program_on_device(&program);
+    let exe = Arc::new(VmExe::new(program));
+    let mut prover = VmInstance::new(vm, exe, cached_program_trace)?;
     let proof = ContinuationVmProver::prove(&mut prover, vec![])?;
 
     {

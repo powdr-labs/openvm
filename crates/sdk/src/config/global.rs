@@ -7,16 +7,14 @@ use openvm_algebra_transpiler::{Fp2TranspilerExtension, ModularTranspilerExtensi
 use openvm_bigint_circuit::{Int256, Int256CpuProverExt, Int256Executor};
 use openvm_bigint_transpiler::Int256TranspilerExtension;
 use openvm_circuit::{
-    arch::{
-        instructions::NATIVE_AS, AirInventory, AirInventoryError, ChipInventoryError,
-        ExecutorInventory, ExecutorInventoryError, InitFileGenerator, MatrixRecordArena,
-        SystemConfig, VmBuilder, VmChipComplex, VmCircuitConfig, VmExecutionConfig,
-        VmProverExtension,
-    },
+    arch::{instructions::NATIVE_AS, *},
     derive::VmConfig,
     system::{SystemChipInventory, SystemCpuBuilder, SystemExecutor},
 };
-use openvm_ecc_circuit::{EccCpuProverExt, WeierstrassExtension, WeierstrassExtensionExecutor};
+use openvm_ecc_circuit::{
+    EccCpuProverExt, WeierstrassExtension, WeierstrassExtensionExecutor, P256_CONFIG,
+    SECP256K1_CONFIG,
+};
 use openvm_ecc_transpiler::EccTranspilerExtension;
 use openvm_keccak256_circuit::{Keccak256, Keccak256CpuProverExt, Keccak256Executor};
 use openvm_keccak256_transpiler::Keccak256TranspilerExtension;
@@ -24,7 +22,10 @@ use openvm_native_circuit::{
     CastFExtension, CastFExtensionExecutor, Native, NativeCpuProverExt, NativeExecutor,
 };
 use openvm_native_transpiler::LongFormTranspilerExtension;
-use openvm_pairing_circuit::{PairingExtension, PairingExtensionExecutor, PairingProverExt};
+use openvm_pairing_circuit::{
+    PairingCurve, PairingExtension, PairingExtensionExecutor, PairingProverExt,
+    BLS12_381_COMPLEX_STRUCT_NAME, BN254_COMPLEX_STRUCT_NAME,
+};
 use openvm_pairing_transpiler::PairingTranspilerExtension;
 use openvm_rv32im_circuit::{
     Rv32I, Rv32IExecutor, Rv32ImCpuProverExt, Rv32Io, Rv32IoExecutor, Rv32M, Rv32MExecutor,
@@ -43,8 +44,18 @@ use openvm_stark_backend::{
 use openvm_transpiler::transpiler::Transpiler;
 use serde::{Deserialize, Serialize};
 
-use crate::{config::AppConfig, F};
+use super::AppFriParams;
+use crate::{
+    config::{AppConfig, TranspilerConfig},
+    F,
+};
 
+/// The recommended way to construct [SdkVmConfig] is using [SdkVmConfig::from_toml].
+///
+/// For construction without reliance on deserialization, you can use [SdkVmConfigBuilder], which
+/// follows a builder pattern. After calling [SdkVmConfigBuilder::build], call
+/// [SdkVmConfig::optimize] to apply some default optimizations to built configuration for best
+/// performance.
 #[derive(Builder, Clone, Debug, Serialize, Deserialize)]
 #[serde(from = "SdkVmConfigWithDefaultDeser")]
 pub struct SdkVmConfig {
@@ -56,7 +67,13 @@ pub struct SdkVmConfig {
     pub native: Option<UnitStruct>,
     pub castf: Option<UnitStruct>,
 
+    /// NOTE: if enabling this together with the [Int256] extension, you should set the `rv32m`
+    /// field to have the same `range_tuple_checker_sizes` as the `bigint` field for best
+    /// performance.
     pub rv32m: Option<Rv32M>,
+    /// NOTE: if enabling this together with the [Rv32M] extension, you should set the `rv32m`
+    /// field to have the same `range_tuple_checker_sizes` as the `bigint` field for best
+    /// performance.
     pub bigint: Option<Int256>,
     pub modular: Option<ModularExtension>,
     pub fp2: Option<Fp2Extension>,
@@ -64,7 +81,208 @@ pub struct SdkVmConfig {
     pub ecc: Option<WeierstrassExtension>,
 }
 
-#[derive(Copy, Clone)]
+impl SdkVmConfig {
+    /// Standard configuration with a set of default VM extensions loaded.
+    ///
+    /// **Note**: To use this configuration, your `openvm.toml` must match, including the order of
+    /// the moduli and elliptic curve parameters of the respective extensions:
+    /// The `app_vm_config` field of your `openvm.toml` must exactly match the following:
+    ///
+    /// ```toml
+    #[doc = include_str!("openvm_standard.toml")]
+    /// ```
+    pub fn standard() -> SdkVmConfig {
+        let bn_config = PairingCurve::Bn254.curve_config();
+        let bls_config = PairingCurve::Bls12_381.curve_config();
+        SdkVmConfig::builder()
+            .system(Default::default())
+            .rv32i(Default::default())
+            .rv32m(Default::default())
+            .io(Default::default())
+            .keccak(Default::default())
+            .sha256(Default::default())
+            .bigint(Default::default())
+            .modular(ModularExtension::new(vec![
+                bn_config.modulus.clone(),
+                bn_config.scalar.clone(),
+                SECP256K1_CONFIG.modulus.clone(),
+                SECP256K1_CONFIG.scalar.clone(),
+                P256_CONFIG.modulus.clone(),
+                P256_CONFIG.scalar.clone(),
+                bls_config.modulus.clone(),
+                bls_config.scalar.clone(),
+            ]))
+            .fp2(Fp2Extension::new(vec![
+                (
+                    BN254_COMPLEX_STRUCT_NAME.to_string(),
+                    bn_config.modulus.clone(),
+                ),
+                (
+                    BLS12_381_COMPLEX_STRUCT_NAME.to_string(),
+                    bls_config.modulus.clone(),
+                ),
+            ]))
+            .ecc(WeierstrassExtension::new(vec![
+                bn_config.clone(),
+                SECP256K1_CONFIG.clone(),
+                P256_CONFIG.clone(),
+                bls_config.clone(),
+            ]))
+            .pairing(PairingExtension::new(vec![
+                PairingCurve::Bn254,
+                PairingCurve::Bls12_381,
+            ]))
+            .build()
+            .optimize()
+    }
+
+    /// Configuration with RISC-V RV32IM and IO VM extensions loaded.
+    ///
+    /// **Note**: To use this configuration, your `openvm.toml` must exactly match the following:
+    ///
+    /// ```toml
+    #[doc = include_str!("openvm_riscv32.toml")]
+    /// ```
+    pub fn riscv32() -> Self {
+        SdkVmConfig::builder()
+            .system(Default::default())
+            .rv32i(Default::default())
+            .rv32m(Default::default())
+            .io(Default::default())
+            .build()
+            .optimize()
+    }
+
+    /// `openvm_toml` should be the TOML string read from an openvm.toml file.
+    pub fn from_toml(openvm_toml: &str) -> Result<AppConfig<Self>, toml::de::Error> {
+        toml::from_str(openvm_toml)
+    }
+}
+
+impl AppConfig<SdkVmConfig> {
+    pub fn standard() -> Self {
+        Self::new(AppFriParams::default().fri_params, SdkVmConfig::standard())
+    }
+
+    pub fn riscv32() -> Self {
+        Self::new(AppFriParams::default().fri_params, SdkVmConfig::riscv32())
+    }
+}
+
+impl TranspilerConfig<F> for SdkVmConfig {
+    fn transpiler(&self) -> Transpiler<F> {
+        let mut transpiler = Transpiler::default();
+        if self.rv32i.is_some() {
+            transpiler = transpiler.with_extension(Rv32ITranspilerExtension);
+        }
+        if self.io.is_some() {
+            transpiler = transpiler.with_extension(Rv32IoTranspilerExtension);
+        }
+        if self.keccak.is_some() {
+            transpiler = transpiler.with_extension(Keccak256TranspilerExtension);
+        }
+        if self.sha256.is_some() {
+            transpiler = transpiler.with_extension(Sha256TranspilerExtension);
+        }
+        if self.native.is_some() {
+            transpiler = transpiler.with_extension(LongFormTranspilerExtension);
+        }
+        if self.rv32m.is_some() {
+            transpiler = transpiler.with_extension(Rv32MTranspilerExtension);
+        }
+        if self.bigint.is_some() {
+            transpiler = transpiler.with_extension(Int256TranspilerExtension);
+        }
+        if self.modular.is_some() {
+            transpiler = transpiler.with_extension(ModularTranspilerExtension);
+        }
+        if self.fp2.is_some() {
+            transpiler = transpiler.with_extension(Fp2TranspilerExtension);
+        }
+        if self.pairing.is_some() {
+            transpiler = transpiler.with_extension(PairingTranspilerExtension);
+        }
+        if self.ecc.is_some() {
+            transpiler = transpiler.with_extension(EccTranspilerExtension);
+        }
+        transpiler
+    }
+}
+
+impl AsRef<SystemConfig> for SdkVmConfig {
+    fn as_ref(&self) -> &SystemConfig {
+        &self.system.config
+    }
+}
+
+impl AsMut<SystemConfig> for SdkVmConfig {
+    fn as_mut(&mut self) -> &mut SystemConfig {
+        &mut self.system.config
+    }
+}
+
+impl SdkVmConfig {
+    pub fn optimize(mut self) -> Self {
+        self.apply_optimizations();
+        self
+    }
+
+    /// Apply small optimizations to the configuration.
+    pub fn apply_optimizations(&mut self) {
+        if self.native.is_none() && self.castf.is_none() {
+            // There should be no need to write to native address space if Native extension and
+            // CastF extension are not enabled.
+            self.system.config.memory_config.addr_spaces[NATIVE_AS as usize].num_cells = 0;
+        }
+        let rv32m = self.rv32m.as_mut();
+        let bigint = self.bigint.as_mut();
+        if let (Some(bigint), Some(rv32m)) = (bigint, rv32m) {
+            rv32m.range_tuple_checker_sizes[0] =
+                rv32m.range_tuple_checker_sizes[0].max(bigint.range_tuple_checker_sizes[0]);
+            rv32m.range_tuple_checker_sizes[1] =
+                rv32m.range_tuple_checker_sizes[1].max(bigint.range_tuple_checker_sizes[1]);
+            bigint.range_tuple_checker_sizes = rv32m.range_tuple_checker_sizes;
+        }
+    }
+
+    pub fn to_inner(&self) -> SdkVmConfigInner {
+        let config = self.clone().optimize();
+        let system = config.system.config.clone();
+        let rv32i = config.rv32i.map(|_| Rv32I);
+        let io = config.io.map(|_| Rv32Io);
+        let keccak = config.keccak.map(|_| Keccak256);
+        let sha256 = config.sha256.map(|_| Sha256);
+        let native = config.native.map(|_| Native);
+        let castf = config.castf.map(|_| CastFExtension);
+        let rv32m = config.rv32m;
+        let bigint = config.bigint;
+        let modular = config.modular.clone();
+        let fp2 = config.fp2.clone();
+        let pairing = config.pairing.clone();
+        let ecc = config.ecc.clone();
+
+        SdkVmConfigInner {
+            system,
+            rv32i,
+            io,
+            keccak,
+            sha256,
+            native,
+            castf,
+            rv32m,
+            bigint,
+            modular,
+            fp2,
+            pairing,
+            ecc,
+        }
+    }
+}
+
+// ======================= Implementation of VmConfig and VmBuilder ====================
+
+/// SDK CPU VmBuilder
+#[derive(Copy, Clone, Default)]
 pub struct SdkVmCpuBuilder;
 
 /// Internal struct to use for the VmConfig derive macro.
@@ -102,106 +320,6 @@ pub struct SdkVmConfigInner {
 
 // Generated by macro
 pub type SdkVmConfigExecutor<F> = SdkVmConfigInnerExecutor<F>;
-
-impl SdkVmConfig {
-    pub fn transpiler(&self) -> Transpiler<F> {
-        let mut transpiler = Transpiler::default();
-        if self.rv32i.is_some() {
-            transpiler = transpiler.with_extension(Rv32ITranspilerExtension);
-        }
-        if self.io.is_some() {
-            transpiler = transpiler.with_extension(Rv32IoTranspilerExtension);
-        }
-        if self.keccak.is_some() {
-            transpiler = transpiler.with_extension(Keccak256TranspilerExtension);
-        }
-        if self.sha256.is_some() {
-            transpiler = transpiler.with_extension(Sha256TranspilerExtension);
-        }
-        if self.native.is_some() {
-            transpiler = transpiler.with_extension(LongFormTranspilerExtension);
-        }
-        if self.rv32m.is_some() {
-            transpiler = transpiler.with_extension(Rv32MTranspilerExtension);
-        }
-        if self.bigint.is_some() {
-            transpiler = transpiler.with_extension(Int256TranspilerExtension);
-        }
-        if self.modular.is_some() {
-            transpiler = transpiler.with_extension(ModularTranspilerExtension);
-        }
-        if self.fp2.is_some() {
-            transpiler = transpiler.with_extension(Fp2TranspilerExtension);
-        }
-        if self.pairing.is_some() {
-            transpiler = transpiler.with_extension(PairingTranspilerExtension);
-        }
-        if self.ecc.is_some() {
-            transpiler = transpiler.with_extension(EccTranspilerExtension);
-        }
-        transpiler
-    }
-
-    /// `openvm_toml` should be the TOML string read from an openvm.toml file.
-    pub fn from_toml(openvm_toml: &str) -> Result<AppConfig<Self>, toml::de::Error> {
-        toml::from_str(openvm_toml)
-    }
-}
-
-impl AsRef<SystemConfig> for SdkVmConfig {
-    fn as_ref(&self) -> &SystemConfig {
-        &self.system.config
-    }
-}
-
-impl AsMut<SystemConfig> for SdkVmConfig {
-    fn as_mut(&mut self) -> &mut SystemConfig {
-        &mut self.system.config
-    }
-}
-
-impl SdkVmConfig {
-    pub fn to_inner(&self) -> SdkVmConfigInner {
-        let system = self.system.config.clone();
-        let rv32i = self.rv32i.map(|_| Rv32I);
-        let io = self.io.map(|_| Rv32Io);
-        let keccak = self.keccak.map(|_| Keccak256);
-        let sha256 = self.sha256.map(|_| Sha256);
-        let native = self.native.map(|_| Native);
-        let castf = self.castf.map(|_| CastFExtension);
-        let mut rv32m = self.rv32m;
-        let mut bigint = self.bigint;
-        if let Some(bigint) = &mut bigint {
-            if let Some(rv32m) = &mut rv32m {
-                rv32m.range_tuple_checker_sizes[0] =
-                    rv32m.range_tuple_checker_sizes[0].max(bigint.range_tuple_checker_sizes[0]);
-                rv32m.range_tuple_checker_sizes[1] =
-                    rv32m.range_tuple_checker_sizes[1].max(bigint.range_tuple_checker_sizes[1]);
-                bigint.range_tuple_checker_sizes = rv32m.range_tuple_checker_sizes;
-            }
-        }
-        let modular = self.modular.clone();
-        let fp2 = self.fp2.clone();
-        let pairing = self.pairing.clone();
-        let ecc = self.ecc.clone();
-
-        SdkVmConfigInner {
-            system,
-            rv32i,
-            io,
-            keccak,
-            sha256,
-            native,
-            castf,
-            rv32m,
-            bigint,
-            modular,
-            fp2,
-            pairing,
-            ecc,
-        }
-    }
-}
 
 impl<F: Field> VmExecutionConfig<F> for SdkVmConfig
 where
@@ -288,6 +406,8 @@ where
     }
 }
 
+// ======================= Boilerplate ====================
+
 impl InitFileGenerator for SdkVmConfig {
     fn generate_init_file_contents(&self) -> Option<String> {
         self.to_inner().generate_init_file_contents()
@@ -328,21 +448,13 @@ impl InitFileGenerator for SdkVmConfigInner {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct SdkSystemConfig {
     pub config: SystemConfig,
 }
 
 // Default implementation uses no init file
 impl InitFileGenerator for SdkSystemConfig {}
-
-impl Default for SdkSystemConfig {
-    fn default() -> Self {
-        Self {
-            config: SystemConfig::default().with_continuations(),
-        }
-    }
-}
 
 impl From<SystemConfig> for SdkSystemConfig {
     fn from(config: SystemConfig) -> Self {
@@ -413,14 +525,8 @@ struct SdkVmConfigWithDefaultDeser {
 
 impl From<SdkVmConfigWithDefaultDeser> for SdkVmConfig {
     fn from(config: SdkVmConfigWithDefaultDeser) -> Self {
-        let mut system = config.system;
-        if config.native.is_none() && config.castf.is_none() {
-            // There should be no need to write to native address space if Native extension and
-            // CastF extension are not enabled.
-            system.config.memory_config.addr_spaces[NATIVE_AS as usize].num_cells = 0;
-        }
-        Self {
-            system,
+        let ret = Self {
+            system: config.system,
             rv32i: config.rv32i,
             io: config.io,
             keccak: config.keccak,
@@ -433,6 +539,37 @@ impl From<SdkVmConfigWithDefaultDeser> for SdkVmConfig {
             fp2: config.fp2,
             pairing: config.pairing,
             ecc: config.ecc,
+        };
+        ret.optimize()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use itertools::zip_eq;
+
+    use super::*;
+
+    #[test]
+    fn test_app_config_consistency() {
+        let toml_config = SdkVmConfig::from_toml(include_str!("./openvm_standard.toml")).unwrap();
+        for (line1, line2) in zip_eq(
+            toml::to_string_pretty(&AppConfig::standard())
+                .unwrap()
+                .lines(),
+            toml::to_string_pretty(&toml_config).unwrap().lines(),
+        ) {
+            assert_eq!(line1, line2);
+        }
+
+        let toml_config = SdkVmConfig::from_toml(include_str!("./openvm_riscv32.toml")).unwrap();
+        for (line1, line2) in zip_eq(
+            toml::to_string_pretty(&AppConfig::riscv32())
+                .unwrap()
+                .lines(),
+            toml::to_string_pretty(&toml_config).unwrap().lines(),
+        ) {
+            assert_eq!(line1, line2);
         }
     }
 }

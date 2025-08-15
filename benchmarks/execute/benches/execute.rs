@@ -1,4 +1,4 @@
-use std::{fs, path::Path, sync::OnceLock};
+use std::{fs, io, path::Path, sync::OnceLock};
 
 use divan::Bencher;
 use eyre::Result;
@@ -109,7 +109,7 @@ impl Default for ExecuteConfig {
     fn default() -> Self {
         let bn_config = PairingCurve::Bn254.curve_config();
         Self {
-            system: SystemConfig::default().with_continuations(),
+            system: SystemConfig::default(),
             rv32i: Rv32I,
             rv32m: Rv32M::default(),
             io: Rv32Io,
@@ -135,7 +135,7 @@ impl InitFileGenerator for ExecuteConfig {
         &self,
         _manifest_dir: &Path,
         _init_file_name: Option<&str>,
-    ) -> eyre::Result<()> {
+    ) -> io::Result<()> {
         Ok(())
     }
 }
