@@ -1,11 +1,13 @@
-// ANCHOR: imports
+openvm::entry!(main);
+
+// [!region imports]
 use core::hint::black_box;
 
 use hex::FromHex;
 use openvm_sha2::sha256;
-// ANCHOR_END: imports
+// [!endregion imports]
 
-// ANCHOR: main
+// [!region main]
 openvm::entry!(main);
 
 pub fn main() {
@@ -22,4 +24,4 @@ pub fn main() {
         }
     }
 }
-// ANCHOR_END: main
+// [!endregion main]

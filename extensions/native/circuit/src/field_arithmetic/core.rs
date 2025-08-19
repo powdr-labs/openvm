@@ -1,12 +1,13 @@
 use std::borrow::{Borrow, BorrowMut};
 
 use itertools::izip;
-use openvm_circuit::arch::{
-    AdapterAirContext, AdapterRuntimeContext, MinimalInstruction, Result, VmAdapterInterface,
-    VmCoreAir, VmCoreChip,
+use openvm_circuit::{
+    arch::*,
+    system::memory::{online::TracingMemory, MemoryAuxColsFactory},
 };
+use openvm_circuit_primitives::AlignedBytesBorrow;
 use openvm_circuit_primitives_derive::AlignedBorrow;
-use openvm_instructions::{instruction::Instruction, LocalOpcode};
+use openvm_instructions::{instruction::Instruction, program::DEFAULT_PC_STEP, LocalOpcode};
 use openvm_native_compiler::FieldArithmeticOpcode::{self, *};
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
@@ -14,7 +15,6 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra, PrimeField32},
     rap::BaseAirWithPublicValues,
 };
-use serde::{Deserialize, Serialize};
 
 #[repr(C)]
 #[derive(AlignedBorrow)]
@@ -31,7 +31,7 @@ pub struct FieldArithmeticCoreCols<T> {
     pub divisor_inv: T,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(derive_new::new, Copy, Clone, Debug)]
 pub struct FieldArithmeticCoreAir {}
 
 impl<F: Field> BaseAir<F> for FieldArithmeticCoreAir {
@@ -106,72 +106,33 @@ where
 }
 
 #[repr(C)]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(AlignedBytesBorrow, Debug)]
 pub struct FieldArithmeticRecord<F> {
-    pub opcode: FieldArithmeticOpcode,
-    pub a: F,
     pub b: F,
     pub c: F,
+    pub local_opcode: u8,
 }
 
-pub struct FieldArithmeticCoreChip {
-    pub air: FieldArithmeticCoreAir,
+#[derive(derive_new::new, Clone, Copy)]
+pub struct FieldArithmeticCoreExecutor<A> {
+    adapter: A,
 }
 
-impl FieldArithmeticCoreChip {
-    pub fn new() -> Self {
-        Self {
-            air: FieldArithmeticCoreAir {},
-        }
-    }
+#[derive(derive_new::new)]
+pub struct FieldArithmeticCoreFiller<A> {
+    adapter: A,
 }
 
-impl Default for FieldArithmeticCoreChip {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<F: PrimeField32, I: VmAdapterInterface<F>> VmCoreChip<F, I> for FieldArithmeticCoreChip
+impl<F, A, RA> PreflightExecutor<F, RA> for FieldArithmeticCoreExecutor<A>
 where
-    I::Reads: Into<[[F; 1]; 2]>,
-    I::Writes: From<[[F; 1]; 1]>,
+    F: PrimeField32,
+    A: 'static + AdapterTraceExecutor<F, ReadData = [F; 2], WriteData = [F; 1]>,
+    for<'buf> RA: RecordArena<
+        'buf,
+        EmptyAdapterCoreLayout<F, A>,
+        (A::RecordMut<'buf>, &'buf mut FieldArithmeticRecord<F>),
+    >,
 {
-    type Record = FieldArithmeticRecord<F>;
-    type Air = FieldArithmeticCoreAir;
-
-    #[allow(clippy::type_complexity)]
-    fn execute_instruction(
-        &self,
-        instruction: &Instruction<F>,
-        _from_pc: u32,
-        reads: I::Reads,
-    ) -> Result<(AdapterRuntimeContext<F, I>, Self::Record)> {
-        let Instruction { opcode, .. } = instruction;
-        let local_opcode = FieldArithmeticOpcode::from_usize(
-            opcode.local_opcode_idx(FieldArithmeticOpcode::CLASS_OFFSET),
-        );
-
-        let data: [[F; 1]; 2] = reads.into();
-        let b = data[0][0];
-        let c = data[1][0];
-        let a = FieldArithmetic::run_field_arithmetic(local_opcode, b, c).unwrap();
-
-        let output: AdapterRuntimeContext<F, I> = AdapterRuntimeContext {
-            to_pc: None,
-            writes: [[a]].into(),
-        };
-
-        let record = Self::Record {
-            opcode: local_opcode,
-            a,
-            b,
-            c,
-        };
-
-        Ok((output, record))
-    }
-
     fn get_opcode_name(&self, opcode: usize) -> String {
         format!(
             "{:?}",
@@ -179,47 +140,75 @@ where
         )
     }
 
-    fn generate_trace_row(&self, row_slice: &mut [F], record: Self::Record) {
-        let FieldArithmeticRecord { opcode, a, b, c } = record;
-        let row_slice: &mut FieldArithmeticCoreCols<_> = row_slice.borrow_mut();
-        row_slice.a = a;
-        row_slice.b = b;
-        row_slice.c = c;
+    fn execute(
+        &self,
+        state: VmStateMut<F, TracingMemory, RA>,
+        instruction: &Instruction<F>,
+    ) -> Result<(), ExecutionError> {
+        let &Instruction { opcode, .. } = instruction;
+        let (mut adapter_record, core_record) = state.ctx.alloc(EmptyAdapterCoreLayout::new());
 
-        row_slice.is_add = F::from_bool(opcode == FieldArithmeticOpcode::ADD);
-        row_slice.is_sub = F::from_bool(opcode == FieldArithmeticOpcode::SUB);
-        row_slice.is_mul = F::from_bool(opcode == FieldArithmeticOpcode::MUL);
-        row_slice.is_div = F::from_bool(opcode == FieldArithmeticOpcode::DIV);
-        row_slice.divisor_inv = if opcode == FieldArithmeticOpcode::DIV {
-            c.inverse()
-        } else {
-            F::ZERO
-        };
-    }
+        A::start(*state.pc, state.memory, &mut adapter_record);
 
-    fn air(&self) -> &Self::Air {
-        &self.air
+        [core_record.b, core_record.c] =
+            self.adapter
+                .read(state.memory, instruction, &mut adapter_record);
+
+        core_record.local_opcode =
+            opcode.local_opcode_idx(FieldArithmeticOpcode::CLASS_OFFSET) as u8;
+
+        let opcode = FieldArithmeticOpcode::from_usize(core_record.local_opcode as usize);
+        let a_val = run_field_arithmetic(opcode, core_record.b, core_record.c);
+
+        self.adapter
+            .write(state.memory, instruction, [a_val], &mut adapter_record);
+
+        *state.pc = state.pc.wrapping_add(DEFAULT_PC_STEP);
+
+        Ok(())
     }
 }
 
-pub struct FieldArithmetic;
-impl FieldArithmetic {
-    pub(super) fn run_field_arithmetic<F: Field>(
-        opcode: FieldArithmeticOpcode,
-        b: F,
-        c: F,
-    ) -> Option<F> {
-        match opcode {
-            FieldArithmeticOpcode::ADD => Some(b + c),
-            FieldArithmeticOpcode::SUB => Some(b - c),
-            FieldArithmeticOpcode::MUL => Some(b * c),
-            FieldArithmeticOpcode::DIV => {
-                if c.is_zero() {
-                    None
-                } else {
-                    Some(b * c.inverse())
-                }
-            }
+impl<F, A> TraceFiller<F> for FieldArithmeticCoreFiller<A>
+where
+    F: PrimeField32,
+    A: 'static + AdapterTraceFiller<F>,
+{
+    fn fill_trace_row(&self, mem_helper: &MemoryAuxColsFactory<F>, row_slice: &mut [F]) {
+        let (adapter_row, mut core_row) = unsafe { row_slice.split_at_mut_unchecked(A::WIDTH) };
+        self.adapter.fill_trace_row(mem_helper, adapter_row);
+        let record: &FieldArithmeticRecord<F> = unsafe { get_record_from_slice(&mut core_row, ()) };
+        let core_row: &mut FieldArithmeticCoreCols<_> = core_row.borrow_mut();
+
+        let opcode = FieldArithmeticOpcode::from_usize(record.local_opcode as usize);
+        let result = run_field_arithmetic(opcode, record.b, record.c);
+
+        // Writing in reverse order to avoid overwriting the `record`
+        core_row.divisor_inv = if opcode == FieldArithmeticOpcode::DIV {
+            record.c.inverse()
+        } else {
+            F::ZERO
+        };
+
+        core_row.is_div = F::from_bool(opcode == FieldArithmeticOpcode::DIV);
+        core_row.is_mul = F::from_bool(opcode == FieldArithmeticOpcode::MUL);
+        core_row.is_sub = F::from_bool(opcode == FieldArithmeticOpcode::SUB);
+        core_row.is_add = F::from_bool(opcode == FieldArithmeticOpcode::ADD);
+
+        core_row.c = record.c;
+        core_row.b = record.b;
+        core_row.a = result;
+    }
+}
+
+pub(super) fn run_field_arithmetic<F: Field>(opcode: FieldArithmeticOpcode, b: F, c: F) -> F {
+    match opcode {
+        FieldArithmeticOpcode::ADD => b + c,
+        FieldArithmeticOpcode::SUB => b - c,
+        FieldArithmeticOpcode::MUL => b * c,
+        FieldArithmeticOpcode::DIV => {
+            assert!(!c.is_zero(), "Division by zero");
+            b * c.inverse()
         }
     }
 }

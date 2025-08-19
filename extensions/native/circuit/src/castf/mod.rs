@@ -1,12 +1,14 @@
 use openvm_circuit::arch::{VmAirWrapper, VmChipWrapper};
 
-use super::adapters::convert_adapter::{ConvertAdapterAir, ConvertAdapterChip};
+use crate::adapters::{ConvertAdapterAir, ConvertAdapterExecutor, ConvertAdapterFiller};
+
+mod core;
+mod execution;
+pub use core::*;
 
 #[cfg(test)]
 mod tests;
 
-mod core;
-pub use core::*;
-
 pub type CastFAir = VmAirWrapper<ConvertAdapterAir<1, 4>, CastFCoreAir>;
-pub type CastFChip<F> = VmChipWrapper<F, ConvertAdapterChip<F, 1, 4>, CastFCoreChip>;
+pub type CastFExecutor = CastFCoreExecutor<ConvertAdapterExecutor<1, 4>>;
+pub type CastFChip<F> = VmChipWrapper<F, CastFCoreFiller<ConvertAdapterFiller<1, 4>>>;

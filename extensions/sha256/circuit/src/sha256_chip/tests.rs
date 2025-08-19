@@ -1,31 +1,80 @@
-use openvm_circuit::arch::{
-    testing::{memory::gen_pointer, VmChipTestBuilder, BITWISE_OP_LOOKUP_BUS},
-    SystemPort,
+use std::{array, sync::Arc};
+
+use hex::FromHex;
+use openvm_circuit::{
+    arch::{
+        testing::{memory::gen_pointer, TestChipHarness, VmChipTestBuilder, BITWISE_OP_LOOKUP_BUS},
+        Arena, DenseRecordArena, MatrixRecordArena, PreflightExecutor,
+    },
+    utils::get_random_message,
 };
 use openvm_circuit_primitives::bitwise_op_lookup::{
-    BitwiseOperationLookupBus, SharedBitwiseOperationLookupChip,
+    BitwiseOperationLookupAir, BitwiseOperationLookupBus, BitwiseOperationLookupChip,
+    SharedBitwiseOperationLookupChip,
 };
-use openvm_instructions::{instruction::Instruction, riscv::RV32_CELL_BITS, LocalOpcode};
-use openvm_sha256_air::get_random_message;
+use openvm_instructions::{
+    instruction::Instruction,
+    riscv::{RV32_CELL_BITS, RV32_MEMORY_AS},
+    LocalOpcode,
+};
+use openvm_sha256_air::{get_sha256_num_blocks, SHA256_BLOCK_U8S};
 use openvm_sha256_transpiler::Rv32Sha256Opcode::{self, *};
 use openvm_stark_backend::{interaction::BusIndex, p3_field::FieldAlgebra};
-use openvm_stark_sdk::{config::setup_tracing, p3_baby_bear::BabyBear, utils::create_seeded_rng};
+use openvm_stark_sdk::{p3_baby_bear::BabyBear, utils::create_seeded_rng};
 use rand::{rngs::StdRng, Rng};
 
-use super::Sha256VmChip;
-use crate::{sha256_solve, Sha256VmDigestCols, Sha256VmRoundCols};
+use super::{Sha256VmAir, Sha256VmChip, Sha256VmExecutor};
+use crate::{
+    sha256_chip::trace::Sha256VmRecordLayout, sha256_solve, Sha256VmDigestCols, Sha256VmFiller,
+    Sha256VmRoundCols,
+};
 
 type F = BabyBear;
-const BUS_IDX: BusIndex = 28;
-fn set_and_execute(
+const SELF_BUS_IDX: BusIndex = 28;
+const MAX_INS_CAPACITY: usize = 4096;
+type Harness<RA> = TestChipHarness<F, Sha256VmExecutor, Sha256VmAir, Sha256VmChip<F>, RA>;
+
+fn create_test_chips<RA: Arena>(
     tester: &mut VmChipTestBuilder<F>,
-    chip: &mut Sha256VmChip<F>,
+) -> (
+    Harness<RA>,
+    (
+        BitwiseOperationLookupAir<RV32_CELL_BITS>,
+        SharedBitwiseOperationLookupChip<RV32_CELL_BITS>,
+    ),
+) {
+    let bitwise_bus = BitwiseOperationLookupBus::new(BITWISE_OP_LOOKUP_BUS);
+    let bitwise_chip = Arc::new(BitwiseOperationLookupChip::<RV32_CELL_BITS>::new(
+        bitwise_bus,
+    ));
+
+    let air = Sha256VmAir::new(
+        tester.system_port(),
+        bitwise_chip.bus(),
+        tester.address_bits(),
+        SELF_BUS_IDX,
+    );
+    let executor = Sha256VmExecutor::new(Rv32Sha256Opcode::CLASS_OFFSET, tester.address_bits());
+    let chip = Sha256VmChip::new(
+        Sha256VmFiller::new(bitwise_chip.clone(), tester.address_bits()),
+        tester.memory_helper(),
+    );
+
+    let harness = Harness::<RA>::with_capacity(executor, air, chip, MAX_INS_CAPACITY);
+    (harness, (bitwise_chip.air, bitwise_chip))
+}
+
+fn set_and_execute<RA: Arena>(
+    tester: &mut VmChipTestBuilder<F>,
+    harness: &mut Harness<RA>,
     rng: &mut StdRng,
     opcode: Rv32Sha256Opcode,
     message: Option<&[u8]>,
     len: Option<usize>,
-) {
-    let len = len.unwrap_or(rng.gen_range(1..100000));
+) where
+    Sha256VmExecutor: PreflightExecutor<F, RA>,
+{
+    let len = len.unwrap_or(rng.gen_range(1..3000));
     let tmp = get_random_message(rng, len);
     let message: &[u8] = message.unwrap_or(&tmp);
     let len = message.len();
@@ -34,33 +83,35 @@ fn set_and_execute(
     let rs1 = gen_pointer(rng, 4);
     let rs2 = gen_pointer(rng, 4);
 
-    let max_mem_ptr: u32 = 1
-        << tester
-            .memory_controller()
-            .borrow()
-            .mem_config()
-            .pointer_max_bits;
-    let dst_ptr = rng.gen_range(0..max_mem_ptr);
-    let dst_ptr = dst_ptr ^ (dst_ptr & 3);
+    let dst_ptr = gen_pointer(rng, 4);
+    let src_ptr = gen_pointer(rng, 4);
     tester.write(1, rd, dst_ptr.to_le_bytes().map(F::from_canonical_u8));
-    let src_ptr = rng.gen_range(0..(max_mem_ptr - len as u32));
-    let src_ptr = src_ptr ^ (src_ptr & 3);
     tester.write(1, rs1, src_ptr.to_le_bytes().map(F::from_canonical_u8));
     tester.write(1, rs2, len.to_le_bytes().map(F::from_canonical_u8));
 
-    for (i, &byte) in message.iter().enumerate() {
-        tester.write(2, src_ptr as usize + i, [F::from_canonical_u8(byte)]);
+    // Adding random memory after the message
+    let num_blocks = get_sha256_num_blocks(len as u32) as usize;
+    for offset in (0..num_blocks * SHA256_BLOCK_U8S).step_by(4) {
+        let chunk: [F; 4] = array::from_fn(|i| {
+            if offset + i < message.len() {
+                F::from_canonical_u8(message[offset + i])
+            } else {
+                F::from_canonical_u8(rng.gen())
+            }
+        });
+
+        tester.write(RV32_MEMORY_AS as usize, src_ptr + offset, chunk);
     }
 
     tester.execute(
-        chip,
+        harness,
         &Instruction::from_usize(opcode.global_opcode(), [rd, rs1, rs2, 1, 2]),
     );
 
     let output = sha256_solve(message);
     assert_eq!(
         output.map(F::from_canonical_u8),
-        tester.read::<32>(2, dst_ptr as usize)
+        tester.read::<32>(RV32_MEMORY_AS as usize, dst_ptr)
     );
 }
 
@@ -72,30 +123,62 @@ fn set_and_execute(
 ///////////////////////////////////////////////////////////////////////////////////////
 #[test]
 fn rand_sha256_test() {
-    setup_tracing();
     let mut rng = create_seeded_rng();
     let mut tester = VmChipTestBuilder::default();
-    let bitwise_bus = BitwiseOperationLookupBus::new(BITWISE_OP_LOOKUP_BUS);
-    let bitwise_chip = SharedBitwiseOperationLookupChip::<RV32_CELL_BITS>::new(bitwise_bus);
-    let mut chip = Sha256VmChip::new(
-        SystemPort {
-            execution_bus: tester.execution_bus(),
-            program_bus: tester.program_bus(),
-            memory_bridge: tester.memory_bridge(),
-        },
-        tester.address_bits(),
-        bitwise_chip.clone(),
-        BUS_IDX,
-        Rv32Sha256Opcode::CLASS_OFFSET,
-        tester.offline_memory_mutex_arc(),
-    );
+    let (mut harness, bitwise) = create_test_chips(&mut tester);
 
-    let num_tests: usize = 3;
-    for _ in 0..num_tests {
-        set_and_execute(&mut tester, &mut chip, &mut rng, SHA256, None, None);
+    let num_ops: usize = 10;
+    for _ in 0..num_ops {
+        set_and_execute(&mut tester, &mut harness, &mut rng, SHA256, None, None);
     }
 
-    let tester = tester.build().load(chip).load(bitwise_chip).finalize();
+    let tester = tester
+        .build()
+        .load(harness)
+        .load_periphery(bitwise)
+        .finalize();
+    tester.simple_test().expect("Verification failed");
+}
+
+#[test]
+fn sha256_edge_test_lengths() {
+    let mut rng = create_seeded_rng();
+    let mut tester = VmChipTestBuilder::default();
+    let (mut harness, bitwise) = create_test_chips(&mut tester);
+
+    let test_vectors = [
+        ("", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+        (
+            "98c1c0bdb7d5fea9a88859f06c6c439f",
+            "b6b2c9c9b6f30e5c66c977f1bd7ad97071bee739524aecf793384890619f2b05",
+        ),
+        ("5b58f4163e248467cc1cd3eecafe749e8e2baaf82c0f63af06df0526347d7a11327463c115210a46b6740244eddf370be89c", "ac0e25049870b91d78ef6807bb87fce4603c81abd3c097fba2403fd18b6ce0b7"),
+        ("9ad198539e3160194f38ac076a782bd5210a007560d1fce9ef78f8a4a5e4d78c6b96c250cff3520009036e9c6087d5dab587394edda862862013de49a12072485a6c01165ec0f28ffddf1873fbd53e47fcd02fb6a5ccc9622d5588a92429c663ce298cb71b50022fc2ec4ba9f5bbd250974e1a607b165fee16e8f3f2be20d7348b91a2f518ce928491900d56d9f86970611580350cee08daea7717fe28a73b8dcfdea22a65ed9f5a09198de38e4e4f2cc05b0ba3dd787a5363ab6c9f39dcb66c1a29209b1d6b1152769395df8150b4316658ea6ab19af94903d643fcb0ae4d598035ebe73c8b1b687df1ab16504f633c929569c6d0e5fae6eea43838fbc8ce2c2b43161d0addc8ccf945a9c4e06294e56a67df0000f561f61b630b1983ba403e775aaeefa8d339f669d1e09ead7eae979383eda983321e1743e5404b4b328da656de79ff52d179833a6bd5129f49432d74d001996c37c68d9ab49fcff8061d193576f396c20e1f0d9ee83a51290ba60efa9c3cb2e15b756321a7ca668cdbf63f95ec33b1c450aa100101be059dc00077245b25a6a66698dee81953ed4a606944076e2858b1420de0095a7f60b08194d6d9a997009d345c71f63a7034b976e409af8a9a040ac7113664609a7adedb76b2fadf04b0348392a1650526eb2a4d6ed5e4bbcda8aabc8488b38f4f5d9a398103536bb8250ed82a9b9825f7703c263f9e", "080ad71239852124fc26758982090611b9b19abf22d22db3a57f67a06e984a23")
+    ];
+
+    for (input, _) in test_vectors.iter() {
+        let input = Vec::from_hex(input).unwrap();
+
+        set_and_execute(
+            &mut tester,
+            &mut harness,
+            &mut rng,
+            SHA256,
+            Some(&input),
+            None,
+        );
+    }
+
+    // check every possible input length modulo 64
+    for i in 65..=128 {
+        set_and_execute(&mut tester, &mut harness, &mut rng, SHA256, None, Some(i));
+    }
+
+    let tester = tester
+        .build()
+        .load(harness)
+        .load_periphery(bitwise)
+        .finalize();
     tester.simple_test().expect("Verification failed");
 }
 
@@ -108,20 +191,7 @@ fn rand_sha256_test() {
 fn execute_roundtrip_sanity_test() {
     let mut rng = create_seeded_rng();
     let mut tester = VmChipTestBuilder::default();
-    let bitwise_bus = BitwiseOperationLookupBus::new(BITWISE_OP_LOOKUP_BUS);
-    let bitwise_chip = SharedBitwiseOperationLookupChip::<RV32_CELL_BITS>::new(bitwise_bus);
-    let mut chip = Sha256VmChip::new(
-        SystemPort {
-            execution_bus: tester.execution_bus(),
-            program_bus: tester.program_bus(),
-            memory_bridge: tester.memory_bridge(),
-        },
-        tester.address_bits(),
-        bitwise_chip.clone(),
-        BUS_IDX,
-        Rv32Sha256Opcode::CLASS_OFFSET,
-        tester.offline_memory_mutex_arc(),
-    );
+    let (mut harness, _) = create_test_chips::<MatrixRecordArena<F>>(&mut tester);
 
     println!(
         "Sha256VmDigestCols::width(): {}",
@@ -133,7 +203,7 @@ fn execute_roundtrip_sanity_test() {
     );
     let num_tests: usize = 1;
     for _ in 0..num_tests {
-        set_and_execute(&mut tester, &mut chip, &mut rng, SHA256, None, None);
+        set_and_execute(&mut tester, &mut harness, &mut rng, SHA256, None, None);
     }
 }
 
@@ -146,4 +216,48 @@ fn sha256_solve_sanity_check() {
         46, 245, 169, 94, 255, 42, 136, 193, 15, 40, 133, 173, 22,
     ];
     assert_eq!(output, expected);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
+/// DENSE TESTS
+///
+/// Ensure that the chip works as expected with dense records.
+/// We first execute some instructions with a [DenseRecordArena] and transfer the records
+/// to a [MatrixRecordArena]. After transferring we generate the trace and make sure that
+/// all the constraints pass.
+///////////////////////////////////////////////////////////////////////////////////////
+
+#[test]
+fn dense_record_arena_test() {
+    let mut rng = create_seeded_rng();
+    let mut tester = VmChipTestBuilder::default();
+    let (mut sparse_harness, bitwise) = create_test_chips(&mut tester);
+
+    {
+        let mut dense_harness = create_test_chips::<DenseRecordArena>(&mut tester).0;
+
+        let num_ops: usize = 10;
+        for _ in 0..num_ops {
+            set_and_execute(
+                &mut tester,
+                &mut dense_harness,
+                &mut rng,
+                SHA256,
+                None,
+                None,
+            );
+        }
+
+        let mut record_interpreter = dense_harness
+            .arena
+            .get_record_seeker::<_, Sha256VmRecordLayout>();
+        record_interpreter.transfer_to_matrix_arena(&mut sparse_harness.arena);
+    }
+
+    let tester = tester
+        .build()
+        .load(sparse_harness)
+        .load_periphery(bitwise)
+        .finalize();
+    tester.simple_test().expect("Verification failed");
 }

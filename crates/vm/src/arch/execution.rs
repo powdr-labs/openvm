@@ -1,5 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
-
+use openvm_circuit_primitives::AlignedBytesBorrow;
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{
     instruction::Instruction, program::DEFAULT_PC_STEP, PhantomDiscriminant, VmOpcode,
@@ -8,32 +7,33 @@ use openvm_stark_backend::{
     interaction::{BusIndex, InteractionBuilder, PermutationCheckBus},
     p3_field::FieldAlgebra,
 };
+use rand::rngs::StdRng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use super::Streams;
-use crate::system::{memory::MemoryController, program::ProgramBus};
-
-pub type Result<T> = std::result::Result<T, ExecutionError>;
+use super::{execution_mode::ExecutionCtxTrait, Streams, VmExecState};
+#[cfg(feature = "metrics")]
+use crate::metrics::VmMetrics;
+use crate::{
+    arch::{execution_mode::MeteredExecutionCtxTrait, ExecutorInventoryError, MatrixRecordArena},
+    system::{
+        memory::online::{GuestMemory, TracingMemory},
+        program::ProgramBus,
+    },
+};
 
 #[derive(Error, Debug)]
 pub enum ExecutionError {
-    #[error("execution failed at pc {pc}")]
-    Fail { pc: u32 },
-    #[error("pc {pc} not found for program of length {program_len}, with pc_base {pc_base} and step = {step}")]
-    PcNotFound {
-        pc: u32,
-        step: u32,
-        pc_base: u32,
-        program_len: usize,
-    },
-    #[error("pc {pc} out of bounds for program of length {program_len}, with pc_base {pc_base} and step = {step}")]
+    #[error("execution failed at pc {pc}, err: {msg}")]
+    Fail { pc: u32, msg: &'static str },
+    #[error("pc {pc} out of bounds for program of length {program_len}, with pc_base {pc_base}")]
     PcOutOfBounds {
         pc: u32,
-        step: u32,
         pc_base: u32,
         program_len: usize,
     },
+    #[error("unreachable instruction at pc {0}")]
+    Unreachable(u32),
     #[error("at pc {pc}, opcode {opcode} was not enabled")]
     DisabledOperation { pc: u32, opcode: VmOpcode },
     #[error("at pc = {pc}")]
@@ -66,51 +66,110 @@ pub enum ExecutionError {
     DidNotTerminate,
     #[error("program exit code {0}")]
     FailedWithExitCode(u32),
+    #[error("trace buffer out of bounds: requested {requested} but capacity is {capacity}")]
+    TraceBufferOutOfBounds { requested: usize, capacity: usize },
+    #[error("inventory error: {0}")]
+    Inventory(#[from] ExecutorInventoryError),
+    #[error("static program error: {0}")]
+    Static(#[from] StaticProgramError),
 }
 
-pub trait InstructionExecutor<F> {
+/// Errors in the program that can be statically analyzed before runtime.
+#[derive(Error, Debug)]
+pub enum StaticProgramError {
+    #[error("invalid instruction at pc {0}")]
+    InvalidInstruction(u32),
+    #[error("Too many executors")]
+    TooManyExecutors,
+    #[error("at pc {pc}, opcode {opcode} was not enabled")]
+    DisabledOperation { pc: u32, opcode: VmOpcode },
+    #[error("Executor not found for opcode {opcode}")]
+    ExecutorNotFound { opcode: VmOpcode },
+}
+
+/// Function pointer for interpreter execution with function signature `(pre_compute, exec_state)`.
+/// The `pre_compute: &[u8]` is a pre-computed buffer of data corresponding to a single instruction.
+/// The contents of `pre_compute` are determined from the program code as specified by the
+/// [Executor] and [MeteredExecutor] traits.
+pub type ExecuteFunc<F, CTX> = unsafe fn(&[u8], &mut VmExecState<F, GuestMemory, CTX>);
+
+/// Trait for pure execution via a host interpreter. The trait methods provide the methods to
+/// pre-process the program code into function pointers which operate on `pre_compute` instruction
+/// data.
+// @dev: In the codebase this is sometimes referred to as (E1).
+pub trait Executor<F> {
+    fn pre_compute_size(&self) -> usize;
+
+    fn pre_compute<Ctx>(
+        &self,
+        pc: u32,
+        inst: &Instruction<F>,
+        data: &mut [u8],
+    ) -> Result<ExecuteFunc<F, Ctx>, StaticProgramError>
+    where
+        Ctx: ExecutionCtxTrait;
+}
+
+/// Trait for metered execution via a host interpreter. The trait methods provide the methods to
+/// pre-process the program code into function pointers which operate on `pre_compute` instruction
+/// data which contains auxiliary data (e.g., corresponding AIR ID) for metering purposes.
+// @dev: In the codebase this is sometimes referred to as (E2).
+pub trait MeteredExecutor<F> {
+    fn metered_pre_compute_size(&self) -> usize;
+
+    fn metered_pre_compute<Ctx>(
+        &self,
+        air_idx: usize,
+        pc: u32,
+        inst: &Instruction<F>,
+        data: &mut [u8],
+    ) -> Result<ExecuteFunc<F, Ctx>, StaticProgramError>
+    where
+        Ctx: MeteredExecutionCtxTrait;
+}
+
+/// Trait for preflight execution via a host interpreter. The trait methods allow execution of
+/// instructions via enum dispatch within an interpreter. This execution is specialized to record
+/// "records" of execution which will be ingested later for trace matrix generation. The records are
+/// stored in a record arena, which is provided in the [VmStateMut] argument.
+// NOTE: In the codebase this is sometimes referred to as (E3).
+pub trait PreflightExecutor<F, RA = MatrixRecordArena<F>> {
     /// Runtime execution of the instruction, if the instruction is owned by the
     /// current instance. May internally store records of this call for later trace generation.
     fn execute(
-        &mut self,
-        memory: &mut MemoryController<F>,
+        &self,
+        state: VmStateMut<F, TracingMemory, RA>,
         instruction: &Instruction<F>,
-        from_state: ExecutionState<u32>,
-    ) -> Result<ExecutionState<u32>>;
+    ) -> Result<(), ExecutionError>;
 
     /// For display purposes. From absolute opcode as `usize`, return the string name of the opcode
     /// if it is a supported opcode by the present executor.
     fn get_opcode_name(&self, opcode: usize) -> String;
 }
 
-impl<F, C: InstructionExecutor<F>> InstructionExecutor<F> for RefCell<C> {
-    fn execute(
-        &mut self,
-        memory: &mut MemoryController<F>,
-        instruction: &Instruction<F>,
-        prev_state: ExecutionState<u32>,
-    ) -> Result<ExecutionState<u32>> {
-        self.borrow_mut().execute(memory, instruction, prev_state)
-    }
-
-    fn get_opcode_name(&self, opcode: usize) -> String {
-        self.borrow().get_opcode_name(opcode)
-    }
+/// Global VM state accessible during instruction execution.
+/// The state is generic in guest memory `MEM` and additional record arena `RA`.
+/// The host state is execution context specific.
+#[derive(derive_new::new)]
+pub struct VmStateMut<'a, F, MEM, RA> {
+    pub pc: &'a mut u32,
+    pub memory: &'a mut MEM,
+    pub streams: &'a mut Streams<F>,
+    pub rng: &'a mut StdRng,
+    /// Custom public values to be set by the system PublicValuesExecutor
+    pub(crate) custom_pvs: &'a mut Vec<Option<F>>,
+    pub ctx: &'a mut RA,
+    #[cfg(feature = "metrics")]
+    pub metrics: &'a mut VmMetrics,
 }
 
-impl<F, C: InstructionExecutor<F>> InstructionExecutor<F> for Rc<RefCell<C>> {
-    fn execute(
-        &mut self,
-        memory: &mut MemoryController<F>,
-        instruction: &Instruction<F>,
-        prev_state: ExecutionState<u32>,
-    ) -> Result<ExecutionState<u32>> {
-        self.borrow_mut().execute(memory, instruction, prev_state)
-    }
-
-    fn get_opcode_name(&self, opcode: usize) -> String {
-        self.borrow().get_opcode_name(opcode)
-    }
+/// Wrapper type for metered pre-computed data, which is always an AIR index together with the
+/// pre-computed data for pure execution.
+#[derive(Clone, AlignedBytesBorrow)]
+#[repr(C)]
+pub struct E2PreCompute<DATA> {
+    pub chip_idx: u32,
+    pub data: DATA,
 }
 
 #[repr(C)]
@@ -316,20 +375,22 @@ impl<T: FieldAlgebra> From<(u32, Option<T>)> for PcIncOrSet<T> {
 
 /// Phantom sub-instructions affect the runtime of the VM and the trace matrix values.
 /// However they all have no AIR constraints besides advancing the pc by
-/// [DEFAULT_PC_STEP](openvm_instructions::program::DEFAULT_PC_STEP).
+/// [DEFAULT_PC_STEP].
 ///
 /// They should not mutate memory, but they can mutate the input & hint streams.
 ///
 /// Phantom sub-instructions are only allowed to use operands
 /// `a,b` and `c_upper = c.as_canonical_u32() >> 16`.
-pub trait PhantomSubExecutor<F>: Send {
+#[allow(clippy::too_many_arguments)]
+pub trait PhantomSubExecutor<F>: Send + Sync {
     fn phantom_execute(
-        &mut self,
-        memory: &MemoryController<F>,
+        &self,
+        memory: &GuestMemory,
         streams: &mut Streams<F>,
+        rng: &mut StdRng,
         discriminant: PhantomDiscriminant,
-        a: F,
-        b: F,
+        a: u32,
+        b: u32,
         c_upper: u16,
     ) -> eyre::Result<()>;
 }

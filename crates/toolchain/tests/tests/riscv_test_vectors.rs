@@ -5,7 +5,7 @@ use openvm_circuit::{
     arch::{instructions::exe::VmExe, VmExecutor},
     utils::air_test,
 };
-use openvm_rv32im_circuit::Rv32ImConfig;
+use openvm_rv32im_circuit::{Rv32ImConfig, Rv32ImCpuBuilder};
 use openvm_rv32im_transpiler::{
     Rv32ITranspilerExtension, Rv32IoTranspilerExtension, Rv32MTranspilerExtension,
 };
@@ -39,9 +39,10 @@ fn test_rv32im_riscv_vector_runtime() -> Result<()> {
                         .with_extension(Rv32MTranspilerExtension)
                         .with_extension(Rv32IoTranspilerExtension),
                 )?;
-                let executor = VmExecutor::<F, _>::new(config.clone());
-                let res = executor.execute(exe, vec![])?;
-                Ok(res)
+                let executor = VmExecutor::new(config.clone())?;
+                let interpreter = executor.instance(&exe)?;
+                let _state = interpreter.execute(vec![], None)?;
+                Ok(())
             });
 
             match result {
@@ -80,7 +81,7 @@ fn test_rv32im_riscv_vector_prove() -> Result<()> {
             )?;
 
             let result = std::panic::catch_unwind(|| {
-                air_test(config.clone(), exe);
+                air_test(Rv32ImCpuBuilder, config.clone(), exe);
             });
 
             match result {

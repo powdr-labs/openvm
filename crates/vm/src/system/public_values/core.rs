@@ -1,8 +1,12 @@
-use std::sync::Mutex;
+use std::marker::PhantomData;
 
-use openvm_circuit_primitives::{encoder::Encoder, SubAir};
+use getset::Setters;
+use openvm_circuit_primitives::{encoder::Encoder, AlignedBytesBorrow, SubAir};
 use openvm_instructions::{
-    instruction::Instruction, LocalOpcode, PublishOpcode, PublishOpcode::PUBLISH,
+    instruction::Instruction,
+    program::DEFAULT_PC_STEP,
+    LocalOpcode,
+    PublishOpcode::{self, PUBLISH},
 };
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
@@ -10,17 +14,21 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra, PrimeField32},
     rap::BaseAirWithPublicValues,
 };
-use serde::{Deserialize, Serialize};
 
 use crate::{
     arch::{
-        AdapterAirContext, AdapterRuntimeContext, BasicAdapterInterface, MinimalInstruction,
-        Result, VmAdapterInterface, VmCoreAir, VmCoreChip,
+        get_record_from_slice, AdapterAirContext, AdapterTraceExecutor, AdapterTraceFiller,
+        BasicAdapterInterface, EmptyAdapterCoreLayout, ExecutionError, MinimalInstruction,
+        PreflightExecutor, RecordArena, TraceFiller, VmCoreAir, VmStateMut,
     },
-    system::public_values::columns::PublicValuesCoreColsView,
+    system::{
+        memory::{online::TracingMemory, MemoryAuxColsFactory},
+        native_adapter::NativeAdapterExecutor,
+        public_values::columns::PublicValuesCoreColsView,
+    },
 };
+
 pub(crate) type AdapterInterface<F> = BasicAdapterInterface<F, MinimalInstruction<F>, 2, 0, 1, 1>;
-pub(crate) type AdapterInterfaceReads<F> = <AdapterInterface<F> as VmAdapterInterface<F>>::Reads;
 
 #[derive(Clone, Debug)]
 pub struct PublicValuesCoreAir {
@@ -99,67 +107,69 @@ impl<AB: InteractionBuilder + AirBuilderWithPublicValues> VmCoreAir<AB, AdapterI
 }
 
 #[repr(C)]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(AlignedBytesBorrow, Debug)]
 pub struct PublicValuesRecord<F> {
-    value: F,
-    index: F,
+    pub value: F,
+    pub index: F,
 }
 
 /// ATTENTION: If a specific public value is not provided, a default 0 will be used when generating
 /// the proof but in the perspective of constraints, it could be any value.
-pub struct PublicValuesCoreChip<F> {
-    air: PublicValuesCoreAir,
-    // Mutex is to make the struct Sync. But it actually won't be accessed by multiple threads.
-    custom_pvs: Mutex<Vec<Option<F>>>,
+#[derive(Clone)]
+pub struct PublicValuesExecutor<F, A = NativeAdapterExecutor<F, 2, 0>> {
+    adapter: A,
+    phantom: PhantomData<F>,
 }
 
-impl<F: PrimeField32> PublicValuesCoreChip<F> {
+#[derive(Clone, Setters)]
+pub struct PublicValuesFiller<F, A = NativeAdapterExecutor<F, 2, 0>> {
+    adapter: A,
+    encoder: Encoder,
+    num_custom_pvs: usize,
+    public_values: Vec<F>,
+}
+
+impl<F: Clone, A> PublicValuesExecutor<F, A> {
+    pub fn new(adapter: A) -> Self {
+        Self {
+            adapter,
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<F: Clone, A> PublicValuesFiller<F, A> {
     /// **Note:** `max_degree` is the maximum degree of the constraint polynomials to represent the
     /// flags. If you want the overall AIR's constraint degree to be `<= max_constraint_degree`,
     /// then typically you should set `max_degree` to `max_constraint_degree - 1`.
-    pub fn new(num_custom_pvs: usize, max_degree: u32) -> Self {
+    pub fn new(adapter: A, num_custom_pvs: usize, max_degree: u32) -> Self {
         Self {
-            air: PublicValuesCoreAir::new(num_custom_pvs, max_degree),
-            custom_pvs: Mutex::new(vec![None; num_custom_pvs]),
+            adapter,
+            encoder: Encoder::new(num_custom_pvs, max_degree, true),
+            num_custom_pvs,
+            public_values: Vec::new(),
         }
     }
-    pub fn get_custom_public_values(&self) -> Vec<Option<F>> {
-        self.custom_pvs.lock().unwrap().clone()
+
+    pub fn set_public_values(&mut self, public_values: Vec<F>)
+    where
+        F: Field,
+    {
+        assert_eq!(public_values.len(), self.num_custom_pvs);
+        self.public_values = public_values;
     }
 }
 
-impl<F: PrimeField32> VmCoreChip<F, AdapterInterface<F>> for PublicValuesCoreChip<F> {
-    type Record = PublicValuesRecord<F>;
-    type Air = PublicValuesCoreAir;
-
-    #[allow(clippy::type_complexity)]
-    fn execute_instruction(
-        &self,
-        _instruction: &Instruction<F>,
-        _from_pc: u32,
-        reads: AdapterInterfaceReads<F>,
-    ) -> Result<(AdapterRuntimeContext<F, AdapterInterface<F>>, Self::Record)> {
-        let [[value], [index]] = reads;
-        {
-            let idx: usize = index.as_canonical_u32() as usize;
-            let mut custom_pvs = self.custom_pvs.lock().unwrap();
-
-            if custom_pvs[idx].is_none() {
-                custom_pvs[idx] = Some(value);
-            } else {
-                // Not a hard constraint violation when publishing the same value twice but the
-                // program should avoid that.
-                panic!("Custom public value {} already set", idx);
-            }
-        }
-        let output = AdapterRuntimeContext {
-            to_pc: None,
-            writes: [],
-        };
-        let record = Self::Record { value, index };
-        Ok((output, record))
-    }
-
+impl<F, A, RA> PreflightExecutor<F, RA> for PublicValuesExecutor<F, A>
+where
+    F: PrimeField32,
+    A: 'static + Clone + AdapterTraceExecutor<F, ReadData = [[F; 1]; 2], WriteData = [[F; 1]; 0]>,
+    for<'buf> RA: RecordArena<
+        'buf,
+        EmptyAdapterCoreLayout<F, A>,
+        (A::RecordMut<'buf>, &'buf mut PublicValuesRecord<F>),
+    >,
+{
     fn get_opcode_name(&self, opcode: usize) -> String {
         format!(
             "{:?}",
@@ -167,27 +177,69 @@ impl<F: PrimeField32> VmCoreChip<F, AdapterInterface<F>> for PublicValuesCoreChi
         )
     }
 
-    fn generate_trace_row(&self, row_slice: &mut [F], record: Self::Record) {
-        let mut cols = PublicValuesCoreColsView::<_, &mut F>::borrow_mut(row_slice);
-        debug_assert_eq!(cols.width(), BaseAir::<F>::width(&self.air));
-        *cols.is_valid = F::ONE;
-        *cols.value = record.value;
-        *cols.index = record.index;
-        let idx: usize = record.index.as_canonical_u32() as usize;
-        let pt = self.air.encoder.get_flag_pt(idx);
-        for (i, var) in cols.custom_pv_vars.iter_mut().enumerate() {
-            **var = F::from_canonical_u32(pt[i]);
+    fn execute(
+        &self,
+        state: VmStateMut<F, TracingMemory, RA>,
+        instruction: &Instruction<F>,
+    ) -> Result<(), ExecutionError> {
+        let (mut adapter_record, core_record) = state.ctx.alloc(EmptyAdapterCoreLayout::new());
+
+        A::start(*state.pc, state.memory, &mut adapter_record);
+
+        [[core_record.value], [core_record.index]] =
+            self.adapter
+                .read(state.memory, instruction, &mut adapter_record);
+        {
+            let idx: usize = core_record.index.as_canonical_u32() as usize;
+            let custom_pvs = state.custom_pvs;
+
+            if custom_pvs[idx].is_none() {
+                custom_pvs[idx] = Some(core_record.value);
+            } else {
+                // Not a hard constraint violation when publishing the same value twice but the
+                // program should avoid that.
+                panic!("Custom public value {} already set", idx);
+            }
         }
+
+        *state.pc = state.pc.wrapping_add(DEFAULT_PC_STEP);
+
+        Ok(())
+    }
+}
+
+impl<F, A> TraceFiller<F> for PublicValuesFiller<F, A>
+where
+    F: PrimeField32,
+    A: 'static + AdapterTraceFiller<F>,
+{
+    fn fill_trace_row(&self, mem_helper: &MemoryAuxColsFactory<F>, row_slice: &mut [F]) {
+        let (adapter_row, mut core_row) = unsafe { row_slice.split_at_mut_unchecked(A::WIDTH) };
+        self.adapter.fill_trace_row(mem_helper, adapter_row);
+        let record: &PublicValuesRecord<F> = unsafe { get_record_from_slice(&mut core_row, ()) };
+        let cols = PublicValuesCoreColsView::<_, &mut F>::borrow_mut(core_row);
+
+        let idx: usize = record.index.as_canonical_u32() as usize;
+        let pt = self.encoder.get_flag_pt(idx);
+
+        cols.custom_pv_vars
+            .into_iter()
+            .zip(pt.iter())
+            .for_each(|(var, &val)| {
+                *var = F::from_canonical_u32(val);
+            });
+
+        *cols.index = record.index;
+        *cols.value = record.value;
+        *cols.is_valid = F::ONE;
     }
 
     fn generate_public_values(&self) -> Vec<F> {
-        self.get_custom_public_values()
-            .into_iter()
-            .map(|x| x.unwrap_or(F::ZERO))
-            .collect()
-    }
-
-    fn air(&self) -> &Self::Air {
-        &self.air
+        assert_eq!(
+            self.public_values.len(),
+            self.num_custom_pvs,
+            "Did not set public values"
+        );
+        self.public_values.clone()
     }
 }

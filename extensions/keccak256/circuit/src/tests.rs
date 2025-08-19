@@ -1,133 +1,187 @@
-use std::borrow::BorrowMut;
+use std::{array, borrow::BorrowMut, sync::Arc};
 
 use hex::FromHex;
-use openvm_circuit::arch::testing::{VmChipTestBuilder, VmChipTester, BITWISE_OP_LOOKUP_BUS};
+use openvm_circuit::{
+    arch::{
+        testing::{memory::gen_pointer, TestChipHarness, VmChipTestBuilder, BITWISE_OP_LOOKUP_BUS},
+        Arena, DenseRecordArena, PreflightExecutor,
+    },
+    utils::get_random_message,
+};
 use openvm_circuit_primitives::bitwise_op_lookup::{
-    BitwiseOperationLookupBus, SharedBitwiseOperationLookupChip,
+    BitwiseOperationLookupAir, BitwiseOperationLookupBus, BitwiseOperationLookupChip,
+    SharedBitwiseOperationLookupChip,
 };
-use openvm_instructions::{instruction::Instruction, LocalOpcode};
-use openvm_keccak256_transpiler::Rv32KeccakOpcode;
+use openvm_instructions::{
+    instruction::Instruction,
+    riscv::{RV32_CELL_BITS, RV32_MEMORY_AS},
+    LocalOpcode,
+};
+use openvm_keccak256_transpiler::Rv32KeccakOpcode::{self, *};
 use openvm_stark_backend::{
-    p3_field::FieldAlgebra, utils::disable_debug_builder, verifier::VerificationError,
+    p3_field::FieldAlgebra,
+    p3_matrix::{
+        dense::{DenseMatrix, RowMajorMatrix},
+        Matrix,
+    },
+    utils::disable_debug_builder,
+    verifier::VerificationError,
 };
-use openvm_stark_sdk::{
-    config::baby_bear_blake3::BabyBearBlake3Config, p3_baby_bear::BabyBear,
-    utils::create_seeded_rng,
-};
-use p3_keccak_air::NUM_ROUNDS;
-use rand::Rng;
+use openvm_stark_sdk::{p3_baby_bear::BabyBear, utils::create_seeded_rng};
+use rand::{rngs::StdRng, Rng};
 use tiny_keccak::Hasher;
 
-use super::{columns::KeccakVmCols, utils::num_keccak_f, KeccakVmChip};
+use super::{columns::KeccakVmCols, KeccakVmChip};
+use crate::{
+    trace::KeccakVmRecordLayout, utils::keccak256, KeccakVmAir, KeccakVmExecutor, KeccakVmFiller,
+};
 
 type F = BabyBear;
-// io is vector of (input, expected_output, prank_output) where prank_output is Some if the trace
-// will be replaced
-#[allow(clippy::type_complexity)]
-fn build_keccak256_test(
-    io: Vec<(Vec<u8>, Option<[u8; 32]>, Option<[u8; 32]>)>,
-) -> VmChipTester<BabyBearBlake3Config> {
-    let bitwise_bus = BitwiseOperationLookupBus::new(BITWISE_OP_LOOKUP_BUS);
-    let bitwise_chip = SharedBitwiseOperationLookupChip::<8>::new(bitwise_bus);
+const MAX_INS_CAPACITY: usize = 4096;
+type Harness<RA> = TestChipHarness<F, KeccakVmExecutor, KeccakVmAir, KeccakVmChip<F>, RA>;
 
-    let mut tester = VmChipTestBuilder::default();
-    let mut chip = KeccakVmChip::new(
-        tester.execution_bus(),
-        tester.program_bus(),
+fn create_test_chips<RA: Arena>(
+    tester: &mut VmChipTestBuilder<F>,
+) -> (
+    Harness<RA>,
+    (
+        BitwiseOperationLookupAir<RV32_CELL_BITS>,
+        SharedBitwiseOperationLookupChip<RV32_CELL_BITS>,
+    ),
+) {
+    let bitwise_bus = BitwiseOperationLookupBus::new(BITWISE_OP_LOOKUP_BUS);
+    let bitwise_chip = Arc::new(BitwiseOperationLookupChip::<RV32_CELL_BITS>::new(
+        bitwise_bus,
+    ));
+
+    let air = KeccakVmAir::new(
+        tester.execution_bridge(),
         tester.memory_bridge(),
+        bitwise_chip.bus(),
         tester.address_bits(),
-        bitwise_chip.clone(),
         Rv32KeccakOpcode::CLASS_OFFSET,
-        tester.offline_memory_mutex_arc(),
     );
 
-    let mut dst = 0;
-    let src = 0;
+    let executor = KeccakVmExecutor::new(Rv32KeccakOpcode::CLASS_OFFSET, tester.address_bits());
+    let chip = KeccakVmChip::new(
+        KeccakVmFiller::new(bitwise_chip.clone(), tester.address_bits()),
+        tester.memory_helper(),
+    );
 
-    for (input, expected_output, _) in &io {
-        let [a, b, c] = [0, 4, 8]; // space apart for register limbs
-        let [d, e] = [1, 2];
+    let harness = Harness::<RA>::with_capacity(executor, air, chip, MAX_INS_CAPACITY);
 
-        tester.write(d, a, (dst as u32).to_le_bytes().map(F::from_canonical_u8));
-        tester.write(d, b, (src as u32).to_le_bytes().map(F::from_canonical_u8));
+    (harness, (bitwise_chip.air, bitwise_chip))
+}
+
+fn set_and_execute<RA: Arena>(
+    tester: &mut VmChipTestBuilder<F>,
+    harness: &mut Harness<RA>,
+    rng: &mut StdRng,
+    opcode: Rv32KeccakOpcode,
+    message: Option<&[u8]>,
+    len: Option<usize>,
+    expected_output: Option<[u8; 32]>,
+) where
+    KeccakVmExecutor: PreflightExecutor<F, RA>,
+{
+    let len = len.unwrap_or(rng.gen_range(1..3000));
+    let tmp = get_random_message(rng, len);
+    let message: &[u8] = message.unwrap_or(&tmp);
+    let len = message.len();
+
+    let rd = gen_pointer(rng, 4);
+    let rs1 = gen_pointer(rng, 4);
+    let rs2 = gen_pointer(rng, 4);
+
+    let dst_ptr = gen_pointer(rng, 4);
+    let src_ptr = gen_pointer(rng, 4);
+    tester.write(1, rd, dst_ptr.to_le_bytes().map(F::from_canonical_u8));
+    tester.write(1, rs1, src_ptr.to_le_bytes().map(F::from_canonical_u8));
+    tester.write(1, rs2, len.to_le_bytes().map(F::from_canonical_u8));
+
+    message.chunks(4).enumerate().for_each(|(i, chunk)| {
+        let rng = rng.gen();
+        let chunk: [&u8; 4] = array::from_fn(|i| chunk.get(i).unwrap_or(&rng));
         tester.write(
-            d,
-            c,
-            (input.len() as u32).to_le_bytes().map(F::from_canonical_u8),
+            RV32_MEMORY_AS as usize,
+            src_ptr + i * 4,
+            chunk.map(|&x| F::from_canonical_u8(x)),
         );
-        for (i, byte) in input.iter().enumerate() {
-            tester.write_cell(e, src + i, F::from_canonical_u8(*byte));
-        }
+    });
 
-        tester.execute(
-            &mut chip,
-            &Instruction::from_isize(
-                Rv32KeccakOpcode::KECCAK256.global_opcode(),
-                a as isize,
-                b as isize,
-                c as isize,
-                d as isize,
-                e as isize,
-            ),
+    tester.execute(
+        harness,
+        &Instruction::from_usize(opcode.global_opcode(), [rd, rs1, rs2, 1, 2]),
+    );
+
+    let expected_output = expected_output.unwrap_or(keccak256(message));
+    println!("expected_output: {:?}", expected_output);
+    println!("keccak256(message): {:?}", keccak256(message));
+    assert_eq!(
+        expected_output.map(F::from_canonical_u8),
+        tester.read(RV32_MEMORY_AS as usize, dst_ptr)
+    );
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
+/// POSITIVE TESTS
+///
+/// Randomly generate computations and execute, ensuring that the generated trace
+/// passes all constraints.
+///////////////////////////////////////////////////////////////////////////////////////
+#[test]
+fn rand_keccak256_test() {
+    let mut rng = create_seeded_rng();
+    let mut tester = VmChipTestBuilder::default();
+    let (mut harness, bitwise) = create_test_chips(&mut tester);
+
+    let num_ops: usize = 10;
+    for _ in 0..num_ops {
+        set_and_execute(
+            &mut tester,
+            &mut harness,
+            &mut rng,
+            KECCAK256,
+            None,
+            None,
+            None,
         );
-        if let Some(output) = expected_output {
-            for (i, byte) in output.iter().enumerate() {
-                assert_eq!(tester.read_cell(e, dst + i), F::from_canonical_u8(*byte));
-            }
-        }
-        // shift dst to not deal with timestamps for pranking
-        dst += 32;
-    }
-    let mut tester = tester.build().load(chip).load(bitwise_chip).finalize();
-
-    let keccak_trace = tester.air_proof_inputs[2]
-        .1
-        .raw
-        .common_main
-        .as_mut()
-        .unwrap();
-    let mut row = 0;
-    for (input, _, prank_output) in io {
-        let num_blocks = num_keccak_f(input.len());
-        let num_rows = NUM_ROUNDS * num_blocks;
-        row += num_rows;
-        if prank_output.is_none() {
-            continue;
-        }
-        let output = prank_output.unwrap();
-        let digest_row: &mut KeccakVmCols<_> = keccak_trace.row_mut(row - 1).borrow_mut();
-        for i in 0..16 {
-            let out_limb =
-                F::from_canonical_u16(output[2 * i] as u16 + ((output[2 * i + 1] as u16) << 8));
-            let x = i / 4;
-            let y = 0;
-            let limb = i % 4;
-            if x == 0 && y == 0 {
-                digest_row.inner.a_prime_prime_prime_0_0_limbs[limb] = out_limb;
-            } else {
-                digest_row.inner.a_prime_prime[y][x][limb] = out_limb;
-            }
-        }
     }
 
-    tester
+    let tester = tester
+        .build()
+        .load(harness)
+        .load_periphery(bitwise)
+        .finalize();
+    tester.simple_test().expect("Verification failed");
 }
 
 #[test]
-fn test_keccak256_negative() {
+fn keccak256_length_tests() {
     let mut rng = create_seeded_rng();
-    let mut hasher = tiny_keccak::Keccak::v256();
-    let input: Vec<_> = vec![0; 137];
-    hasher.update(&input);
-    let mut out = [0u8; 32];
-    hasher.finalize(&mut out);
-    out[0] = rng.gen();
-    let tester = build_keccak256_test(vec![(input, None, Some(out))]);
-    disable_debug_builder();
-    assert_eq!(
-        tester.simple_test().err(),
-        Some(VerificationError::OodEvaluationMismatch)
-    );
+    let mut tester = VmChipTestBuilder::default();
+    let (mut harness, bitwise) = create_test_chips(&mut tester);
+
+    // Test special length edge cases:
+    for len in [0, 135, 136, 137, 2000, 10000] {
+        println!("Testing length: {}", len);
+        set_and_execute(
+            &mut tester,
+            &mut harness,
+            &mut rng,
+            KECCAK256,
+            None,
+            Some(len),
+            None,
+        );
+    }
+
+    let tester = tester
+        .build()
+        .load(harness)
+        .load_periphery(bitwise)
+        .finalize();
+    tester.simple_test().expect("Verification failed");
 }
 
 // Keccak Known Answer Test (KAT) vectors from https://keccak.team/obsolete/KeccakKAT-3.zip.
@@ -146,13 +200,136 @@ fn test_keccak256_positive_kat_vectors() {
         ("7ADC0B6693E61C269F278E6944A5A2D8300981E40022F839AC644387BFAC9086650085C2CDC585FEA47B9D2E52D65A2B29A7DC370401EF5D60DD0D21F9E2B90FAE919319B14B8C5565B0423CEFB827D5F1203302A9D01523498A4DB10374", "4CC2AFF141987F4C2E683FA2DE30042BACDCD06087D7A7B014996E9CFEAA58CE"), // ShortMsgKAT_256 Len = 752
     ];
 
-    let mut io = vec![];
+    let mut rng = create_seeded_rng();
+    let mut tester = VmChipTestBuilder::default();
+    let (mut harness, bitwise) = create_test_chips(&mut tester);
+
     for (input, output) in test_vectors {
         let input = Vec::from_hex(input).unwrap();
-        let output = Vec::from_hex(output).unwrap();
-        io.push((input, Some(output.try_into().unwrap()), None));
+        let output = Vec::from_hex(output).unwrap().try_into().unwrap();
+        set_and_execute(
+            &mut tester,
+            &mut harness,
+            &mut rng,
+            KECCAK256,
+            Some(&input),
+            None,
+            Some(output),
+        );
+    }
+    let tester = tester
+        .build()
+        .load(harness)
+        .load_periphery(bitwise)
+        .finalize();
+    tester.simple_test().expect("Verification failed");
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+// NEGATIVE TESTS
+//
+// Given a fake trace of a single operation, setup a chip and run the test. We replace
+// part of the trace and check that the chip throws the expected error.
+//////////////////////////////////////////////////////////////////////////////////////
+fn run_negative_keccak256_test(
+    input: &[u8],
+    prank_output: [u8; 32],
+    verification_error: VerificationError,
+) {
+    let mut rng = create_seeded_rng();
+    let mut tester = VmChipTestBuilder::default();
+    let (mut harness, bitwise) = create_test_chips(&mut tester);
+
+    set_and_execute(
+        &mut tester,
+        &mut harness,
+        &mut rng,
+        KECCAK256,
+        Some(input),
+        None,
+        None,
+    );
+
+    let modify_trace = |trace: &mut DenseMatrix<BabyBear>| {
+        let mut trace_row = trace.row_slice(16).to_vec();
+        let digest_row: &mut KeccakVmCols<_> = trace_row.as_mut_slice().borrow_mut();
+        for i in 0..16 {
+            let out_limb = F::from_canonical_u16(
+                prank_output[2 * i] as u16 + ((prank_output[2 * i + 1] as u16) << 8),
+            );
+            let x = i / 4;
+            let y = 0;
+            let limb = i % 4;
+            if x == 0 && y == 0 {
+                digest_row.inner.a_prime_prime_prime_0_0_limbs[limb] = out_limb;
+            } else {
+                digest_row.inner.a_prime_prime[y][x][limb] = out_limb;
+            }
+        }
+        *trace = RowMajorMatrix::new(trace_row, trace.width());
+    };
+
+    disable_debug_builder();
+    let tester = tester
+        .build()
+        .load_and_prank_trace(harness, modify_trace)
+        .load_periphery(bitwise)
+        .finalize();
+    tester.simple_test_with_expected_error(verification_error);
+}
+
+#[test]
+fn test_keccak256_negative() {
+    let mut rng = create_seeded_rng();
+    let mut hasher = tiny_keccak::Keccak::v256();
+    let input: Vec<_> = vec![0; 137];
+    hasher.update(&input);
+    let mut out = [0u8; 32];
+    hasher.finalize(&mut out);
+    out[0] = rng.gen();
+    run_negative_keccak256_test(&input, out, VerificationError::OodEvaluationMismatch);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
+/// DENSE TESTS
+///
+/// Ensure that the chip works as expected with dense records.
+/// We first execute some instructions with a [DenseRecordArena] and transfer the records
+/// to a [MatrixRecordArena]. After transferring we generate the trace and make sure that
+/// all the constraints pass.
+///////////////////////////////////////////////////////////////////////////////////////
+#[test]
+fn dense_record_arena_test() {
+    let mut rng = create_seeded_rng();
+    let mut tester = VmChipTestBuilder::default();
+    let (mut sparse_harness, bitwise) = create_test_chips(&mut tester);
+
+    {
+        let mut dense_harness = create_test_chips::<DenseRecordArena>(&mut tester).0;
+
+        let num_ops: usize = 10;
+        for _ in 0..num_ops {
+            set_and_execute(
+                &mut tester,
+                &mut dense_harness,
+                &mut rng,
+                KECCAK256,
+                None,
+                None,
+                None,
+            );
+        }
+
+        let mut record_interpreter = dense_harness
+            .arena
+            .get_record_seeker::<_, KeccakVmRecordLayout>();
+        record_interpreter.transfer_to_matrix_arena(&mut sparse_harness.arena);
     }
 
-    let tester = build_keccak256_test(io);
+    let tester = tester
+        .build()
+        .load(sparse_harness)
+        .load_periphery(bitwise)
+        .finalize();
     tester.simple_test().expect("Verification failed");
 }

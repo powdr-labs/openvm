@@ -1,11 +1,13 @@
-// ANCHOR: imports
+openvm::entry!(main);
+
+// [!region imports]
 use core::hint::black_box;
 
 use hex::FromHex;
 use openvm_keccak256::keccak256;
-// ANCHOR_END: imports
+// [!endregion imports]
 
-// ANCHOR: main
+// [!region main]
 openvm::entry!(main);
 
 pub fn main() {
@@ -28,4 +30,4 @@ pub fn main() {
         }
     }
 }
-// ANCHOR_END: main
+// [!endregion main]
