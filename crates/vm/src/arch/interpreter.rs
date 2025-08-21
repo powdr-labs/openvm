@@ -69,6 +69,7 @@ macro_rules! execute_with_metrics {
         #[cfg(feature = "metrics")]
         let start_instret = $exec_state.instret;
 
+        // SAFETY: pre_compute_insts contains valid function pointers and pre-computed data
         info_span!($span).in_scope(|| unsafe {
             execute_trampoline($pc_base, $exec_state, $pre_compute_insts);
         });
@@ -330,6 +331,9 @@ fn split_pre_compute_buf<'a, F>(
 ) -> Vec<&'a mut [u8]> {
     let program_len = program.instructions_and_debug_infos.len();
     let buf_len = program_len * pre_compute_max_size;
+    // SAFETY:
+    // - pre_compute_buf.ptr was allocated with exactly buf_len bytes
+    // - lifetime 'a ensures the returned slices don't outlive the AlignedBuf
     let mut pre_compute_buf_ptr =
         unsafe { std::slice::from_raw_parts_mut(pre_compute_buf.ptr, buf_len) };
     let mut split_pre_compute_buf = Vec::with_capacity(program_len);
@@ -416,6 +420,7 @@ impl AlignedBuf {
 impl Drop for AlignedBuf {
     fn drop(&mut self) {
         if self.layout.size() != 0 {
+            // SAFETY: self.ptr was allocated with self.layout in AlignedBuf::uninit
             unsafe {
                 dealloc(self.ptr, self.layout);
             }
