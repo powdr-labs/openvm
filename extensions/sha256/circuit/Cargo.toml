@@ -32,6 +32,7 @@ openvm-circuit = { workspace = true, features = ["test-utils"] }
 default = ["parallel", "jemalloc"]
 parallel = ["openvm-circuit/parallel"]
 test-utils = ["openvm-circuit/test-utils"]
+tco = ["openvm-rv32im-circuit/tco"]
 # performance features:
 mimalloc = ["openvm-circuit/mimalloc"]
 jemalloc = ["openvm-circuit/jemalloc"]

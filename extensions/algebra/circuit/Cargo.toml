@@ -38,5 +38,9 @@ openvm-rv32-adapters = { workspace = true, features = ["test-utils"] }
 openvm-pairing-guest = { workspace = true, features = ["halo2curves"] }
 test-case = { workspace = true }
 
+[features]
+default = []
+tco = ["openvm-rv32im-circuit/tco"]
+
 [package.metadata.cargo-shear]
 ignored = ["derive_more"]

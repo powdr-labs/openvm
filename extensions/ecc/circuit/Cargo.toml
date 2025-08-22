@@ -39,5 +39,9 @@ openvm-circuit = { workspace = true, features = ["test-utils"] }
 openvm-rv32-adapters = { workspace = true, features = ["test-utils"] }
 lazy_static = { workspace = true }
 
+[features]
+default = []
+tco = ["openvm-algebra-circuit/tco"]
+
 [package.metadata.cargo-shear]
 ignored = ["rand"]

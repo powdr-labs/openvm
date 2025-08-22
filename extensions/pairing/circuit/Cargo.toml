@@ -49,3 +49,7 @@ openvm-pairing-guest = { workspace = true, features = [
     "bls12_381",
     "bn254",
 ] }
+
+[features]
+default = []
+tco = ["openvm-rv32im-circuit/tco", "openvm-ecc-circuit/tco"]
