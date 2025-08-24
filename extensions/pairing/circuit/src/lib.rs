@@ -13,3 +13,13 @@ mod pairing_extension;
 pub use config::*;
 pub use fp12::*;
 pub use pairing_extension::*;
+
+cfg_if::cfg_if! {
+    if #[cfg(feature = "cuda")] {
+        mod cuda;
+        pub use cuda::*;
+        pub use cuda::Rv32PairingGpuBuilder as Rv32PairingBuilder;
+    } else {
+        pub use config::Rv32PairingCpuBuilder as Rv32PairingBuilder;
+    }
+}

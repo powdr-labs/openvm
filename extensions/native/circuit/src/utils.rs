@@ -12,9 +12,9 @@ pub mod test_utils {
     use openvm_circuit::{
         arch::{
             execution_mode::Segment,
-            testing::{memory::gen_pointer, VmChipTestBuilder},
-            MatrixRecordArena, PreflightExecutionOutput, Streams, VirtualMachine,
-            VirtualMachineError, VmBuilder, VmState,
+            testing::{memory::gen_pointer, TestBuilder},
+            PreflightExecutionOutput, PreflightExecutor, Streams, VirtualMachine,
+            VirtualMachineError, VmBuilder, VmExecutionConfig, VmState,
         },
         utils::test_system_config_without_continuations,
     };
@@ -39,7 +39,7 @@ pub mod test_utils {
     // If immediate, returns (value, AS::Immediate). Otherwise, writes to native memory and returns
     // (ptr, AS::Native). If is_imm is None, randomizes it.
     pub fn write_native_or_imm<F: PrimeField32>(
-        tester: &mut VmChipTestBuilder<F>,
+        tester: &mut impl TestBuilder<F>,
         rng: &mut StdRng,
         value: F,
         is_imm: Option<bool>,
@@ -57,7 +57,7 @@ pub mod test_utils {
     // Writes value to native memory and returns a pointer to the first element together with the
     // value If `value` is None, randomizes it.
     pub fn write_native_array<F: PrimeField32, const N: usize>(
-        tester: &mut VmChipTestBuilder<F>,
+        tester: &mut impl TestBuilder<F>,
         rng: &mut StdRng,
         value: Option<[F; N]>,
     ) -> ([F; N], usize)
@@ -80,7 +80,7 @@ pub mod test_utils {
         config: VB::VmConfig,
     ) -> Result<
         (
-            PreflightExecutionOutput<BabyBear, MatrixRecordArena<BabyBear>>,
+            PreflightExecutionOutput<BabyBear, <VB as VmBuilder<E>>::RecordArena>,
             VirtualMachine<E, VB>,
         ),
         VirtualMachineError,
@@ -88,7 +88,9 @@ pub mod test_utils {
     where
         E: StarkFriEngine,
         Domain<E::SC>: PolynomialSpace<Val = BabyBear>,
-        VB: VmBuilder<E, VmConfig = NativeConfig, RecordArena = MatrixRecordArena<BabyBear>>,
+        VB: VmBuilder<E, VmConfig = NativeConfig>,
+        <VB::VmConfig as VmExecutionConfig<BabyBear>>::Executor:
+            PreflightExecutor<BabyBear, VB::RecordArena>,
     {
         setup_tracing();
         assert!(!config.as_ref().continuation_enabled);

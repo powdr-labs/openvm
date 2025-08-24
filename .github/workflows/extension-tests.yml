@@ -35,19 +35,21 @@ jobs:
           - { name: "algebra", path: "algebra" }
           - { name: "ecc", path: "ecc" }
           - { name: "pairing", path: "pairing" }
+        platform:
+          - { runner: "64cpu-linux-arm64", image: "ubuntu24-full-arm64" }
       # Ensure tests run in parallel even if one fails
       fail-fast: false
 
     runs-on:
-      - runs-on=${{ github.run_id }}
-      - runner=64cpu-linux-arm64
-      - image=ubuntu24-full-arm64
-      - tag=extension-${{ matrix.extension.name }}
+      - runs-on=${{ github.run_id }}-extension-tests-${{ github.run_attempt }}-${{ strategy.job-index }}
+      - runner=${{ matrix.platform.runner }}
+      - image=${{ matrix.platform.image }}
+      - tag=extension-${{ matrix.extension.name }}-${{ matrix.platform.runner }}
       - extras=s3-cache
 
     steps:
-      - uses: runs-on/action@v1
-      - uses: actions/checkout@v4
+      - uses: runs-on/action@v2
+      - uses: actions/checkout@v5
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -55,7 +57,7 @@ jobs:
             - "crates/circuits/**"
             - "crates/vm/**"
             - "crates/toolchain/**"
-            - "extensions/${{ matrix.extensions.path }}/**"
+            - "extensions/${{ matrix.extension.path }}/**"
             - ".github/workflows/extension-tests.yml"
       - name: Skip if no changes
         if: steps.filter.outputs.matched == 'false'
@@ -71,21 +73,27 @@ jobs:
 
       - name: Run ${{ matrix.extension.name }} circuit crate tests
         working-directory: extensions/${{ matrix.extension.path }}/circuit
-        run: cargo nextest run --cargo-profile=fast --test-threads=32
+        run: |
+          TEST_THREADS="--test-threads=32"
+          if [[ "${{ matrix.extension.name }}" == "algebra" ]]; then
+            TEST_THREADS="--test-threads=4"
+          fi
+          cargo nextest run ${{ env.CIRCUIT_TEST_FILTER }} --cargo-profile=fast ${{ env.FEATURE_ARGS }} $TEST_THREADS --no-tests=pass
 
+        # We only need to run guest crate tests on CPU since we are not testing prover functionality
       - name: Run ${{ matrix.extension.name }} guest crate tests
         if: hashFiles(format('extensions/{0}/guest', matrix.extension.path)) != ''
         working-directory: extensions/${{ matrix.extension.path }}/guest
         run: |
-          FEATURE_ARGS=""
+          GUEST_FEATURE_ARGS=""
           if [[ "${{ matrix.extension.name }}" == "pairing" ]]; then
-            FEATURE_ARGS="--features=bn254,bls12_381,halo2curves"
+            GUEST_FEATURE_ARGS="--features=bn254,bls12_381,halo2curves"
           fi
-          cargo nextest run --cargo-profile=fast $FEATURE_ARGS --no-tests=pass
+          cargo nextest run --cargo-profile=fast $GUEST_FEATURE_ARGS --no-tests=pass
 
       - name: Run ${{ matrix.extension.name }} integration tests
         if: hashFiles(format('extensions/{0}/tests', matrix.extension.path)) != ''
         working-directory: extensions/${{ matrix.extension.path }}/tests
         run: |
           rustup component add rust-src --toolchain nightly-2025-02-14
-          cargo nextest run --cargo-profile=fast --profile=heavy --no-tests=pass
+          cargo nextest run --cargo-profile=fast ${{ env.FEATURE_ARGS }} --profile=heavy --no-tests=pass

@@ -1,5 +1,5 @@
 [workspace.package]
-version = "1.4.0-rc.5"
+version = "1.4.0-rc.6"
 edition = "2021"
 rust-version = "1.86.0"
 authors = ["OpenVM Authors"]
@@ -112,8 +112,11 @@ lto = "thin"
 
 [workspace.dependencies]
 # Stark Backend
-openvm-stark-backend = { git = "https://github.com/openvm-org/stark-backend.git", tag = "v1.2.0-rc.2", default-features = false }
-openvm-stark-sdk = { git = "https://github.com/openvm-org/stark-backend.git", tag = "v1.2.0-rc.2", default-features = false }
+openvm-stark-backend = { git = "https://github.com/openvm-org/stark-backend.git", tag = "v1.2.0-rc.4", default-features = false }
+openvm-stark-sdk = { git = "https://github.com/openvm-org/stark-backend.git", tag = "v1.2.0-rc.4", default-features = false }
+openvm-cuda-backend = { git = "https://github.com/openvm-org/stark-backend.git", tag = "v1.2.0-rc.4", default-features = false }
+openvm-cuda-builder = { git = "https://github.com/openvm-org/stark-backend.git", tag = "v1.2.0-rc.4", default-features = false }
+openvm-cuda-common = { git = "https://github.com/openvm-org/stark-backend.git", tag = "v1.2.0-rc.4", default-features = false }
 
 # OpenVM
 openvm-sdk = { path = "crates/sdk", default-features = false }
@@ -248,6 +251,9 @@ num-integer = { version = "0.1.46", default-features = false }
 num-traits = { version = "0.2.19", default-features = false }
 ff = { version = "0.13.1", default-features = false }
 sha2 = { version = "0.10", default-features = false }
+
+# specific to CUDA and GPU
+cuda-runtime-sys = "0.3.0-alpha.1"
 
 # For local development. Add to your `.cargo/config.toml`
 # [patch."https://github.com/Plonky3/Plonky3.git"]
