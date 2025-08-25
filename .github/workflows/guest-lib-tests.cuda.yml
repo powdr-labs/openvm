@@ -37,8 +37,8 @@ jobs:
       - family=${{ matrix.crates.family }}
       - image=ubuntu24-gpu-x64
       - cpu=8+32
-      - spot=capacity-optimized
-      - tag=guest-lib-${{ github.run_id }}-${{ strategy.job-index }}
+      - spot=false
+      - tag=guest-lib-cuda-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}
       - extras=s3-cache
 
     steps:
