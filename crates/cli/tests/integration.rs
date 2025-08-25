@@ -20,26 +20,35 @@ fn install_cli() {
     });
 }
 
+fn build_fibonacci_once() -> Result<&'static str> {
+    static BUILD_ONCE: OnceLock<Result<()>> = OnceLock::new();
+    BUILD_ONCE
+        .get_or_init(|| {
+            run_cmd(
+                "cargo",
+                &[
+                    "openvm",
+                    "build",
+                    "--manifest-path",
+                    "tests/programs/fibonacci/Cargo.toml",
+                    "--config",
+                    "tests/programs/fibonacci/openvm.toml",
+                ],
+            )
+        })
+        .as_ref()
+        .map(|_| "tests/programs/fibonacci/target/openvm/release/openvm-cli-example-test.vmexe")
+        .map_err(|e| eyre::eyre!("Failed to build fibonacci: {}", e))
+}
+
 #[test]
 fn test_cli_app_e2e() -> Result<()> {
     let temp_dir = tempdir()?;
     install_cli();
-    let exe_path = "tests/programs/fibonacci/target/openvm/release/openvm-cli-example-test.vmexe";
+    let exe_path = build_fibonacci_once()?;
     let temp_pk = temp_dir.path().join("app.pk");
     let temp_vk = temp_dir.path().join("app.vk");
     let temp_proof = temp_dir.path().join("fibonacci.app.proof");
-
-    run_cmd(
-        "cargo",
-        &[
-            "openvm",
-            "build",
-            "--manifest-path",
-            "tests/programs/fibonacci/Cargo.toml",
-            "--config",
-            "tests/programs/fibonacci/openvm.toml",
-        ],
-    )?;
 
     run_cmd(
         "cargo",
@@ -216,6 +225,88 @@ fn test_cli_init_build() -> Result<()> {
             config_path.to_str().unwrap(),
             "--manifest-path",
             manifest_path.to_str().unwrap(),
+        ],
+    )?;
+
+    Ok(())
+}
+
+#[test]
+fn test_cli_run_mode_pure_default() -> Result<()> {
+    install_cli();
+    let exe_path = build_fibonacci_once()?;
+
+    // Test that default mode (pure) works without explicit flag
+    run_cmd(
+        "cargo",
+        &[
+            "openvm",
+            "run",
+            "--exe",
+            exe_path,
+            "--config",
+            "tests/programs/fibonacci/openvm.toml",
+        ],
+    )?;
+
+    // Test explicit pure mode
+    run_cmd(
+        "cargo",
+        &[
+            "openvm",
+            "run",
+            "--exe",
+            exe_path,
+            "--config",
+            "tests/programs/fibonacci/openvm.toml",
+            "--mode",
+            "pure",
+        ],
+    )?;
+
+    Ok(())
+}
+
+#[test]
+fn test_cli_run_segment() -> Result<()> {
+    install_cli();
+    let exe_path = build_fibonacci_once()?;
+
+    // Test run with --mode segment
+    run_cmd(
+        "cargo",
+        &[
+            "openvm",
+            "run",
+            "--exe",
+            exe_path,
+            "--config",
+            "tests/programs/fibonacci/openvm.toml",
+            "--mode",
+            "segment",
+        ],
+    )?;
+
+    Ok(())
+}
+
+#[test]
+fn test_cli_run_meter() -> Result<()> {
+    install_cli();
+    let exe_path = build_fibonacci_once()?;
+
+    // Test run with --mode meter
+    run_cmd(
+        "cargo",
+        &[
+            "openvm",
+            "run",
+            "--exe",
+            exe_path,
+            "--config",
+            "tests/programs/fibonacci/openvm.toml",
+            "--mode",
+            "meter",
         ],
     )?;
 
