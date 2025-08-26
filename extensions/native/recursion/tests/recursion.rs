@@ -58,7 +58,7 @@ fn fibonacci_program(a: u32, b: u32, n: u32) -> Program<BabyBear> {
 }
 
 // We need this for both BabyBearPoseidon2Config and BabyBearPoseidon2RootConfig
-pub(crate) fn fibonacci_program_test_proof_input<SC, E, CpuEngine>(
+pub(crate) fn fibonacci_program_test_proof_input<SC, E, CpuEngine, const LOG_BLOWUP: usize>(
     a: u32,
     b: u32,
     n: u32,
@@ -75,7 +75,7 @@ where
 {
     let fib_program = fibonacci_program(a, b, n);
     let mut config = test_native_config();
-    let fri_params = FriParameters::new_for_testing(1);
+    let fri_params = FriParameters::new_for_testing(LOG_BLOWUP);
     let engine = E::new(fri_params);
     let cpu_engine = CpuEngine::new(fri_params);
     config.as_mut().num_public_values = 3;
@@ -140,23 +140,29 @@ fn test_fibonacci_program_verify() {
         BabyBearPoseidon2Config,
         TestStarkEngine,
         BabyBearPoseidon2Engine,
+        1, // log_blowup to match hard-coded value in `run_recursive_test`
     >(0, 1, 32);
     run_recursive_test(fib_program_stark, FriParameters::new_for_testing(3));
 }
 
 #[cfg(all(feature = "static-verifier", not(feature = "cuda")))]
 #[test]
-#[ignore = "slow"]
+#[ignore = "needs params files"]
 fn test_fibonacci_program_halo2_verify() {
     use openvm_native_recursion::halo2::testing_utils::run_static_verifier_test;
     use openvm_stark_sdk::config::baby_bear_poseidon2_root::{
         BabyBearPoseidon2RootConfig, BabyBearPoseidon2RootEngine,
     };
 
+    const LOG_BLOWUP: usize = 3;
     let fib_program_stark = fibonacci_program_test_proof_input::<
         BabyBearPoseidon2RootConfig,
         BabyBearPoseidon2RootEngine,
         BabyBearPoseidon2RootEngine,
+        { LOG_BLOWUP },
     >(0, 1, 32);
-    run_static_verifier_test(fib_program_stark, FriParameters::new_for_testing(3));
+    run_static_verifier_test(
+        fib_program_stark,
+        FriParameters::new_for_testing(LOG_BLOWUP),
+    );
 }
