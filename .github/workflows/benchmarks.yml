@@ -64,8 +64,7 @@ permissions:
 jobs:
   create-matrix:
     runs-on:
-      - runs-on=${{ github.run_id }}
-      - runner=8cpu-linux-x64
+      - runs-on=${{ github.run_id }}/runner=8cpu-linux-x64
     outputs:
       matrix: ${{ steps.create-matrix.outputs.matrix }}
     steps:
