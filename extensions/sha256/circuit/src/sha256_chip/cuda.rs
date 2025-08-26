@@ -8,8 +8,7 @@ use openvm_circuit::{
     utils::next_power_of_two_or_zero,
 };
 use openvm_circuit_primitives::{
-    bitwise_op_lookup::cuda::BitwiseOperationLookupChipGPU,
-    var_range::cuda::VariableRangeCheckerChipGPU,
+    bitwise_op_lookup::BitwiseOperationLookupChipGPU, var_range::VariableRangeCheckerChipGPU,
 };
 use openvm_cuda_backend::{
     base::DeviceMatrix, chip::get_empty_air_proving_ctx, prelude::F, prover_backend::GpuBackend,
@@ -116,12 +115,12 @@ impl Chip<DenseRecordArena, GpuBackend> for Sha256VmChipGpu {
         }
 
         unsafe {
-            sha256_fill_invalid_rows(d_trace.buffer(), trace_height, rows_used as u32)
+            sha256_fill_invalid_rows(d_trace.buffer(), trace_height, rows_used)
                 .expect("Invalid rows filling failed");
         }
 
         unsafe {
-            sha256_second_pass_dependencies(d_trace.buffer(), trace_height, rows_used as u32)
+            sha256_second_pass_dependencies(d_trace.buffer(), trace_height, rows_used)
                 .expect("Second pass trace generation failed");
         }
 

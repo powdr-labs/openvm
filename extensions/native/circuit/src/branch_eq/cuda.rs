@@ -2,7 +2,7 @@ use std::{mem::size_of, sync::Arc};
 
 use derive_new::new;
 use openvm_circuit::{arch::DenseRecordArena, utils::next_power_of_two_or_zero};
-use openvm_circuit_primitives::var_range::cuda::VariableRangeCheckerChipGPU;
+use openvm_circuit_primitives::var_range::VariableRangeCheckerChipGPU;
 use openvm_cuda_backend::{
     base::DeviceMatrix, chip::get_empty_air_proving_ctx, prover_backend::GpuBackend, types::F,
 };
@@ -43,8 +43,8 @@ impl Chip<DenseRecordArena, GpuBackend> for NativeBranchEqChipGpu {
         unsafe {
             native_branch_eq_cuda::tracegen(
                 trace.buffer(),
-                padded_height as u32,
-                trace_width as u32,
+                padded_height,
+                trace_width,
                 &d_records,
                 &self.range_checker.count,
                 self.timestamp_max_bits as u32,

@@ -5,7 +5,7 @@ use openvm_circuit::{
     arch::{DenseRecordArena, RecordSeeker},
     utils::next_power_of_two_or_zero,
 };
-use openvm_circuit_primitives::var_range::cuda::VariableRangeCheckerChipGPU;
+use openvm_circuit_primitives::var_range::VariableRangeCheckerChipGPU;
 use openvm_cuda_backend::{
     base::DeviceMatrix, chip::get_empty_air_proving_ctx, prover_backend::GpuBackend, types::F,
 };
@@ -59,9 +59,9 @@ impl Chip<DenseRecordArena, GpuBackend> for FriReducedOpeningChipGpu {
         unsafe {
             fri_cuda::tracegen(
                 trace.buffer(),
-                trace_height as u32,
+                trace_height,
                 &d_records,
-                record_info.len() as u32,
+                record_info.len(),
                 &d_record_info,
                 &self.range_checker.count,
                 self.timestamp_max_bits as u32,
