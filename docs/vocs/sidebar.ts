@@ -62,6 +62,10 @@ export const specsSidebar: SidebarItem[] = [
             {
                 text: "RISC-V Transpiler",
                 link: "/specs/reference/transpiler"
+            },
+            {
+                text: "Rust Frontend",
+                link: "/specs/reference/rust-frontend"
             }
         ]
     }
