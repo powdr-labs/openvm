@@ -242,9 +242,10 @@ impl<F: PrimeField32, VC: VmConfig<F>> ExecutionSegment<F, VC> {
 
                 let (instruction, debug_info) =
                     program_chip.get_instruction_and_maybe_increase_count(pc)?;
-                // tracing::trace!("pc: {pc:#x} | time: {timestamp} | {:?}", instruction);
+                tracing::trace!("pc: {pc:#x} | time: {timestamp} | {:?}", instruction);
+                println!("pc: {pc:#x} | time: {timestamp} | {:?}", instruction);
                 // update the trace event for logging instructions in execution order in our profiler via a custom subscriber
-                tracing::trace!(pc = pc, "executing instruction");
+                // tracing::trace!(pc = pc, "executing instruction");
 
                 #[allow(unused_variables)]
                 let (dsl_instr, trace) = debug_info.as_ref().map_or(
