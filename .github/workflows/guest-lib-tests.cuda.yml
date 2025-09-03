@@ -23,6 +23,7 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   OPENVM_FAST_TEST: "1"
+  OPENVM_SKIP_DEBUG: "1"
 
 jobs:
   guest-lib-tests-cuda:
@@ -30,8 +31,8 @@ jobs:
       matrix:
         crates: # group crates on the same runner based on test time
           - { names: "sha2 keccak256 verify_stark" }
-          - { names: "ruint" }
-          - { names: "ff_derive k256 p256 pairing" }
+          - { names: "ruint k256 p256" }
+          - { names: "ff_derive pairing" }
     runs-on:
       - runs-on=${{ github.run_id }}-guest-lib-cuda-${{ github.run_attempt }}-${{ strategy.job-index }}/runner=test-gpu-nvidia/cpu=8+32
 
