@@ -90,7 +90,7 @@ impl<F: Field, E> PreflightInterpretedInstance<F, E> {
                 let pc_entry = PcEntry {
                     insn,
                     executor_idx,
-                    apc: None,
+                    apc: Some(()), // TODO: only have an apc when needed, right now we always have an apc for a single instruction
                 };
                 pc_handler.push(pc_entry);
             } else {
@@ -207,9 +207,10 @@ impl<F: PrimeField32, E> PreflightInterpretedInstance<F, E> {
             .ok_or_else(|| ExecutionError::PcOutOfBounds(pc))?;
 
         if let Some(apc) = &pc_entry.apc {
+            tracing::debug!("Entering apc range as pc {pc:#x}");
             assert!(self.apc_candidate.is_none());
             let apc_candidate = ApcCandidate {
-                end_pc: 0, // TODO: set to the actual end pc of the apc
+                end_pc: state.pc(), // TODO: set end_pc to the actual last pc of the apc
                 apc: apc.clone(),
                 snapshot: self.snapshot(),
             };
@@ -261,9 +262,12 @@ impl<F: PrimeField32, E> PreflightInterpretedInstance<F, E> {
             crate::metrics::update_instruction_metrics(state, executor, pc, pc_entry);
         }
 
+        // Handle the case where this was the last instruction in an apc
+        // Note that here we check the pc *before* this instruction was executed, as the executor have already set the new `state.pc` at this point
         self.apc_candidate
-            .take_if(|apc_candidate| apc_candidate.end_pc == state.pc())
+            .take_if(|apc_candidate| apc_candidate.end_pc == pc)
             .map(|apc_candidate| {
+                tracing::debug!("Exiting apc range as pc {pc:#x}");
                 self.apply_apc(apc_candidate);
             });
 
