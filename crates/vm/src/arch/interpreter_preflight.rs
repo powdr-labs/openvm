@@ -33,7 +33,11 @@ pub struct PreflightInterpretedInstance<F, E> {
     pc_base: u32,
 
     pub(super) executor_idx_to_air_idx: Vec<usize>,
+
+    apc_candidate: Option<Apc>,
 }
+
+type Apc = ();
 
 #[repr(C)]
 #[derive(Clone)]
@@ -43,6 +47,7 @@ pub struct PcEntry<F> {
     // to avoid padding. This means PcEntry has align=8 and size=40 bytes, which is too big
     pub insn: Instruction<F>,
     pub executor_idx: ExecutorId,
+    pub apc: Option<Apc>,
 }
 
 impl<F: Field, E> PreflightInterpretedInstance<F, E> {
@@ -82,7 +87,11 @@ impl<F: Field, E> PreflightInterpretedInstance<F, E> {
                     (executor_idx as usize) < inventory.executors.len(),
                     "ExecutorInventory ensures executor_idx is in bounds"
                 );
-                let pc_entry = PcEntry { insn, executor_idx };
+                let pc_entry = PcEntry {
+                    insn,
+                    executor_idx,
+                    apc: None,
+                };
                 pc_handler.push(pc_entry);
             } else {
                 pc_handler.push(PcEntry::undefined());
@@ -94,6 +103,7 @@ impl<F: Field, E> PreflightInterpretedInstance<F, E> {
             pc_base,
             pc_handler,
             executor_idx_to_air_idx,
+            apc_candidate: None,
         })
     }
 
@@ -168,6 +178,12 @@ impl<F: PrimeField32, E> PreflightInterpretedInstance<F, E> {
             .pc_handler
             .get(pc_idx)
             .ok_or_else(|| ExecutionError::PcOutOfBounds(pc))?;
+
+        if let Some(apc) = &pc_entry.apc {
+            assert!(self.apc_candidate.is_none());
+            self.apc_candidate = Some(*apc);
+        }
+
         // SAFETY: `execution_frequencies` has the same length as `pc_handler` so `get_pc_entry`
         // already does the bounds check
         unsafe {
@@ -213,6 +229,16 @@ impl<F: PrimeField32, E> PreflightInterpretedInstance<F, E> {
             crate::metrics::update_instruction_metrics(state, executor, pc, pc_entry);
         }
 
+        self.apc_candidate
+            .take_if(|_apc_candidate| {
+                // TODO: only take at the end of the apc, when pc matches end_pc
+                true
+            })
+            .map(|_apc_candidate| {
+                // TODO: roll back records and other state to what they were before the start of this Apc
+                // TODO: apply the effects of the Apc to the record and state
+            });
+
         Ok(())
     }
 }
@@ -228,6 +254,7 @@ impl<F: Default> PcEntry<F> {
         Self {
             insn: Instruction::default(),
             executor_idx: u32::MAX,
+            apc: None,
         }
     }
 }
