@@ -34,7 +34,7 @@ pub struct PreflightInterpretedInstance<F, E> {
 
     pub(super) executor_idx_to_air_idx: Vec<usize>,
 
-    apc_candidate: Option<Apc>,
+    apc_candidate: Option<ApcCandidate>,
 }
 
 type Apc = ();
@@ -130,6 +130,20 @@ impl<F: Field, E> PreflightInterpretedInstance<F, E> {
     }
 }
 
+struct ExecutionRecordSnapshot {}
+
+struct ExecutionSnapshot {
+    record: ExecutionRecordSnapshot,
+}
+struct ApcCandidate {
+    /// The pc at which this candidate ends
+    end_pc: u32,
+    /// The apc candidate being run
+    apc: Apc,
+    /// The state of the execution when this candidate was introduced
+    snapshot: ExecutionSnapshot,
+}
+
 impl<F: PrimeField32, E> PreflightInterpretedInstance<F, E> {
     /// Stopping is triggered by should_stop() or if VM is terminated
     pub fn execute_from_state<RA>(
@@ -162,6 +176,19 @@ impl<F: PrimeField32, E> PreflightInterpretedInstance<F, E> {
         Ok(())
     }
 
+    fn snapshot(&self) -> ExecutionSnapshot {
+        ExecutionSnapshot {
+            // TODO: fill in actual snapshot data, which is usually the number of records in each table
+            record: ExecutionRecordSnapshot {},
+            // TODO: are there any other state we need to snapshot here?
+        }
+    }
+
+    /// Rollback the state to `snapshot` and replay all records as a single apc record of `apc`
+    fn apply_apc(&mut self, _apc_candidate: ApcCandidate) {
+        // TODO: implement rollback logic
+    }
+
     /// Executes a single instruction and updates VM state
     #[inline(always)]
     fn execute_instruction<RA>(
@@ -181,7 +208,12 @@ impl<F: PrimeField32, E> PreflightInterpretedInstance<F, E> {
 
         if let Some(apc) = &pc_entry.apc {
             assert!(self.apc_candidate.is_none());
-            self.apc_candidate = Some(*apc);
+            let apc_candidate = ApcCandidate {
+                end_pc: 0, // TODO: set to the actual end pc of the apc
+                apc: apc.clone(),
+                snapshot: self.snapshot(),
+            };
+            self.apc_candidate = Some(apc_candidate);
         }
 
         // SAFETY: `execution_frequencies` has the same length as `pc_handler` so `get_pc_entry`
@@ -230,13 +262,9 @@ impl<F: PrimeField32, E> PreflightInterpretedInstance<F, E> {
         }
 
         self.apc_candidate
-            .take_if(|_apc_candidate| {
-                // TODO: only take at the end of the apc, when pc matches end_pc
-                true
-            })
-            .map(|_apc_candidate| {
-                // TODO: roll back records and other state to what they were before the start of this Apc
-                // TODO: apply the effects of the Apc to the record and state
+            .take_if(|apc_candidate| apc_candidate.end_pc == state.pc())
+            .map(|apc_candidate| {
+                self.apply_apc(apc_candidate);
             });
 
         Ok(())
