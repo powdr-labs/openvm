@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_SEGMENT_CHECK_INSNS: u64 = 1000;
 
-pub const DEFAULT_MAX_TRACE_HEIGHT: u32 = (1 << 23) - 10000;
+pub const DEFAULT_MAX_TRACE_HEIGHT: u32 = 1 << 23;
 pub const DEFAULT_MAX_CELLS: usize = 2_000_000_000; // 2B
 const DEFAULT_MAX_INTERACTIONS: usize = BabyBear::ORDER_U32 as usize;
 
@@ -46,6 +46,10 @@ pub struct SegmentationCtx {
     pub instret_last_segment_check: u64,
     #[getset(set_with = "pub")]
     pub segment_check_insns: u64,
+    /// Checkpoint of trace heights at last known state where all thresholds satisfied
+    pub(crate) checkpoint_trace_heights: Vec<u32>,
+    /// Instruction count at the checkpoint
+    checkpoint_instret: u64,
 }
 
 impl SegmentationCtx {
@@ -58,6 +62,7 @@ impl SegmentationCtx {
         assert_eq!(air_names.len(), widths.len());
         assert_eq!(air_names.len(), interactions.len());
 
+        let num_airs = air_names.len();
         Self {
             segments: Vec::new(),
             air_names,
@@ -66,6 +71,8 @@ impl SegmentationCtx {
             segmentation_limits,
             segment_check_insns: DEFAULT_SEGMENT_CHECK_INSNS,
             instret_last_segment_check: 0,
+            checkpoint_trace_heights: vec![0; num_airs],
+            checkpoint_instret: 0,
         }
     }
 
@@ -77,6 +84,7 @@ impl SegmentationCtx {
         assert_eq!(air_names.len(), widths.len());
         assert_eq!(air_names.len(), interactions.len());
 
+        let num_airs = air_names.len();
         Self {
             segments: Vec::new(),
             air_names,
@@ -85,6 +93,8 @@ impl SegmentationCtx {
             segmentation_limits: SegmentationLimits::default(),
             segment_check_insns: DEFAULT_SEGMENT_CHECK_INSNS,
             instret_last_segment_check: 0,
+            checkpoint_trace_heights: vec![0; num_airs],
+            checkpoint_instret: 0,
         }
     }
 
@@ -100,37 +110,6 @@ impl SegmentationCtx {
         self.segmentation_limits.max_interactions = max_interactions;
     }
 
-    /// Calculate the total cells used based on trace heights and widths
-    #[inline(always)]
-    fn calculate_total_cells(&self, trace_heights: &[u32]) -> usize {
-        debug_assert_eq!(trace_heights.len(), self.widths.len());
-
-        // SAFETY: Length equality is asserted during initialization
-        let widths_slice = unsafe { self.widths.get_unchecked(..trace_heights.len()) };
-
-        trace_heights
-            .iter()
-            .zip(widths_slice)
-            .map(|(&height, &width)| height as usize * width)
-            .sum()
-    }
-
-    /// Calculate the total interactions based on trace heights and interaction counts
-    #[inline(always)]
-    fn calculate_total_interactions(&self, trace_heights: &[u32]) -> usize {
-        debug_assert_eq!(trace_heights.len(), self.interactions.len());
-
-        // SAFETY: Length equality is asserted during initialization
-        let interactions_slice = unsafe { self.interactions.get_unchecked(..trace_heights.len()) };
-
-        trace_heights
-            .iter()
-            .zip(interactions_slice)
-            // We add 1 for the zero messages from the padding rows
-            .map(|(&height, &interactions)| (height + 1) as usize * interactions)
-            .sum()
-    }
-
     #[inline(always)]
     fn should_segment(
         &self,
@@ -140,6 +119,8 @@ impl SegmentationCtx {
     ) -> bool {
         debug_assert_eq!(trace_heights.len(), is_trace_height_constant.len());
         debug_assert_eq!(trace_heights.len(), self.air_names.len());
+        debug_assert_eq!(trace_heights.len(), self.widths.len());
+        debug_assert_eq!(trace_heights.len(), self.interactions.len());
 
         let instret_start = self
             .segments
@@ -152,32 +133,34 @@ impl SegmentationCtx {
             return false;
         }
 
-        for (i, (&height, is_constant)) in trace_heights
+        let mut total_cells = 0;
+        for (i, ((padded_height, width), is_constant)) in trace_heights
             .iter()
+            .map(|&height| height.next_power_of_two())
+            .zip(self.widths.iter())
             .zip(is_trace_height_constant.iter())
             .enumerate()
         {
-            // Only segment if the height is not constant and exceeds the maximum height
-            if !is_constant && height > self.segmentation_limits.max_trace_height {
-                let air_name = &self.air_names[i];
+            // Only segment if the height is not constant and exceeds the maximum height after
+            // padding
+            if !is_constant && padded_height > self.segmentation_limits.max_trace_height {
+                let air_name = unsafe { self.air_names.get_unchecked(i) };
                 tracing::info!(
-                    "Segment {:2} | instret {:9} | chip {} ({}) height ({:8}) > max ({:8})",
-                    self.segments.len(),
+                    "instret {:9} | chip {} ({}) height ({:8}) > max ({:8})",
                     instret,
                     i,
                     air_name,
-                    height,
+                    padded_height,
                     self.segmentation_limits.max_trace_height
                 );
                 return true;
             }
+            total_cells += padded_height as usize * width;
         }
 
-        let total_cells = self.calculate_total_cells(trace_heights);
         if total_cells > self.segmentation_limits.max_cells {
             tracing::info!(
-                "Segment {:2} | instret {:9} | total cells ({:10}) > max ({:10})",
-                self.segments.len(),
+                "instret {:9} | total cells ({:10}) > max ({:10})",
                 instret,
                 total_cells,
                 self.segmentation_limits.max_cells
@@ -185,11 +168,16 @@ impl SegmentationCtx {
             return true;
         }
 
-        let total_interactions = self.calculate_total_interactions(trace_heights);
+        // All padding rows contribute a single message to the interactions (+1) since
+        // we assume chips don't send/receive with nonzero multiplicity on padding rows.
+        let total_interactions: usize = trace_heights
+            .iter()
+            .zip(self.interactions.iter())
+            .map(|(&height, &interactions)| (height + 1) as usize * interactions)
+            .sum();
         if total_interactions > self.segmentation_limits.max_interactions {
             tracing::info!(
-                "Segment {:2} | instret {:9} | total interactions ({:11}) > max ({:11})",
-                self.segments.len(),
+                "instret {:9} | total interactions ({:11}) > max ({:11})",
                 instret,
                 total_interactions,
                 self.segmentation_limits.max_interactions
@@ -204,16 +192,84 @@ impl SegmentationCtx {
     pub fn check_and_segment(
         &mut self,
         instret: u64,
-        trace_heights: &[u32],
+        trace_heights: &mut [u32],
         is_trace_height_constant: &[bool],
     ) -> bool {
-        let ret = self.should_segment(instret, trace_heights, is_trace_height_constant);
-        if ret {
-            self.segment(instret, trace_heights);
-        }
-        self.instret_last_segment_check = instret;
+        let should_seg = self.should_segment(instret, trace_heights, is_trace_height_constant);
 
-        ret
+        if should_seg {
+            self.create_segment_from_checkpoint(instret, trace_heights, is_trace_height_constant);
+        } else {
+            self.update_checkpoint(instret, trace_heights);
+        }
+
+        self.instret_last_segment_check = instret;
+        should_seg
+    }
+
+    #[inline(always)]
+    fn create_segment_from_checkpoint(
+        &mut self,
+        instret: u64,
+        trace_heights: &mut [u32],
+        is_trace_height_constant: &[bool],
+    ) {
+        let instret_start = self
+            .segments
+            .last()
+            .map_or(0, |s| s.instret_start + s.num_insns);
+
+        let (segment_instret, segment_heights) = if self.checkpoint_instret > instret_start {
+            (
+                self.checkpoint_instret,
+                self.checkpoint_trace_heights.clone(),
+            )
+        } else {
+            // No valid checkpoint, use current values
+            (instret, trace_heights.to_vec())
+        };
+
+        // Reset current trace heights and checkpoint
+        self.reset_trace_heights(trace_heights, &segment_heights, is_trace_height_constant);
+        self.checkpoint_instret = 0;
+
+        tracing::info!(
+            "Segment {:2} | instret {:9} | {} instructions",
+            self.segments.len(),
+            instret_start,
+            segment_instret - instret_start
+        );
+        self.segments.push(Segment {
+            instret_start,
+            num_insns: segment_instret - instret_start,
+            trace_heights: segment_heights,
+        });
+    }
+
+    /// Resets trace heights by subtracting segment heights
+    #[inline(always)]
+    fn reset_trace_heights(
+        &self,
+        trace_heights: &mut [u32],
+        segment_heights: &[u32],
+        is_trace_height_constant: &[bool],
+    ) {
+        for ((trace_height, &segment_height), &is_trace_height_constant) in trace_heights
+            .iter_mut()
+            .zip(segment_heights.iter())
+            .zip(is_trace_height_constant.iter())
+        {
+            if !is_trace_height_constant {
+                *trace_height = trace_height.checked_sub(segment_height).unwrap();
+            }
+        }
+    }
+
+    /// Updates the checkpoint with current safe state
+    #[inline(always)]
+    fn update_checkpoint(&mut self, instret: u64, trace_heights: &[u32]) {
+        self.checkpoint_trace_heights.copy_from_slice(trace_heights);
+        self.checkpoint_instret = instret;
     }
 
     /// Try segment if there is at least one cycle
@@ -227,6 +283,12 @@ impl SegmentationCtx {
 
         debug_assert!(num_insns > 0, "Segment should contain at least one cycle");
 
+        tracing::info!(
+            "Segment {:2} | instret {:9} | {} instructions [FINAL]",
+            self.segments.len(),
+            instret_start,
+            num_insns
+        );
         self.segments.push(Segment {
             instret_start,
             num_insns,
