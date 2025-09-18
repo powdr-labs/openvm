@@ -1,5 +1,6 @@
 use std::num::NonZero;
 
+use getset::{Getters, Setters, WithSetters};
 use itertools::Itertools;
 use openvm_instructions::riscv::{RV32_IMM_AS, RV32_REGISTER_AS};
 
@@ -17,12 +18,14 @@ use crate::{
 
 pub const DEFAULT_PAGE_BITS: usize = 6;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Getters, Setters, WithSetters)]
 pub struct MeteredCtx<const PAGE_BITS: usize = DEFAULT_PAGE_BITS> {
     pub trace_heights: Vec<u32>,
     pub is_trace_height_constant: Vec<bool>,
     pub memory_ctx: MemoryCtx<PAGE_BITS>,
     pub segmentation_ctx: SegmentationCtx,
+    #[getset(get = "pub", set = "pub", set_with = "pub")]
+    suspend_on_segment: bool,
 }
 
 impl<const PAGE_BITS: usize> MeteredCtx<PAGE_BITS> {
@@ -75,6 +78,7 @@ impl<const PAGE_BITS: usize> MeteredCtx<PAGE_BITS> {
             is_trace_height_constant,
             memory_ctx,
             segmentation_ctx,
+            suspend_on_segment: false,
         };
         if !config.continuation_enabled {
             // force single segment
@@ -121,7 +125,7 @@ impl<const PAGE_BITS: usize> MeteredCtx<PAGE_BITS> {
     }
 
     #[inline(always)]
-    pub fn check_and_segment(&mut self, instret: u64, segment_check_insns: u64) {
+    pub fn check_and_segment(&mut self, instret: u64, segment_check_insns: u64) -> bool {
         let threshold = self
             .segmentation_ctx
             .instret_last_segment_check
@@ -131,7 +135,7 @@ impl<const PAGE_BITS: usize> MeteredCtx<PAGE_BITS> {
             "overflow in segment check threshold calculation"
         );
         if instret < threshold {
-            return;
+            return false;
         }
 
         self.memory_ctx
@@ -145,6 +149,7 @@ impl<const PAGE_BITS: usize> MeteredCtx<PAGE_BITS> {
         if did_segment {
             self.reset_segment();
         }
+        did_segment
     }
 
     #[allow(dead_code)]
@@ -200,12 +205,13 @@ impl<const PAGE_BITS: usize> ExecutionCtxTrait for MeteredCtx<PAGE_BITS> {
         segment_check_insns: u64,
         exec_state: &mut VmExecState<F, GuestMemory, Self>,
     ) -> bool {
-        // E2 always runs until termination. Here we use the function as a hook called every
-        // instruction.
+        // If `segment_suspend` is set, suspend when a segment is determined (but the VM state might
+        // be after the segment boundary because the segment happens in the previous checkpoint).
+        // Otherwise, execute until termination.
         exec_state
             .ctx
-            .check_and_segment(instret, segment_check_insns);
-        false
+            .check_and_segment(instret, segment_check_insns)
+            && exec_state.ctx.suspend_on_segment
     }
 
     #[inline(always)]
