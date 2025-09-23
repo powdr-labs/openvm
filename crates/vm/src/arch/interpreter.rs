@@ -479,6 +479,7 @@ unsafe fn execute_trampoline<F: PrimeField32, Ctx: ExecutionCtxTrait>(
         .as_ref()
         .is_ok_and(|exit_code| exit_code.is_none())
     {
+        tracing::trace!(pc = vm_state.pc, "executing instruction");
         if Ctx::should_suspend(vm_state) {
             break;
         }
