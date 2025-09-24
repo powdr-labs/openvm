@@ -65,7 +65,14 @@ impl<F: Field, E> PreflightInterpretedInstance<F, E> {
         let base_idx = get_pc_index(pc_base);
         let mut pc_handler = Vec::with_capacity(base_idx + len);
         pc_handler.extend(repeat_n(PcEntry::undefined(), base_idx));
-        for insn_and_debug_info in &program.instructions_and_debug_infos {
+        for (insn_and_debug_info, pc_idx) in program.instructions_and_debug_infos.iter().zip(base_idx..) {
+            
+            // If an apc exists at this pc index, override the instruction
+            let insn_and_debug_info = 
+                program.apc_by_pc_index
+                .get(&pc_idx)
+                .or(insn_and_debug_info.as_ref());
+            
             if let Some((insn, _)) = insn_and_debug_info {
                 let insn = insn.clone();
                 let executor_idx = if insn.opcode == SystemOpcode::TERMINATE.global_opcode() {
