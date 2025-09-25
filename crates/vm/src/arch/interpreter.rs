@@ -655,21 +655,23 @@ where
         vm_state.exit_code = Err(ExecutionError::Unreachable(vm_state.pc));
     };
 
-    repeat_n(&None, get_pc_index(program.pc_base))
+    let base_index = get_pc_index(program.pc_base);
+
+    repeat_n(&None, base_index)
         .chain(program.instructions_and_debug_infos.iter())
         .zip_eq(pre_compute.iter_mut())
         .enumerate()
         .map(|(i, (inst_opt, buf))| {
-
-            // If an apc exists at this pc index, override the instruction
-            let inst_opt = program.apc_by_pc_index.get(&i).or(inst_opt.as_ref());
-
             // SAFETY: we cast to raw pointer and then borrow to remove the lifetime. This
             // is safe only in the current context because `buf` comes
             // from `pre_compute_buf` which will outlive the returned
             // `PreComputeInstruction`s.
             let buf: &mut [u8] = unsafe { &mut *(*buf as *mut [u8]) };
             let pre_inst = if let Some((inst, _)) = inst_opt {
+                // Recover the pc_index using the base_index offset. This is guaranteed not to underflow because the first `base_index` entries are `None`, so we would not be in this branch.
+                let pc_index = i - base_index;
+                // If an apc exists at this pc index, override the instruction
+                let inst = program.apc_by_pc_index.get(&pc_index).map(|(inst, _)| inst).unwrap_or(inst);
                 tracing::trace!("get_pre_compute_instruction {inst:?}");
                 let pc = program.pc_base + i as u32 * DEFAULT_PC_STEP;
                 if let Some(handler) = get_system_opcode_handler(inst, buf) {
@@ -714,21 +716,24 @@ where
     let unreachable_handler: ExecuteFunc<F, Ctx> = |_, vm_state| {
         vm_state.exit_code = Err(ExecutionError::Unreachable(vm_state.pc));
     };
-    repeat_n(&None, get_pc_index(program.pc_base))
+
+    let base_index = get_pc_index(program.pc_base);
+
+    repeat_n(&None, base_index)
         .chain(program.instructions_and_debug_infos.iter())
         .zip_eq(pre_compute.iter_mut())
         .enumerate()
         .map(|(i, (inst_opt, buf))| {
-
-            // If an apc exists at this pc index, override the instruction
-            let inst_opt = program.apc_by_pc_index.get(&i).or(inst_opt.as_ref());
-
             // SAFETY: we cast to raw pointer and then borrow to remove the lifetime. This
             // is safe only in the current context because `buf` comes
             // from `pre_compute_buf` which will outlive the returned
             // `PreComputeInstruction`s.
             let buf: &mut [u8] = unsafe { &mut *(*buf as *mut [u8]) };
             let pre_inst = if let Some((inst, _)) = inst_opt {
+                // Recover the pc_index using the base_index offset. This is guaranteed not to underflow because the first `base_index` entries are `None`, so we would not be in this branch.
+                let pc_index = i - base_index;
+                // If an apc exists at this pc index, override the instruction
+                let inst = program.apc_by_pc_index.get(&pc_index).map(|(inst, _)| inst).unwrap_or(inst);
                 tracing::trace!("get_metered_pre_compute_instruction {inst:?}");
                 let pc = program.pc_base + i as u32 * DEFAULT_PC_STEP;
                 if let Some(handler) = get_system_opcode_handler(inst, buf) {
