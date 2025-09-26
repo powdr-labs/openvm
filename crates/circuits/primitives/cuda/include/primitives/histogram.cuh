@@ -1,6 +1,7 @@
 #pragma once
 
 #include "launcher.cuh"
+#include "utils.cuh"
 #include "trace_access.h"
 
 /**
@@ -64,8 +65,8 @@ struct VariableRangeChecker {
         const size_t limbs_len
     ) {
         size_t range_max_bits = max_bits();
-#ifdef DEBUG
-        assert(limbs_len >= div_ceil(bits, range_max_bits));
+#ifdef CUDA_DEBUG
+        assert(limbs_len >= d_div_ceil(bits, range_max_bits));
 #endif
         uint32_t mask = (1 << range_max_bits) - 1;
         size_t bits_remaining = bits;
@@ -77,7 +78,7 @@ struct VariableRangeChecker {
             x >>= range_max_bits;
             bits_remaining -= min(bits_remaining, range_max_bits);
         }
-#ifdef DEBUG
+#ifdef CUDA_DEBUG
         assert(bits_remaining == 0 && x == 0);
 #endif
     }
@@ -105,9 +106,6 @@ template <uint32_t N> struct RangeTupleChecker {
     }
 
     __device__ void add_count(RowSlice values) {
-#ifdef DEBUG
-        assert(values.length == N);
-#endif
         uint32_t idx = 0;
         for (int i = 0; i < N; i++) {
             idx = idx * sizes[i] + values[i].asUInt32();
