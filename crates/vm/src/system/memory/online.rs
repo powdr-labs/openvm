@@ -482,7 +482,7 @@ impl TracingMemory {
                 })
                 .unzip();
         let access_adapter_records =
-            DenseRecordArena::with_byte_capacity(access_adapter_arena_size_bound);
+            DenseRecordArena::with_byte_capacity(access_adapter_arena_size_bound, 0);
         Self {
             data: image,
             meta,

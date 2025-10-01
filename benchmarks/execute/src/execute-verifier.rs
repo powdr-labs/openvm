@@ -340,7 +340,7 @@ fn execute_verifier(
             tracing::info!("Running preflight execute...");
             let state = vm.create_initial_state(exe, input_stream);
             let mut interpreter = vm.preflight_interpreter(exe)?;
-            vm.execute_preflight(&mut interpreter, state, None, NATIVE_MAX_TRACE_HEIGHTS)?;
+            vm.execute_preflight(&mut interpreter, state, None, NATIVE_MAX_TRACE_HEIGHTS, 0)?;
         }
     }
     Ok(())

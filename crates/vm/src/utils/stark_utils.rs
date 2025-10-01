@@ -128,7 +128,7 @@ where
     let mut state = Some(vm.create_initial_state(&exe, input));
     let mut proofs = Vec::new();
     let mut exit_code = None;
-    for segment in segments {
+    for (segment_idx, segment) in segments.into_iter().enumerate() {
         let Segment {
             instret_start,
             num_insns,
@@ -146,6 +146,7 @@ where
             from_state,
             Some(num_insns),
             &trace_heights,
+            segment_idx,
         )?;
         state = Some(to_state);
         exit_code = system_records.exit_code;

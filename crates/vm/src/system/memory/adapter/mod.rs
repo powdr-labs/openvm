@@ -76,7 +76,7 @@ impl<F: Clone + Send + Sync> AccessAdapterInventory<F> {
         Self {
             memory_config,
             chips,
-            arena: DenseRecordArena::with_byte_capacity(0),
+            arena: DenseRecordArena::with_byte_capacity(0, 0),
             #[cfg(feature = "metrics")]
             trace_heights: Vec::new(),
         }

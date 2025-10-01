@@ -51,7 +51,7 @@ where
     pub fn with_capacity(executor: E, air: A, chip: C, height: usize) -> Self {
         let width = air.width();
         let height = next_power_of_two_or_zero(height);
-        let arena = RA::with_capacity(height, width);
+        let arena = RA::with_capacity(height, width, 0);
         Self {
             executor,
             air,

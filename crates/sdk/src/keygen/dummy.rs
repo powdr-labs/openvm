@@ -78,7 +78,7 @@ pub(super) fn compute_root_proof_heights(
         system_records,
         record_arenas,
         ..
-    } = root_vm.execute_preflight(&mut preflight_interpreter, state, None, &trace_heights)?;
+    } = root_vm.execute_preflight(&mut preflight_interpreter, state, None, &trace_heights, 0)?;
     let ctx = root_vm.generate_proving_ctx(system_records, record_arenas)?;
     let air_heights = ctx
         .into_iter()

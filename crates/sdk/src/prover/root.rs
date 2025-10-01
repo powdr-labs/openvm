@@ -86,6 +86,7 @@ impl RootVerifierLocalProver {
             state,
             None,
             NATIVE_MAX_TRACE_HEIGHTS,
+            0,
         )?;
         // Note[jpw]: we could in theory extract trace heights from just preflight execution, but
         // that requires special logic in the chips so we will just generate the traces for now
@@ -151,7 +152,7 @@ impl SingleSegmentVmProver<RootSC> for RootVerifierLocalProver {
             system_records,
             mut record_arenas,
             to_state,
-        } = vm.execute_preflight(&mut self.inner.interpreter, state, None, trace_heights)?;
+        } = vm.execute_preflight(&mut self.inner.interpreter, state, None, trace_heights, 0)?;
         // record_arenas are created with capacity specified by trace_heights. we must ensure
         // `generate_proving_ctx` does not resize the trace matrices to make them smaller:
         for ra in &mut record_arenas {

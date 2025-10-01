@@ -451,6 +451,7 @@ where
         state: VmState<Val<E::SC>, GuestMemory>,
         num_insns: Option<u64>,
         trace_heights: &[u32],
+        segment_idx: usize,
     ) -> Result<PreflightExecutionOutput<Val<E::SC>, VB::RecordArena>, ExecutionError>
     where
         Val<E::SC>: PrimeField32,
@@ -473,7 +474,7 @@ where
         let capacities = zip_eq(trace_heights, main_widths)
             .map(|(&h, w)| (h as usize, w))
             .collect::<Vec<_>>();
-        let ctx = PreflightCtx::new_with_capacity(&capacities, instret_end);
+        let ctx = PreflightCtx::new_with_capacity(&capacities, instret_end, segment_idx);
 
         let system_config: &SystemConfig = self.config().as_ref();
         let adapter_offset = system_config.access_adapter_air_id_offset();
@@ -674,6 +675,7 @@ where
         state: VmState<Val<E::SC>, GuestMemory>,
         num_insns: Option<u64>,
         trace_heights: &[u32],
+        segment_idx: usize,
     ) -> Result<(Proof<E::SC>, Option<GuestMemory>), VirtualMachineError>
     where
         Val<E::SC>: PrimeField32,
@@ -686,7 +688,7 @@ where
             system_records,
             record_arenas,
             to_state,
-        } = self.execute_preflight(interpreter, state, num_insns, trace_heights)?;
+        } = self.execute_preflight(interpreter, state, num_insns, trace_heights, segment_idx)?;
         // drop final memory unless this is a terminal segment and the exit code is success
         let final_memory =
             (system_records.exit_code == Some(ExitCode::Success as u32)).then_some(to_state.memory);
@@ -997,6 +999,7 @@ where
                 from_state,
                 Some(num_insns),
                 &trace_heights,
+                seg_idx,
             )?;
             state = Some(to_state);
 
@@ -1043,7 +1046,7 @@ where
         trace_heights[PUBLIC_VALUES_AIR_ID] = vm.config().as_ref().num_public_values as u32;
         let state = self.state.take().expect("State should always be present");
         let num_custom_pvs = state.custom_pvs.len();
-        let (proof, final_memory) = vm.prove(&mut self.interpreter, state, None, &trace_heights)?;
+        let (proof, final_memory) = vm.prove(&mut self.interpreter, state, None, &trace_heights, 0)?;
         let final_memory = final_memory.ok_or(ExecutionError::DidNotTerminate)?;
         // Put back state to avoid re-allocation
         self.state = Some(VmState::new(

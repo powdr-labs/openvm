@@ -13,7 +13,7 @@ use openvm_stark_backend::{
 
 pub trait Arena {
     /// Currently `width` always refers to the main trace width.
-    fn with_capacity(height: usize, width: usize) -> Self;
+    fn with_capacity(height: usize, width: usize, segment_idx: usize) -> Self;
 
     fn is_empty(&self) -> bool;
 
@@ -25,6 +25,8 @@ pub trait Arena {
     fn current_trace_height(&self) -> usize {
         0
     }
+
+    fn segment_idx(&self) -> usize;
 }
 
 /// Given some minimum layout of type `Layout`, the `RecordArena` should allocate a buffer, of
@@ -82,6 +84,7 @@ pub struct MatrixRecordArena<F> {
     /// matrix will never be truncated. The latter is used if the trace matrix must have fixed
     /// dimensions (e.g., for a static verifier).
     pub(super) allow_truncate: bool,
+    pub segment_idx: usize,
 }
 
 impl<F: Field> MatrixRecordArena<F> {
@@ -108,7 +111,7 @@ impl<F: Field> MatrixRecordArena<F> {
 }
 
 impl<F: Field> Arena for MatrixRecordArena<F> {
-    fn with_capacity(height: usize, width: usize) -> Self {
+    fn with_capacity(height: usize, width: usize, segment_idx: usize) -> Self {
         let height = next_power_of_two_or_zero(height);
         let trace_buffer = F::zero_vec(height * width);
         Self {
@@ -116,6 +119,7 @@ impl<F: Field> Arena for MatrixRecordArena<F> {
             width,
             trace_offset: 0,
             allow_truncate: true,
+            segment_idx: 0,
         }
     }
 
@@ -126,6 +130,10 @@ impl<F: Field> Arena for MatrixRecordArena<F> {
     #[cfg(feature = "metrics")]
     fn current_trace_height(&self) -> usize {
         self.trace_offset / self.width
+    }
+
+    fn segment_idx(&self) -> usize {
+        self.segment_idx
     }
 }
 
@@ -164,19 +172,21 @@ impl<F: Field> RowMajorMatrixArena<F> for MatrixRecordArena<F> {
 
 pub struct DenseRecordArena {
     pub records_buffer: Cursor<Vec<u8>>,
+    pub segment_idx: usize,
 }
 
 const MAX_ALIGNMENT: usize = 32;
 
 impl DenseRecordArena {
     /// Creates a new [DenseRecordArena] with the given capacity in bytes.
-    pub fn with_byte_capacity(size_bytes: usize) -> Self {
+    pub fn with_byte_capacity(size_bytes: usize, segment_idx: usize) -> Self {
         let buffer = vec![0; size_bytes + MAX_ALIGNMENT];
         let offset = (MAX_ALIGNMENT - (buffer.as_ptr() as usize % MAX_ALIGNMENT)) % MAX_ALIGNMENT;
         let mut cursor = Cursor::new(buffer);
         cursor.set_position(offset as u64);
         Self {
             records_buffer: cursor,
+            segment_idx,
         }
     }
 
@@ -249,13 +259,17 @@ impl DenseRecordArena {
 
 impl Arena for DenseRecordArena {
     // TODO[jpw]: treat `width` as AIR width in number of columns for now
-    fn with_capacity(height: usize, width: usize) -> Self {
+    fn with_capacity(height: usize, width: usize, segment_idx: usize) -> Self {
         let size_bytes = height * (width * size_of::<u32>());
-        Self::with_byte_capacity(size_bytes)
+        Self::with_byte_capacity(size_bytes, segment_idx)
     }
 
     fn is_empty(&self) -> bool {
         self.allocated().is_empty()
+    }
+
+    fn segment_idx(&self) -> usize {
+        self.segment_idx
     }
 }
 
