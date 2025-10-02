@@ -68,11 +68,13 @@ impl<F: Field> Program<F> {
         }
     }
 
-    pub fn add_apc_instruction_at_pc_index(&mut self, pc_index: usize, opcode: VmOpcode) {
+    // APC instructions have only one operand stored in `instruction.a`, which is APC block length.
+    // This is used during preflight execution to increment `instret`, which is the number of original instructions.
+    pub fn add_apc_instruction_with_block_size_at_pc_index(&mut self, pc_index: usize, opcode: VmOpcode, block_size: usize) {
         let debug: Option<DebugInfo> = self.instructions_and_debug_infos
             [pc_index].as_ref().unwrap().1.clone();
 
-        self.apc_by_pc_index.insert(pc_index, (Instruction::from_usize(opcode, []), debug));
+        self.apc_by_pc_index.insert(pc_index, (Instruction::from_usize(opcode, [block_size; 1]), debug));
     }
 
     /// We assume that pc_start = pc_base = 0 everywhere except the RISC-V programs, until we need

@@ -169,6 +169,11 @@ impl<const PAGE_BITS: usize> MeteredCtx<PAGE_BITS> {
 
 impl<const PAGE_BITS: usize> ExecutionCtxTrait for MeteredCtx<PAGE_BITS> {
     #[inline(always)]
+    fn curr_segment_idx(&self) -> Option<usize> {
+        Some(self.segmentation_ctx.segments.len())
+    }
+
+    #[inline(always)]
     fn on_memory_operation(&mut self, address_space: u32, ptr: u32, size: u32) {
         debug_assert!(
             address_space != RV32_IMM_AS,

@@ -1,6 +1,6 @@
 use std::{iter::repeat_n, sync::Arc};
 
-use openvm_instructions::{instruction::Instruction, program::Program, LocalOpcode, SystemOpcode};
+use openvm_instructions::{instruction::Instruction, program::{Program, DEFAULT_PC_STEP}, LocalOpcode, SystemOpcode};
 use openvm_stark_backend::{
     p3_field::{Field, PrimeField32},
     p3_maybe_rayon::prelude::*,
@@ -225,10 +225,18 @@ impl<F: PrimeField32, E> PreflightInterpretedInstance<F, E> {
             metrics: &mut state.vm_state.metrics,
         };
         executor.execute(state_mut, &pc_entry.insn)?;
-
+        
         #[cfg(feature = "metrics")]
         {
             crate::metrics::update_instruction_metrics(state, executor, pc, pc_entry);
+        }
+
+        if pc_entry.is_apc {
+            // Increment `instret` by number of APC instructions minus 1 to match `instret` between metered execution and preflight execution:
+            // Metered execution: precomputed `ExecuteFunc` impl of each original instruction always increments `instret` by 1
+            // Preflight execution: `execute_from_state` always increments `instret` by 1
+            let num_apc_instructions = pc_entry.insn.a.as_canonical_u64();
+            state.instret += num_apc_instructions - 1;
         }
 
         Ok(())
