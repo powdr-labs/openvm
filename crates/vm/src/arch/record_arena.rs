@@ -119,7 +119,7 @@ impl<F: Field> Arena for MatrixRecordArena<F> {
             width,
             trace_offset: 0,
             allow_truncate: true,
-            segment_idx: 0,
+            segment_idx,
         }
     }
 
