@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use openvm_circuit_primitives::{is_less_than::IsLtSubAir, var_range::VariableRangeCheckerBus};
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 use openvm_stark_backend::{
     config::{StarkGenericConfig, Val},
     interaction::PermutationCheckBus,
@@ -44,7 +45,7 @@ pub enum OpType {
 
 /// The full pointer to a location in memory consists of an address space and a pointer within
 /// the address space.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, AlignedBorrow)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, AlignedBorrow, StructReflection)]
 #[repr(C)]
 pub struct MemoryAddress<S, T> {
     pub address_space: S,

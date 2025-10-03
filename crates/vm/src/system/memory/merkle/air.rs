@@ -5,8 +5,9 @@ use openvm_stark_backend::{
     p3_air::{Air, AirBuilder, AirBuilderWithPublicValues, BaseAir},
     p3_field::{Field, FieldAlgebra},
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
+use struct_reflection::StructReflectionHelper;
 
 use crate::system::memory::merkle::{MemoryDimensions, MemoryMerkleCols, MemoryMerklePvs};
 
@@ -26,6 +27,12 @@ impl<const CHUNK: usize, F: Field> BaseAir<F> for MemoryMerkleAir<CHUNK> {
 impl<const CHUNK: usize, F: Field> BaseAirWithPublicValues<F> for MemoryMerkleAir<CHUNK> {
     fn num_public_values(&self) -> usize {
         MemoryMerklePvs::<F, CHUNK>::width()
+    }
+}
+
+impl<const CHUNK: usize, F: Field> ColumnsAir<F> for MemoryMerkleAir<CHUNK> {
+    fn columns(&self) -> Option<Vec<String>> {
+        MemoryMerkleCols::<F, CHUNK>::struct_reflection()
     }
 }
 

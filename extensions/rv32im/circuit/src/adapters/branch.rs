@@ -20,13 +20,30 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::ColumnsAir,
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use super::RV32_REGISTER_NUM_LIMBS;
 use crate::adapters::tracing_read;
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Rv32BranchReadRecord {
+    /// Read register value from address space d = 1
+    pub rs1: RecordId,
+    /// Read register value from address space e = 1
+    pub rs2: RecordId,
+}
+
+#[repr(C)]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Rv32BranchWriteRecord {
+    pub from_state: ExecutionState<u32>,
+}
+
+#[repr(C)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct Rv32BranchAdapterCols<T> {
     pub from_state: ExecutionState<T>,
     pub rs1_ptr: T,
@@ -43,6 +60,12 @@ pub struct Rv32BranchAdapterAir {
 impl<F: Field> BaseAir<F> for Rv32BranchAdapterAir {
     fn width(&self) -> usize {
         Rv32BranchAdapterCols::<F>::width()
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for Rv32BranchAdapterAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        Rv32BranchAdapterCols::<F>::struct_reflection()
     }
 }
 

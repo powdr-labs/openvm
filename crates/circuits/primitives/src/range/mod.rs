@@ -16,7 +16,7 @@ use openvm_stark_backend::{
     p3_air::{Air, BaseAir, PairBuilder},
     p3_field::Field,
     p3_matrix::{dense::RowMajorMatrix, Matrix},
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
 
 mod bus;
@@ -25,15 +25,16 @@ mod bus;
 pub mod tests;
 
 pub use bus::*;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
-#[derive(Default, AlignedBorrow, Copy, Clone)]
+#[derive(Default, AlignedBorrow, Copy, Clone, StructReflection)]
 #[repr(C)]
 pub struct RangeCols<T> {
     /// Number of range checks for each value
     pub mult: T,
 }
 
-#[derive(Default, AlignedBorrow, Copy, Clone)]
+#[derive(Default, AlignedBorrow, Copy, Clone, StructReflection)]
 #[repr(C)]
 pub struct RangePreprocessedCols<T> {
     /// Contains all possible values within range [0, max)
@@ -65,6 +66,12 @@ impl<F: Field> BaseAir<F> for RangeCheckerAir {
         // Create lookup table with all values 0..range_max
         let column = (0..self.range_max()).map(F::from_canonical_u32).collect();
         Some(RowMajorMatrix::new_col(column))
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for RangeCheckerAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        RangeCols::<F>::struct_reflection()
     }
 }
 

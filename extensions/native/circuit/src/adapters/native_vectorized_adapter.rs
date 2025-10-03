@@ -28,10 +28,50 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::ColumnsAir,
 };
+use serde::{Deserialize, Serialize};
+use struct_reflection::{StructReflection, StructReflectionHelper};
+
+#[allow(dead_code)]
+#[derive(Debug)]
+pub struct NativeVectorizedAdapterChip<F: Field, const N: usize> {
+    pub air: NativeVectorizedAdapterAir<N>,
+    _marker: PhantomData<F>,
+}
+
+impl<F: PrimeField32, const N: usize> NativeVectorizedAdapterChip<F, N> {
+    pub fn new(
+        execution_bus: ExecutionBus,
+        program_bus: ProgramBus,
+        memory_bridge: MemoryBridge,
+    ) -> Self {
+        Self {
+            air: NativeVectorizedAdapterAir {
+                execution_bridge: ExecutionBridge::new(execution_bus, program_bus),
+                memory_bridge,
+            },
+            _marker: PhantomData,
+        }
+    }
+}
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NativeVectorizedReadRecord<const N: usize> {
+    pub b: RecordId,
+    pub c: RecordId,
+}
+
+#[repr(C)]
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NativeVectorizedWriteRecord<const N: usize> {
+    pub from_state: ExecutionState<u32>,
+    pub a: RecordId,
+}
+
+#[repr(C)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct NativeVectorizedAdapterCols<T, const N: usize> {
     pub from_state: ExecutionState<T>,
     pub a_pointer: T,
@@ -50,6 +90,12 @@ pub struct NativeVectorizedAdapterAir<const N: usize> {
 impl<F: Field, const N: usize> BaseAir<F> for NativeVectorizedAdapterAir<N> {
     fn width(&self) -> usize {
         NativeVectorizedAdapterCols::<F, N>::width()
+    }
+}
+
+impl<F: Field, const N: usize> ColumnsAir<F> for NativeVectorizedAdapterAir<N> {
+    fn columns(&self) -> Option<Vec<String>> {
+        NativeVectorizedAdapterCols::<F, N>::struct_reflection()
     }
 }
 

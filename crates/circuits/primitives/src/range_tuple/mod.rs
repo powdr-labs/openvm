@@ -17,9 +17,10 @@ use openvm_stark_backend::{
     p3_field::{Field, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     prover::{cpu::CpuBackend, types::AirProvingContext},
-    rap::{get_air_name, BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{get_air_name, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     Chip, ChipUsageGetter,
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 mod bus;
 pub use bus::*;
@@ -33,7 +34,7 @@ pub use cuda::*;
 pub mod tests;
 
 #[repr(C)]
-#[derive(Default, Copy, Clone, AlignedBorrow)]
+#[derive(Default, Copy, Clone, AlignedBorrow, StructReflection)]
 pub struct RangeTupleCols<T> {
     /// Number of range checks requested for each tuple combination
     pub mult: T,
@@ -85,6 +86,12 @@ impl<F: Field, const N: usize> BaseAir<F> for RangeTupleCheckerAir<N> {
                 .collect(),
             N,
         ))
+    }
+}
+
+impl<F: Field, const N: usize> ColumnsAir<F> for RangeTupleCheckerAir<N> {
+    fn columns(&self) -> Option<Vec<String>> {
+        RangeTupleCols::<F>::struct_reflection()
     }
 }
 

@@ -20,12 +20,13 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField32},
-    rap::BaseAirWithPublicValues,
+    rap::{BaseAirWithPublicValues, ColumnsAir},
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 use strum::IntoEnumIterator;
 
 #[repr(C)]
-#[derive(AlignedBorrow, Clone, Copy, Debug)]
+#[derive(AlignedBorrow, Clone, Copy, Debug, StructReflection)]
 pub struct ShiftCoreCols<T, const NUM_LIMBS: usize, const LIMB_BITS: usize> {
     pub a: [T; NUM_LIMBS],
     pub b: [T; NUM_LIMBS],
@@ -67,6 +68,15 @@ impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAir<F>
         ShiftCoreCols::<F, NUM_LIMBS, LIMB_BITS>::width()
     }
 }
+
+impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> ColumnsAir<F>
+    for ShiftCoreAir<NUM_LIMBS, LIMB_BITS>
+{
+    fn columns(&self) -> Option<Vec<String>> {
+        ShiftCoreCols::<F, NUM_LIMBS, LIMB_BITS>::struct_reflection()
+    }
+}
+
 impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAirWithPublicValues<F>
     for ShiftCoreAir<NUM_LIMBS, LIMB_BITS>
 {

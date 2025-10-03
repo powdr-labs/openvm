@@ -35,7 +35,9 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::ColumnsAir,
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 /// This adapter reads from NUM_READS <= 2 pointers and writes to a register.
 /// * The data is read from the heap (address space 2), and the pointers are read from registers
@@ -44,7 +46,7 @@ use openvm_stark_backend::{
 ///   starting from the addresses in `rs[0]` (and `rs[1]` if `R = 2`).
 /// * Writes are to 32-bit register rd.
 #[repr(C)]
-#[derive(AlignedBorrow, Debug)]
+#[derive(AlignedBorrow, StructReflection, Debug)]
 pub struct Rv32IsEqualModAdapterCols<
     T,
     const NUM_READS: usize,
@@ -87,6 +89,20 @@ impl<
 {
     fn width(&self) -> usize {
         Rv32IsEqualModAdapterCols::<F, NUM_READS, BLOCKS_PER_READ, BLOCK_SIZE>::width()
+    }
+}
+
+impl<
+        F: Field,
+        const NUM_READS: usize,
+        const BLOCKS_PER_READ: usize,
+        const BLOCK_SIZE: usize,
+        const TOTAL_READ_SIZE: usize,
+    > ColumnsAir<F>
+    for Rv32IsEqualModAdapterAir<NUM_READS, BLOCKS_PER_READ, BLOCK_SIZE, TOTAL_READ_SIZE>
+{
+    fn columns(&self) -> Option<Vec<String>> {
+        Rv32IsEqualModAdapterCols::<F, NUM_READS, BLOCKS_PER_READ, BLOCK_SIZE>::struct_reflection()
     }
 }
 

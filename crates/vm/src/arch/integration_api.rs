@@ -9,7 +9,7 @@ use openvm_stark_backend::{
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
     prover::{cpu::CpuBackend, types::AirProvingContext},
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     Chip,
 };
 use serde::{Deserialize, Serialize};
@@ -222,6 +222,22 @@ where
 {
     fn width(&self) -> usize {
         self.adapter.width() + self.core.width()
+    }
+}
+
+impl<F, A, C> ColumnsAir<F> for VmAirWrapper<A, C>
+where
+    A: ColumnsAir<F>,
+    C: ColumnsAir<F>,
+{
+    fn columns(&self) -> Option<Vec<String>> {
+        if let (Some(adapter_columns), Some(core_columns)) =
+            (self.adapter.columns(), self.core.columns())
+        {
+            Some(adapter_columns.into_iter().chain(core_columns).collect())
+        } else {
+            None
+        }
     }
 }
 

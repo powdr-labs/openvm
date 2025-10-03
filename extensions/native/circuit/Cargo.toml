@@ -37,6 +37,7 @@ cfg-if.workspace = true
 
 [build-dependencies]
 openvm-cuda-builder = { workspace = true, optional = true }
+struct-reflection.workspace = true
 
 [dev-dependencies]
 openvm-stark-sdk = { workspace = true }

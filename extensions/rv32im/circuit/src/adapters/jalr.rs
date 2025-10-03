@@ -23,13 +23,22 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::ColumnsAir,
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use super::RV32_REGISTER_NUM_LIMBS;
 use crate::adapters::{tracing_read, tracing_write};
 
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Rv32JalrWriteRecord {
+    pub from_state: ExecutionState<u32>,
+    pub rd_id: Option<RecordId>,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, AlignedBorrow, StructReflection)]
 pub struct Rv32JalrAdapterCols<T> {
     pub from_state: ExecutionState<T>,
     pub rs1_ptr: T,
@@ -50,6 +59,12 @@ pub struct Rv32JalrAdapterAir {
 impl<F: Field> BaseAir<F> for Rv32JalrAdapterAir {
     fn width(&self) -> usize {
         Rv32JalrAdapterCols::<F>::width()
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for Rv32JalrAdapterAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        Rv32JalrAdapterCols::<F>::struct_reflection()
     }
 }
 

@@ -9,6 +9,7 @@ use openvm_stark_backend::{
 };
 use rand::rngs::StdRng;
 use serde::{Deserialize, Serialize};
+use struct_reflection::{StructReflection, StructReflectionHelper};
 use thiserror::Error;
 
 use super::{execution_mode::ExecutionCtxTrait, Streams, VmExecState};
@@ -214,7 +215,9 @@ pub struct E2PreCompute<DATA> {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq, Default, AlignedBorrow, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Default, AlignedBorrow, Serialize, Deserialize, StructReflection,
+)]
 pub struct ExecutionState<T> {
     pub pc: T,
     pub timestamp: T,

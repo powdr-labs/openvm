@@ -20,9 +20,10 @@ use openvm_stark_backend::{
     p3_field::Field,
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     prover::{cpu::CpuBackend, types::AirProvingContext},
-    rap::{get_air_name, BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{get_air_name, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     Chip, ChipUsageGetter,
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use super::bus::XorBus;
 
@@ -31,7 +32,7 @@ mod tests;
 
 /// Columns for the main trace of the XOR lookup
 #[repr(C)]
-#[derive(Copy, Clone, Debug, AlignedBorrow)]
+#[derive(Copy, Clone, Debug, AlignedBorrow, StructReflection)]
 pub struct XorLookupCols<T> {
     /// Multiplicity counter tracking the number of XOR operations requested for each triple
     pub mult: T,
@@ -76,6 +77,12 @@ impl<F: Field, const M: usize> BaseAir<F> for XorLookupAir<M> {
             .collect();
 
         Some(RowMajorMatrix::new(rows, NUM_XOR_LOOKUP_PREPROCESSED_COLS))
+    }
+}
+
+impl<F: Field, const M: usize> ColumnsAir<F> for XorLookupAir<M> {
+    fn columns(&self) -> Option<Vec<String>> {
+        XorLookupCols::<F>::struct_reflection()
     }
 }
 

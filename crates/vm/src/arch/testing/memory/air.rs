@@ -7,7 +7,7 @@ use openvm_stark_backend::{
     p3_field::{FieldAlgebra, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     prover::{cpu::CpuBackend, types::AirProvingContext},
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     Chip, ChipUsageGetter,
 };
 
@@ -149,5 +149,11 @@ impl<F: PrimeField32> ChipUsageGetter for MemoryDummyChip<F> {
     }
     fn trace_width(&self) -> usize {
         BaseAir::<F>::width(&self.air)
+    }
+}
+
+impl<const BLOCK_SIZE: usize, F> ColumnsAir<F> for MemoryDummyAir<BLOCK_SIZE> {
+    fn columns(&self) -> Option<Vec<String>> {
+        None
     }
 }

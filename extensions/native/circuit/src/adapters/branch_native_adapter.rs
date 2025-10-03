@@ -25,17 +25,19 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
+    rap::ColumnsAir,
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 #[repr(C)]
-#[derive(AlignedBorrow, Debug)]
+#[derive(AlignedBorrow, StructReflection, Debug)]
 pub struct BranchNativeAdapterReadCols<T> {
     pub address: MemoryAddress<T, T>,
     pub read_aux: MemoryReadOrImmediateAuxCols<T>,
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow, Debug)]
+#[derive(AlignedBorrow, StructReflection, Debug)]
 pub struct BranchNativeAdapterCols<T> {
     pub from_state: ExecutionState<T>,
     pub reads_aux: [BranchNativeAdapterReadCols<T>; 2],
@@ -50,6 +52,12 @@ pub struct BranchNativeAdapterAir {
 impl<F: Field> BaseAir<F> for BranchNativeAdapterAir {
     fn width(&self) -> usize {
         BranchNativeAdapterCols::<F>::width()
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for BranchNativeAdapterAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        BranchNativeAdapterCols::<F>::struct_reflection()
     }
 }
 

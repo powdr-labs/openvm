@@ -20,7 +20,7 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, FieldAlgebra, PrimeField32},
-    rap::BaseAirWithPublicValues,
+    rap::{BaseAirWithPublicValues, ColumnsAir},
 };
 use openvm_stark_sdk::p3_baby_bear::BabyBear;
 
@@ -97,6 +97,12 @@ impl FieldExpressionCoreAir {
 impl<F: Field> BaseAir<F> for FieldExpressionCoreAir {
     fn width(&self) -> usize {
         BaseAir::<F>::width(&self.expr)
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for FieldExpressionCoreAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        None
     }
 }
 

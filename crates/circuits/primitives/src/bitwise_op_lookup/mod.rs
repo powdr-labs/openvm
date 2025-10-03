@@ -12,9 +12,10 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     prover::{cpu::CpuBackend, types::AirProvingContext},
-    rap::{get_air_name, BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{get_air_name, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     Chip, ChipUsageGetter,
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 mod bus;
 pub use bus::*;
@@ -27,7 +28,7 @@ pub use cuda::*;
 #[cfg(test)]
 mod tests;
 
-#[derive(Default, AlignedBorrow, Copy, Clone)]
+#[derive(Default, AlignedBorrow, Copy, Clone, StructReflection)]
 #[repr(C)]
 pub struct BitwiseOperationLookupCols<T> {
     /// Number of range check operations requested for each (x, y) pair
@@ -36,7 +37,7 @@ pub struct BitwiseOperationLookupCols<T> {
     pub mult_xor: T,
 }
 
-#[derive(Default, AlignedBorrow, Copy, Clone)]
+#[derive(Default, AlignedBorrow, Copy, Clone, StructReflection)]
 #[repr(C)]
 pub struct BitwiseOperationLookupPreprocessedCols<T> {
     pub x: T,
@@ -83,6 +84,12 @@ impl<F: Field, const NUM_BITS: usize> BaseAir<F> for BitwiseOperationLookupAir<N
             rows,
             NUM_BITWISE_OP_LOOKUP_PREPROCESSED_COLS,
         ))
+    }
+}
+
+impl<F: Field, const NUM_BITS: usize> ColumnsAir<F> for BitwiseOperationLookupAir<NUM_BITS> {
+    fn columns(&self) -> Option<Vec<String>> {
+        BitwiseOperationLookupCols::<F>::struct_reflection()
     }
 }
 
