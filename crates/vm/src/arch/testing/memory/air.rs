@@ -152,7 +152,7 @@ impl<F: PrimeField32> ChipUsageGetter for MemoryDummyChip<F> {
     }
 }
 
-impl<const BLOCK_SIZE: usize, F> ColumnsAir<F> for MemoryDummyAir<BLOCK_SIZE> {
+impl<F> ColumnsAir<F> for MemoryDummyAir {
     fn columns(&self) -> Option<Vec<String>> {
         None
     }

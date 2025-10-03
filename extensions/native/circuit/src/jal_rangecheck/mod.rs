@@ -26,8 +26,9 @@ use openvm_stark_backend::{
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField32},
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, PartitionedBaseAir, ColumnsAir},
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 use static_assertions::const_assert_eq;
 use AS::Native;
 
@@ -42,7 +43,7 @@ pub use cuda::*;
 mod tests;
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct JalRangeCheckCols<T> {
     is_jal: T,
     is_range_check: T,
@@ -70,6 +71,12 @@ pub struct JalRangeCheckAir {
 impl<F: Field> BaseAir<F> for JalRangeCheckAir {
     fn width(&self) -> usize {
         OVERALL_WIDTH
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for JalRangeCheckAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        JalRangeCheckCols::<F>::struct_reflection()
     }
 }
 
