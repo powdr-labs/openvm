@@ -23,69 +23,16 @@ use openvm_instructions::{
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
-    p3_field::{Field, FieldAlgebra, PrimeField32},
+    p3_field::{Field, FieldAlgebra, PrimeField32}, rap::ColumnsAir,
 };
 use util::{tracing_read_or_imm_native, tracing_write_native};
 use struct_reflection::{StructReflection, StructReflectionHelper};
 
-use crate::system::memory::{OfflineMemory, RecordId};
-
-/// R reads(R<=2), W writes(W<=1).
-/// Operands: b for the first read, c for the second read, a for the first write.
-/// If an operand is not used, its address space and pointer should be all 0.
-#[derive(Debug)]
-pub struct NativeAdapterChip<F, const R: usize, const W: usize> {
-    pub air: NativeAdapterAir<R, W>,
-    _phantom: PhantomData<F>,
-}
-
-impl<F: PrimeField32, const R: usize, const W: usize> NativeAdapterChip<F, R, W> {
-    pub fn new(
-        execution_bus: ExecutionBus,
-        program_bus: ProgramBus,
-        memory_bridge: MemoryBridge,
-    ) -> Self {
-        Self {
-            air: NativeAdapterAir {
-                execution_bridge: ExecutionBridge::new(execution_bus, program_bus),
-                memory_bridge,
-            },
-            _phantom: PhantomData,
-        }
-    }
-}
-
-#[repr(C)]
-#[derive(Debug, Serialize, Deserialize)]
-pub struct NativeReadRecord<F: Field, const R: usize> {
-    #[serde(with = "BigArray")]
-    pub reads: [(RecordId, [F; 1]); R],
-}
-
-impl<F: Field, const R: usize> NativeReadRecord<F, R> {
-    pub fn b(&self) -> &[F; 1] {
-        &self.reads[0].1
-    }
-
-    pub fn c(&self) -> &[F; 1] {
-        &self.reads[1].1
-    }
-}
-
-#[repr(C)]
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(bound = "F: Field")]
-pub struct NativeWriteRecord<F: Field, const W: usize> {
-    pub from_state: ExecutionState<u32>,
-    #[serde(with = "BigArray")]
-    pub writes: [(RecordId, [F; 1]); W],
-}
-
-impl<F: Field, const W: usize> NativeWriteRecord<F, W> {
-    pub fn a(&self) -> &[F; 1] {
-        &self.writes[0].1
-    }
-}
+use super::memory::{online::TracingMemory, MemoryAuxColsFactory};
+use crate::{
+    arch::{get_record_from_slice, AdapterTraceExecutor, AdapterTraceFiller},
+    system::memory::offline_checker::{MemoryReadAuxRecord, MemoryWriteAuxRecord},
+};
 
 #[repr(C)]
 #[derive(AlignedBorrow, StructReflection)]

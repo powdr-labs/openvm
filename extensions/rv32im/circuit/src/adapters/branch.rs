@@ -28,21 +28,6 @@ use super::RV32_REGISTER_NUM_LIMBS;
 use crate::adapters::tracing_read;
 
 #[repr(C)]
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Rv32BranchReadRecord {
-    /// Read register value from address space d = 1
-    pub rs1: RecordId,
-    /// Read register value from address space e = 1
-    pub rs2: RecordId,
-}
-
-#[repr(C)]
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Rv32BranchWriteRecord {
-    pub from_state: ExecutionState<u32>,
-}
-
-#[repr(C)]
 #[derive(AlignedBorrow, StructReflection)]
 pub struct Rv32BranchAdapterCols<T> {
     pub from_state: ExecutionState<T>,

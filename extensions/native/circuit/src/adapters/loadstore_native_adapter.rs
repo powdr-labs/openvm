@@ -55,30 +55,6 @@ impl<T, const NUM_CELLS: usize> VmAdapterInterface<T>
 }
 
 #[repr(C)]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(bound = "F: Field")]
-pub struct NativeLoadStoreReadRecord<F: Field, const NUM_CELLS: usize> {
-    pub pointer_read: RecordId,
-    pub data_read: Option<RecordId>,
-    pub write_as: F,
-    pub write_ptr: F,
-
-    pub a: F,
-    pub b: F,
-    pub c: F,
-    pub d: F,
-    pub e: F,
-}
-
-#[repr(C)]
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(bound = "F: Field")]
-pub struct NativeLoadStoreWriteRecord<F: Field, const NUM_CELLS: usize> {
-    pub from_state: ExecutionState<F>,
-    pub write_id: RecordId,
-}
-
-#[repr(C)]
 #[derive(Clone, Debug, AlignedBorrow, StructReflection)]
 pub struct NativeLoadStoreAdapterCols<T, const NUM_CELLS: usize> {
     pub from_state: ExecutionState<T>,

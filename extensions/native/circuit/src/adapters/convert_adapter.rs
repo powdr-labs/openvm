@@ -33,48 +33,7 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra, PrimeField32},
     rap::ColumnsAir,
 };
-use serde::{Deserialize, Serialize};
-use serde_big_array::BigArray;
 use struct_reflection::{StructReflection, StructReflectionHelper};
-
-#[repr(C)]
-#[derive(Debug, Serialize, Deserialize)]
-pub struct VectorReadRecord<const NUM_READS: usize, const READ_SIZE: usize> {
-    #[serde(with = "BigArray")]
-    pub reads: [RecordId; NUM_READS],
-}
-
-#[repr(C)]
-#[derive(Debug, Serialize, Deserialize)]
-pub struct VectorWriteRecord<const WRITE_SIZE: usize> {
-    pub from_state: ExecutionState<u32>,
-    pub writes: [RecordId; 1],
-}
-
-#[allow(dead_code)]
-#[derive(Debug)]
-pub struct ConvertAdapterChip<F: Field, const READ_SIZE: usize, const WRITE_SIZE: usize> {
-    pub air: ConvertAdapterAir<READ_SIZE, WRITE_SIZE>,
-    _marker: PhantomData<F>,
-}
-
-impl<F: PrimeField32, const READ_SIZE: usize, const WRITE_SIZE: usize>
-    ConvertAdapterChip<F, READ_SIZE, WRITE_SIZE>
-{
-    pub fn new(
-        execution_bus: ExecutionBus,
-        program_bus: ProgramBus,
-        memory_bridge: MemoryBridge,
-    ) -> Self {
-        Self {
-            air: ConvertAdapterAir {
-                execution_bridge: ExecutionBridge::new(execution_bus, program_bus),
-                memory_bridge,
-            },
-            _marker: PhantomData,
-        }
-    }
-}
 
 #[repr(C)]
 #[derive(AlignedBorrow, StructReflection)]

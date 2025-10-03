@@ -31,13 +31,6 @@ use super::RV32_REGISTER_NUM_LIMBS;
 use crate::adapters::{tracing_read, tracing_write};
 
 #[repr(C)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Rv32JalrWriteRecord {
-    pub from_state: ExecutionState<u32>,
-    pub rd_id: Option<RecordId>,
-}
-
-#[repr(C)]
 #[derive(Debug, Clone, AlignedBorrow, StructReflection)]
 pub struct Rv32JalrAdapterCols<T> {
     pub from_state: ExecutionState<T>,
