@@ -5115,6 +5115,7 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "serde_with",
+ "struct-reflection",
  "strum",
  "test-case",
 ]
@@ -5367,6 +5368,7 @@ dependencies = [
  "serde",
  "serde-big-array",
  "static_assertions",
+ "struct-reflection",
  "test-case",
  "test-log",
  "thiserror 1.0.69",
@@ -5398,6 +5400,7 @@ dependencies = [
  "openvm-stark-backend",
  "openvm-stark-sdk",
  "rand 0.8.5",
+ "struct-reflection",
  "test-case",
  "tracing",
 ]
@@ -5677,6 +5680,7 @@ dependencies = [
  "p3-keccak-air",
  "rand 0.8.5",
  "serde",
+ "struct-reflection",
  "strum",
  "tiny-keccak",
 ]
@@ -5760,6 +5764,7 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "static_assertions",
+ "struct-reflection",
  "strum",
  "test-case",
  "test-log",
@@ -5993,6 +5998,7 @@ dependencies = [
  "openvm-stark-backend",
  "openvm-stark-sdk",
  "rand 0.8.5",
+ "struct-reflection",
 ]
 
 [[package]]
@@ -6018,6 +6024,7 @@ dependencies = [
  "openvm-stark-sdk",
  "rand 0.8.5",
  "serde",
+ "struct-reflection",
  "strum",
  "test-case",
 ]
@@ -8782,6 +8789,24 @@ name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
+
+[[package]]
+name = "struct-reflection"
+version = "0.1.0"
+source = "git+https://github.com/gzanitti/struct-reflection-rs.git#69628d17bf35d1f09afd8cd93ba124de44789dff"
+dependencies = [
+ "struct-reflection-derive",
+]
+
+[[package]]
+name = "struct-reflection-derive"
+version = "0.1.0"
+source = "git+https://github.com/gzanitti/struct-reflection-rs.git#69628d17bf35d1f09afd8cd93ba124de44789dff"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
+]
 
 [[package]]
 name = "strum"
