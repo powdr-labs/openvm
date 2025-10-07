@@ -114,11 +114,10 @@ impl<F: Field, E> PreflightInterpretedInstance<F, E> {
     {
         let base_idx = get_pc_index(self.pc_base);
         self.pc_handler
-            .iter()
-            .enumerate()
+            .par_iter()
+            .zip_eq(&self.execution_frequencies)
             .skip(base_idx)
-            .filter(|(_, entry)| entry.is_some())
-            .map(|(i, _)| self.execution_frequencies[i])
+            .filter_map(|(entry, freq)| entry.is_some().then_some(*freq))
             .collect()
     }
 
