@@ -101,8 +101,7 @@ impl<F: Field, E> PreflightInterpretedInstance<F, E> {
         &self.inventory.executors
     }
 
-    pub fn filtered_execution_frequencies(&self) -> Vec<u32>
-    {
+    pub fn filtered_execution_frequencies(&self) -> Vec<u32> {
         let base_idx = get_pc_index(self.pc_base);
         self.pc_handler
             .par_iter()
