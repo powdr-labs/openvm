@@ -51,6 +51,11 @@ impl<F: Clone, MEM> VmState<F, MEM> {
             metrics: VmMetrics::default(),
         }
     }
+
+    #[inline(always)]
+    pub fn log_pc(&self) {
+        tracing::trace!(pc = self.pc, "executing instruction");
+    }
 }
 
 impl<F: Clone> VmState<F, GuestMemory> {
