@@ -3,13 +3,17 @@ use openvm_stark_backend::{
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
 
 use crate::bitwise_op_lookup::bus::BitwiseOperationLookupBus;
 
 pub struct DummyAir {
     bus: BitwiseOperationLookupBus,
+}
+
+impl<F: Field> ColumnsAir<F> for DummyAir {
+
 }
 
 impl DummyAir {

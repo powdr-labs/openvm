@@ -6,7 +6,7 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     utils::disable_debug_builder,
     verifier::VerificationError,
 };
@@ -41,6 +41,8 @@ pub struct IsZeroCols<T> {
 
 #[derive(Copy, Clone)]
 pub struct IsZeroTestAir(IsZeroSubAir);
+
+impl<F: Field> ColumnsAir<F> for IsZeroTestAir {}
 
 impl<F: Field> BaseAirWithPublicValues<F> for IsZeroTestAir {}
 impl<F: Field> PartitionedBaseAir<F> for IsZeroTestAir {}

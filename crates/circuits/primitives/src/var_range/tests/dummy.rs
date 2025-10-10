@@ -3,7 +3,7 @@ use openvm_stark_backend::{
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
 
 use crate::var_range::bus::VariableRangeCheckerBus;
@@ -11,6 +11,10 @@ use crate::var_range::bus::VariableRangeCheckerBus;
 // dummy AIR for testing VariableRangeCheckerBus::send
 pub struct TestSendAir {
     bus: VariableRangeCheckerBus,
+}
+
+impl<F: Field> ColumnsAir<F> for TestSendAir {
+
 }
 
 impl TestSendAir {
@@ -44,6 +48,10 @@ impl<AB: InteractionBuilder + AirBuilder> Air<AB> for TestSendAir {
 pub struct TestRangeCheckAir {
     bus: VariableRangeCheckerBus,
     max_bits: usize,
+}
+
+impl<F: Field> ColumnsAir<F> for TestRangeCheckAir {
+
 }
 
 impl TestRangeCheckAir {

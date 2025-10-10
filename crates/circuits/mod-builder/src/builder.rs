@@ -18,7 +18,7 @@ use openvm_stark_backend::{
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField64},
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
 
 use super::{FieldVariable, SymbolicExpr};
@@ -255,6 +255,10 @@ pub struct FieldExpr {
 
     // any values other than the prime modulus that need to be checked at setup
     pub setup_values: Vec<BigUint>,
+}
+
+impl<F: Field> ColumnsAir<F> for FieldExpr {
+
 }
 
 impl FieldExpr {

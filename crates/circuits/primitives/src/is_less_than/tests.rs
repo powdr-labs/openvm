@@ -7,7 +7,7 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     utils::disable_debug_builder,
     verifier::VerificationError,
 };
@@ -45,6 +45,8 @@ pub struct IsLessThanCols<T> {
 /// all configured in the constructor at runtime.
 #[derive(Clone, Copy)]
 pub struct IsLtTestAir(pub IsLtSubAir);
+
+impl<F: Field> ColumnsAir<F> for IsLtTestAir {}
 
 impl<F: Field> BaseAirWithPublicValues<F> for IsLtTestAir {}
 impl<F: Field> PartitionedBaseAir<F> for IsLtTestAir {}

@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use openvm_stark_backend::{
     p3_field::{Field, PrimeField},
-    p3_matrix::dense::RowMajorMatrix,
+    p3_matrix::dense::RowMajorMatrix, rap::ColumnsAir,
 };
 pub use openvm_stark_sdk::p3_baby_bear;
 pub use p3_poseidon2;
@@ -51,6 +51,10 @@ pub struct Poseidon2SubChip<F: Field, const SBOX_REGISTERS: usize> {
     pub air: Arc<Poseidon2SubAir<F, SBOX_REGISTERS>>,
     pub(crate) executor: Poseidon2Executor<F>,
     pub(crate) constants: Plonky3RoundConstants<F>,
+}
+
+impl<F: Field, const SBOX_REGISTERS: usize> ColumnsAir<F> for Poseidon2SubAir<F, SBOX_REGISTERS> {
+
 }
 
 impl<F: PrimeField, const SBOX_REGISTERS: usize> Poseidon2SubChip<F, SBOX_REGISTERS> {

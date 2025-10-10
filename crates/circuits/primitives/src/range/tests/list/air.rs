@@ -5,7 +5,7 @@ use openvm_stark_backend::{
     p3_air::{Air, BaseAir},
     p3_field::{Field, FieldAlgebra},
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
 
 use super::columns::{ListCols, NUM_LIST_COLS};
@@ -15,6 +15,10 @@ use crate::range::bus::RangeCheckBus;
 pub struct ListAir {
     /// The index for the Range Checker bus.
     pub bus: RangeCheckBus,
+}
+
+impl<F: Field> ColumnsAir<F> for ListAir {
+
 }
 
 impl<F: Field> BaseAirWithPublicValues<F> for ListAir {}
