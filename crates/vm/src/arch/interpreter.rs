@@ -161,15 +161,25 @@ where
         )?;
         let pc_start = exe.pc_start;
         let init_memory = exe.init_memory.clone();
+
         #[cfg(feature = "tco")]
-        let handlers = repeat_n(&None, get_pc_index(program.pc_base))
+        let base_index = get_pc_index(program.pc_base);
+
+        #[cfg(feature = "tco")]
+        let handlers = repeat_n(&None, base_index)
             .chain(program.instructions_and_debug_infos.iter())
             .zip_eq(split_pre_compute_buf.iter_mut())
             .enumerate()
             .map(
-                |(pc_idx, (inst_opt, pre_compute))| -> Result<Handler<F, Ctx>, StaticProgramError> {
+                |(i, (inst_opt, pre_compute))| -> Result<Handler<F, Ctx>, StaticProgramError> {
                     if let Some((inst, _)) = inst_opt {
-                        let pc = pc_idx as u32 * DEFAULT_PC_STEP;
+                        // Recover the pc_index using the base_index offset. This is guaranteed not to underflow because the first `base_index` entries are `None`, so we would not be in this branch.
+                        let pc_idx = i - base_index;
+
+                        // If an apc exists at this pc index, override the instruction
+                        let inst = program.apc_by_pc_index.get(&pc_idx).map(|(inst, _)| inst).unwrap_or(inst);
+
+                        let pc = program.pc_base + pc_idx as u32 * DEFAULT_PC_STEP;
                         if get_system_opcode_handler::<F, Ctx>(inst, pre_compute).is_some() {
                             Ok(terminate_execute_e12_tco_handler)
                         } else {
@@ -266,15 +276,26 @@ where
 
         let pc_start = exe.pc_start;
         let init_memory = exe.init_memory.clone();
+
         #[cfg(feature = "tco")]
-        let handlers = repeat_n(&None, get_pc_index(program.pc_base))
+        let base_index = get_pc_index(program.pc_base);
+
+        #[cfg(feature = "tco")]
+        let handlers = repeat_n(&None, base_index)
             .chain(program.instructions_and_debug_infos.iter())
             .zip_eq(split_pre_compute_buf.iter_mut())
             .enumerate()
             .map(
-                |(pc_idx, (inst_opt, pre_compute))| -> Result<Handler<F, Ctx>, StaticProgramError> {
+                |(i, (inst_opt, pre_compute))| -> Result<Handler<F, Ctx>, StaticProgramError> {
                     if let Some((inst, _)) = inst_opt {
-                        let pc = pc_idx as u32 * DEFAULT_PC_STEP;
+
+                        // Recover the pc_index using the base_index offset. This is guaranteed not to underflow because the first `base_index` entries are `None`, so we would not be in this branch.
+                        let pc_idx = i - base_index;
+
+                        // If an apc exists at this pc index, override the instruction
+                        let inst = program.apc_by_pc_index.get(&pc_idx).map(|(inst, _)| { println!("found apc!"); inst}).unwrap_or(inst);
+
+                        let pc = program.pc_base + pc_idx as u32 * DEFAULT_PC_STEP;
                         if get_system_opcode_handler::<F, Ctx>(inst, pre_compute).is_some() {
                             Ok(terminate_execute_e12_tco_handler)
                         } else {
