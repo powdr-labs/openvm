@@ -293,7 +293,7 @@ where
                         let pc_idx = i - base_index;
 
                         // If an apc exists at this pc index, override the instruction
-                        let inst = program.apc_by_pc_index.get(&pc_idx).map(|(inst, _)| { println!("found apc!"); inst}).unwrap_or(inst);
+                        let inst = program.apc_by_pc_index.get(&pc_idx).map(|(inst, _)| inst).unwrap_or(inst);
 
                         let pc = program.pc_base + pc_idx as u32 * DEFAULT_PC_STEP;
                         if get_system_opcode_handler::<F, Ctx>(inst, pre_compute).is_some() {
