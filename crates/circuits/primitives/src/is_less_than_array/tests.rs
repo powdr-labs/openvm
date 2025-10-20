@@ -9,7 +9,7 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     utils::disable_debug_builder,
     verifier::VerificationError,
 };
@@ -39,6 +39,10 @@ pub struct IsLtArrayCols<T, const NUM: usize, const AUX_LEN: usize> {
 #[derive(Clone, Copy)]
 pub struct IsLtArrayTestAir<const NUM: usize, const AUX_LEN: usize>(IsLtArraySubAir<NUM>);
 
+impl<F: Field, const NUM: usize, const AUX_LEN: usize> ColumnsAir<F>
+    for IsLtArrayTestAir<NUM, AUX_LEN>
+{
+}
 impl<F: Field, const NUM: usize, const AUX_LEN: usize> BaseAirWithPublicValues<F>
     for IsLtArrayTestAir<NUM, AUX_LEN>
 {

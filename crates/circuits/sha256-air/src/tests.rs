@@ -18,7 +18,7 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     prover::{cpu::CpuBackend, types::AirProvingContext},
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     utils::disable_debug_builder,
     verifier::VerificationError,
     AirRef, Chip,
@@ -37,6 +37,7 @@ pub struct Sha256TestAir {
     pub sub_air: Sha256Air,
 }
 
+impl<F: Field> ColumnsAir<F> for Sha256TestAir {}
 impl<F: Field> BaseAirWithPublicValues<F> for Sha256TestAir {}
 impl<F: Field> PartitionedBaseAir<F> for Sha256TestAir {}
 impl<F: Field> BaseAir<F> for Sha256TestAir {

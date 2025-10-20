@@ -3,7 +3,7 @@ use openvm_stark_backend::{
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
 
 use crate::var_range::bus::VariableRangeCheckerBus;
@@ -19,6 +19,7 @@ impl TestSendAir {
     }
 }
 
+impl<F: Field> ColumnsAir<F> for TestSendAir {}
 impl<F: Field> BaseAirWithPublicValues<F> for TestSendAir {}
 impl<F: Field> PartitionedBaseAir<F> for TestSendAir {}
 impl<F: Field> BaseAir<F> for TestSendAir {
@@ -52,6 +53,7 @@ impl TestRangeCheckAir {
     }
 }
 
+impl<F: Field> ColumnsAir<F> for TestRangeCheckAir {}
 impl<F: Field> BaseAirWithPublicValues<F> for TestRangeCheckAir {}
 impl<F: Field> PartitionedBaseAir<F> for TestRangeCheckAir {}
 impl<F: Field> BaseAir<F> for TestRangeCheckAir {
