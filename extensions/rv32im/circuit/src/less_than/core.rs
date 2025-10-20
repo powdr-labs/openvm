@@ -19,12 +19,13 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField32},
-    rap::BaseAirWithPublicValues,
+    rap::{BaseAirWithPublicValues, ColumnsAir},
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 use strum::IntoEnumIterator;
 
 #[repr(C)]
-#[derive(AlignedBorrow, Debug)]
+#[derive(AlignedBorrow, StructReflection, Debug)]
 pub struct LessThanCoreCols<T, const NUM_LIMBS: usize, const LIMB_BITS: usize> {
     pub b: [T; NUM_LIMBS],
     pub c: [T; NUM_LIMBS],
@@ -57,6 +58,15 @@ impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAir<F>
         LessThanCoreCols::<F, NUM_LIMBS, LIMB_BITS>::width()
     }
 }
+
+impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> ColumnsAir<F>
+    for LessThanCoreAir<NUM_LIMBS, LIMB_BITS>
+{
+    fn columns(&self) -> Option<Vec<String>> {
+        LessThanCoreCols::<F, NUM_LIMBS, LIMB_BITS>::struct_reflection()
+    }
+}
+
 impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAirWithPublicValues<F>
     for LessThanCoreAir<NUM_LIMBS, LIMB_BITS>
 {

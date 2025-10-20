@@ -32,10 +32,11 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
 
 use crate::adapters::{read_rv32_register, tracing_read, tracing_write};
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 mod execution;
 
@@ -48,7 +49,7 @@ pub use cuda::*;
 mod tests;
 
 #[repr(C)]
-#[derive(AlignedBorrow, Debug)]
+#[derive(AlignedBorrow, Debug, StructReflection)]
 pub struct Rv32HintStoreCols<T> {
     // common
     pub is_single: T,
@@ -82,6 +83,12 @@ pub struct Rv32HintStoreAir {
 impl<F: Field> BaseAir<F> for Rv32HintStoreAir {
     fn width(&self) -> usize {
         Rv32HintStoreCols::<F>::width()
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for Rv32HintStoreAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        Rv32HintStoreCols::<F>::struct_reflection()
     }
 }
 

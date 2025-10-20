@@ -23,15 +23,16 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField32},
-    rap::BaseAirWithPublicValues,
+    rap::{BaseAirWithPublicValues, ColumnsAir},
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use crate::adapters::{
     Rv32JalrAdapterExecutor, Rv32JalrAdapterFiller, RV32_CELL_BITS, RV32_REGISTER_NUM_LIMBS,
 };
 
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, AlignedBorrow, StructReflection)]
 pub struct Rv32JalrCoreCols<T> {
     pub imm: T,
     pub rs1_data: [T; RV32_REGISTER_NUM_LIMBS],
@@ -55,6 +56,12 @@ pub struct Rv32JalrCoreAir {
 impl<F: Field> BaseAir<F> for Rv32JalrCoreAir {
     fn width(&self) -> usize {
         Rv32JalrCoreCols::<F>::width()
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for Rv32JalrCoreAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        Rv32JalrCoreCols::<F>::struct_reflection()
     }
 }
 

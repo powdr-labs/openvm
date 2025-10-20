@@ -18,12 +18,13 @@ use openvm_stark_backend::{
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField32},
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
 use rand::rngs::StdRng;
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use super::memory::online::{GuestMemory, TracingMemory};
 use crate::{
@@ -52,7 +53,7 @@ pub struct PhantomAir {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow, Copy, Clone, Serialize, Deserialize)]
+#[derive(AlignedBorrow, Copy, Clone, Serialize, Deserialize, StructReflection)]
 pub struct PhantomCols<T> {
     pub pc: T,
     #[serde(with = "BigArray")]
@@ -66,6 +67,13 @@ impl<F: Field> BaseAir<F> for PhantomAir {
         PhantomCols::<F>::width()
     }
 }
+
+impl<F: Field> ColumnsAir<F> for PhantomAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        PhantomCols::<F>::struct_reflection()
+    }
+}
+
 impl<F: Field> PartitionedBaseAir<F> for PhantomAir {}
 impl<F: Field> BaseAirWithPublicValues<F> for PhantomAir {}
 

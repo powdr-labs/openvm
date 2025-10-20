@@ -12,12 +12,13 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{AirBuilder, BaseAir},
     p3_field::{Field, FieldAlgebra, PrimeField32},
-    rap::BaseAirWithPublicValues,
+    rap::{BaseAirWithPublicValues, ColumnsAir},
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 use strum::IntoEnumIterator;
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct BranchEqualCoreCols<T, const NUM_LIMBS: usize> {
     pub a: [T; NUM_LIMBS],
     pub b: [T; NUM_LIMBS],
@@ -43,6 +44,13 @@ impl<F: Field, const NUM_LIMBS: usize> BaseAir<F> for BranchEqualCoreAir<NUM_LIM
         BranchEqualCoreCols::<F, NUM_LIMBS>::width()
     }
 }
+
+impl<F: Field, const NUM_LIMBS: usize> ColumnsAir<F> for BranchEqualCoreAir<NUM_LIMBS> {
+    fn columns(&self) -> Option<Vec<String>> {
+        BranchEqualCoreCols::<F, NUM_LIMBS>::struct_reflection()
+    }
+}
+
 impl<F: Field, const NUM_LIMBS: usize> BaseAirWithPublicValues<F>
     for BranchEqualCoreAir<NUM_LIMBS>
 {

@@ -29,6 +29,7 @@ cfg-if.workspace = true
 num-bigint.workspace = true
 num-integer.workspace = true
 serde = { workspace = true, features = ["derive", "std"] }
+struct-reflection.workspace = true
 
 [dev-dependencies]
 openvm-stark-sdk = { workspace = true }

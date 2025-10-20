@@ -113,11 +113,11 @@ lto = "thin"
 
 [workspace.dependencies]
 # Stark Backend
-openvm-stark-backend = { git = "https://github.com/openvm-org/stark-backend.git", tag = "v1.2.0", default-features = false }
-openvm-stark-sdk = { git = "https://github.com/openvm-org/stark-backend.git", tag = "v1.2.0", default-features = false }
-openvm-cuda-backend = { git = "https://github.com/openvm-org/stark-backend.git", tag = "v1.2.0", default-features = false }
-openvm-cuda-builder = { git = "https://github.com/openvm-org/stark-backend.git", tag = "v1.2.0", default-features = false }
-openvm-cuda-common = { git = "https://github.com/openvm-org/stark-backend.git", tag = "v1.2.0", default-features = false }
+openvm-stark-backend = { git = "https://github.com/powdr-labs/stark-backend.git", rev = "cd36ceb", default-features = false }
+openvm-stark-sdk = { git = "https://github.com/powdr-labs/stark-backend.git", rev = "cd36ceb", default-features = false }
+openvm-cuda-backend = { git = "https://github.com/powdr-labs/stark-backend.git", rev = "cd36ceb", default-features = false }
+openvm-cuda-builder = { git = "https://github.com/powdr-labs/stark-backend.git", rev = "cd36ceb", default-features = false }
+openvm-cuda-common = { git = "https://github.com/powdr-labs/stark-backend.git", rev = "cd36ceb", default-features = false }
 
 # OpenVM
 openvm-sdk = { path = "crates/sdk", default-features = false }
@@ -195,6 +195,7 @@ snark-verifier-sdk = { version = "0.2.0", default-features = false, features = [
 ] }
 snark-verifier = { version = "0.2.0", default-features = false }
 halo2curves-axiom = "0.7.0"
+struct-reflection = { git = "https://github.com/gzanitti/struct-reflection-rs.git" }
 
 forge-fmt = "0.2.0"
 cargo_metadata = "0.18"
@@ -271,3 +272,11 @@ cuda-runtime-sys = "0.3.0-alpha.1"
 
 [workspace.metadata.cargo-shear]
 ignored = ["cargo-openvm"]
+
+# # The local openvm also needs to have stark-backend patched so all types match.
+# [patch."https://github.com/powdr-labs/stark-backend.git"]
+# openvm-stark-backend = { path = "../stark-backend/crates/stark-backend", default-features = false }
+# openvm-stark-sdk = { path = "../stark-backend/crates/stark-sdk", default-features = false }
+# openvm-cuda-backend = { path = "../stark-backend/crates/cuda-backend", default-features = false }
+# openvm-cuda-builder = { path = "../stark-backend/crates/cuda-builder", default-features = false }
+# openvm-cuda-common = { path = "../stark-backend/crates/cuda-common", default-features = false }

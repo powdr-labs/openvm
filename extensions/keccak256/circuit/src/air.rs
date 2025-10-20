@@ -21,7 +21,7 @@ use openvm_stark_backend::{
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::FieldAlgebra,
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
 use p3_keccak_air::{KeccakAir, NUM_KECCAK_COLS as NUM_KECCAK_PERM_COLS, U64_LIMBS};
 
@@ -48,6 +48,12 @@ impl<F> PartitionedBaseAir<F> for KeccakVmAir {}
 impl<F> BaseAir<F> for KeccakVmAir {
     fn width(&self) -> usize {
         NUM_KECCAK_VM_COLS
+    }
+}
+
+impl<F> ColumnsAir<F> for KeccakVmAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        None
     }
 }
 

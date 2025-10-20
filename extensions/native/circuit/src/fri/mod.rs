@@ -29,7 +29,7 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
 use static_assertions::const_assert_eq;
 
@@ -232,6 +232,12 @@ pub struct FriReducedOpeningAir {
 impl<F: Field> BaseAir<F> for FriReducedOpeningAir {
     fn width(&self) -> usize {
         OVERALL_WIDTH
+    }
+}
+
+impl<F: Field> ColumnsAir<F> for FriReducedOpeningAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        None
     }
 }
 

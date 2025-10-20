@@ -5,6 +5,7 @@ use openvm_stark_backend::{
     p3_air::AirBuilder,
     p3_field::{FieldAlgebra, PrimeField32},
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use crate::{
     is_less_than::{IsLtSubAir, LessThanAuxCols},
@@ -31,7 +32,7 @@ pub struct IsLtArrayIo<T, const NUM: usize> {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow, Clone, Copy, Debug)]
+#[derive(AlignedBorrow, Clone, Copy, Debug, StructReflection)]
 pub struct IsLtArrayAuxCols<T, const NUM: usize, const AUX_LEN: usize> {
     // `diff_marker` is filled with 0 except at the lowest index i such that
     // `x[i] != y[i]`. If such an `i` exists then it is constrained that `diff_inv = inv(y[i] -

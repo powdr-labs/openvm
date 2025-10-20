@@ -9,8 +9,9 @@ use openvm_stark_backend::{
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::FieldAlgebra,
     p3_matrix::Matrix,
-    rap::{BaseAirWithPublicValues, PartitionedBaseAir},
+    rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
+use struct_reflection::StructReflectionHelper;
 
 use crate::system::memory::{
     adapter::columns::AccessAdapterCols, offline_checker::MemoryBus, MemoryAddress,
@@ -27,6 +28,12 @@ impl<T, const N: usize> PartitionedBaseAir<T> for AccessAdapterAir<N> {}
 impl<T, const N: usize> BaseAir<T> for AccessAdapterAir<N> {
     fn width(&self) -> usize {
         size_of::<AccessAdapterCols<u8, N>>()
+    }
+}
+
+impl<T, const N: usize> ColumnsAir<T> for AccessAdapterAir<N> {
+    fn columns(&self) -> Option<Vec<String>> {
+        AccessAdapterCols::<T, N>::struct_reflection()
     }
 }
 

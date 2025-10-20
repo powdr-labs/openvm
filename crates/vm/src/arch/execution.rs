@@ -9,6 +9,7 @@ use openvm_stark_backend::{
 };
 use rand::rngs::StdRng;
 use serde::{Deserialize, Serialize};
+use struct_reflection::{StructReflection, StructReflectionHelper};
 use thiserror::Error;
 
 use super::{execution_mode::ExecutionCtxTrait, Streams, VmExecState};
@@ -198,7 +199,7 @@ pub struct VmStateMut<'a, F, MEM, RA> {
     pub streams: &'a mut Streams<F>,
     pub rng: &'a mut StdRng,
     /// Custom public values to be set by the system PublicValuesExecutor
-    pub(crate) custom_pvs: &'a mut Vec<Option<F>>,
+    pub custom_pvs: &'a mut Vec<Option<F>>,
     pub ctx: &'a mut RA,
     #[cfg(feature = "metrics")]
     pub metrics: &'a mut VmMetrics,
@@ -214,7 +215,9 @@ pub struct E2PreCompute<DATA> {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq, Default, AlignedBorrow, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Default, AlignedBorrow, Serialize, Deserialize, StructReflection,
+)]
 pub struct ExecutionState<T> {
     pub pc: T,
     pub timestamp: T,

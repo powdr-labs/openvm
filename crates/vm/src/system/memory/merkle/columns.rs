@@ -1,6 +1,7 @@
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
-#[derive(Debug, AlignedBorrow)]
+#[derive(Debug, AlignedBorrow, StructReflection)]
 #[repr(C)]
 pub struct MemoryMerkleCols<T, const CHUNK: usize> {
     // `expand_direction` =  1 corresponds to initial memory state
