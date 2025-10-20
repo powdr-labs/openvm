@@ -5431,7 +5431,7 @@ dependencies = [
 [[package]]
 name = "openvm-cuda-backend"
 version = "1.2.0"
-source = "git+https://github.com/powdr-labs/stark-backend.git?rev=e27de8b#e27de8b08d124291e87fabd2bc0226c03cc5fd97"
+source = "git+https://github.com/powdr-labs/stark-backend.git?rev=cd36ceb#cd36cebc84946c13645ba11bb8e8edb3e8ced8eb"
 dependencies = [
  "bincode 2.0.1",
  "bincode_derive",
@@ -5463,7 +5463,7 @@ dependencies = [
 [[package]]
 name = "openvm-cuda-builder"
 version = "1.2.0"
-source = "git+https://github.com/powdr-labs/stark-backend.git?rev=e27de8b#e27de8b08d124291e87fabd2bc0226c03cc5fd97"
+source = "git+https://github.com/powdr-labs/stark-backend.git?rev=cd36ceb#cd36cebc84946c13645ba11bb8e8edb3e8ced8eb"
 dependencies = [
  "cc",
  "glob",
@@ -5472,7 +5472,7 @@ dependencies = [
 [[package]]
 name = "openvm-cuda-common"
 version = "1.2.0"
-source = "git+https://github.com/powdr-labs/stark-backend.git?rev=e27de8b#e27de8b08d124291e87fabd2bc0226c03cc5fd97"
+source = "git+https://github.com/powdr-labs/stark-backend.git?rev=cd36ceb#cd36cebc84946c13645ba11bb8e8edb3e8ced8eb"
 dependencies = [
  "bytesize",
  "lazy_static",
@@ -6218,7 +6218,7 @@ dependencies = [
 [[package]]
 name = "openvm-stark-backend"
 version = "1.2.0"
-source = "git+https://github.com/powdr-labs/stark-backend.git?rev=e27de8b#e27de8b08d124291e87fabd2bc0226c03cc5fd97"
+source = "git+https://github.com/powdr-labs/stark-backend.git?rev=cd36ceb#cd36cebc84946c13645ba11bb8e8edb3e8ced8eb"
 dependencies = [
  "bitcode",
  "cfg-if",
@@ -6246,7 +6246,7 @@ dependencies = [
 [[package]]
 name = "openvm-stark-sdk"
 version = "1.2.0"
-source = "git+https://github.com/powdr-labs/stark-backend.git?rev=e27de8b#e27de8b08d124291e87fabd2bc0226c03cc5fd97"
+source = "git+https://github.com/powdr-labs/stark-backend.git?rev=cd36ceb#cd36cebc84946c13645ba11bb8e8edb3e8ced8eb"
 dependencies = [
  "dashmap",
  "derivative",
