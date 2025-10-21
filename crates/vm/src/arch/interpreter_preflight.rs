@@ -1,5 +1,7 @@
 use std::{iter::repeat_n, sync::Arc};
 
+#[cfg(not(feature = "parallel"))]
+use itertools::Itertools;
 use openvm_instructions::{instruction::Instruction, program::Program, LocalOpcode, SystemOpcode};
 use openvm_stark_backend::{
     p3_field::{Field, PrimeField32},
