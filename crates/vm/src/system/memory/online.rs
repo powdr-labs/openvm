@@ -395,7 +395,10 @@ impl AccessMetadata {
     const LOG_BLOCK_SIZE_SHIFT: u32 = 29;
 
     pub fn new(timestamp: u32, block_size: u8, offset_to_start: u8) -> Self {
-        debug_assert!(timestamp < (1 << 29), "Timestamp must be less than 2^29");
+        debug_assert!(
+            timestamp < (1 << 29),
+            "Timestamp must be less than 2^29, but got {timestamp}"
+        );
         debug_assert!(
             block_size == 0 || (block_size.is_power_of_two() && block_size <= MAX_BLOCK_SIZE as u8),
             "Block size must be 0 or power of 2 and <= {}",

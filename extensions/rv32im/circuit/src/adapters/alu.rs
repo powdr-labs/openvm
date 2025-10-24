@@ -31,11 +31,11 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra, PrimeField32},
     rap::ColumnsAir,
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use super::{
     tracing_read, tracing_read_imm, tracing_write, RV32_CELL_BITS, RV32_REGISTER_NUM_LIMBS,
 };
-use struct_reflection::{StructReflection, StructReflectionHelper};
 
 #[repr(C)]
 #[derive(AlignedBorrow, StructReflection)]

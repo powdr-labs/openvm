@@ -137,6 +137,7 @@ impl SegmentationCtx {
         instret: u64,
         trace_heights: &[u32],
         is_trace_height_constant: &[bool],
+        ts: u32,
     ) -> bool {
         debug_assert_eq!(trace_heights.len(), is_trace_height_constant.len());
         debug_assert_eq!(trace_heights.len(), self.air_names.len());
@@ -197,7 +198,22 @@ impl SegmentationCtx {
             return true;
         }
 
-        false
+        let should_segment_timestamp_powdr = std::env::var("POWDR_OPENVM_SEGMENT_DELTA")
+            .ok()
+            .map(|val| val.parse::<u64>().unwrap())
+            .map_or(false, |delta| {
+                // ts * 1.2, but don't want to use floats
+                if (((ts as u64) * 12) / 10) > ((1 << 29) - delta) {
+                    tracing::info!(
+                        "Should segment because timestamp {ts} is approaching the limit",
+                    );
+                    true
+                } else {
+                    false
+                }
+            });
+
+        return should_segment_timestamp_powdr;
     }
 
     #[inline(always)]
@@ -206,8 +222,9 @@ impl SegmentationCtx {
         instret: u64,
         trace_heights: &[u32],
         is_trace_height_constant: &[bool],
+        ts: u32,
     ) -> bool {
-        let ret = self.should_segment(instret, trace_heights, is_trace_height_constant);
+        let ret = self.should_segment(instret, trace_heights, is_trace_height_constant, ts);
         if ret {
             self.segment(instret, trace_heights);
         }

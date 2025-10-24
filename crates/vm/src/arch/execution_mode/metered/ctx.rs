@@ -11,7 +11,7 @@ use crate::{
         execution_mode::{ExecutionCtxTrait, MeteredExecutionCtxTrait},
         SystemConfig, VmExecState,
     },
-    system::memory::online::GuestMemory,
+    system::memory::{online::GuestMemory, INITIAL_TIMESTAMP},
 };
 
 pub const DEFAULT_PAGE_BITS: usize = 6;
@@ -22,6 +22,11 @@ pub struct MeteredCtx<const PAGE_BITS: usize = DEFAULT_PAGE_BITS> {
     pub is_trace_height_constant: Vec<bool>,
     pub memory_ctx: MemoryCtx<PAGE_BITS>,
     pub segmentation_ctx: SegmentationCtx,
+    /// Lower bound of the timestamp at this point in the segment.
+    /// The actual timestamp is larger than this in practice,
+    /// for example in the cases where `increment_timestamp` is called on `TracingMemory`
+    /// without an actual memory operation happening.
+    pub timestamp: u32,
 }
 
 impl<const PAGE_BITS: usize> MeteredCtx<PAGE_BITS> {
@@ -74,6 +79,8 @@ impl<const PAGE_BITS: usize> MeteredCtx<PAGE_BITS> {
             is_trace_height_constant,
             memory_ctx,
             segmentation_ctx,
+            // OpenVM execution starts with timestamp = 1
+            timestamp: INITIAL_TIMESTAMP + 1,
         };
         if !config.continuation_enabled {
             // force single segment
@@ -114,6 +121,8 @@ impl<const PAGE_BITS: usize> MeteredCtx<PAGE_BITS> {
     }
 
     fn reset_segment(&mut self) {
+        // OpenVM execution starts with timestamp = 1
+        self.timestamp = INITIAL_TIMESTAMP + 1;
         self.memory_ctx.clear();
         for (i, &is_constant) in self.is_trace_height_constant.iter().enumerate() {
             if !is_constant {
@@ -144,6 +153,7 @@ impl<const PAGE_BITS: usize> MeteredCtx<PAGE_BITS> {
             instret,
             &self.trace_heights,
             &self.is_trace_height_constant,
+            self.timestamp,
         );
 
         if did_segment {
@@ -170,6 +180,9 @@ impl<const PAGE_BITS: usize> MeteredCtx<PAGE_BITS> {
 impl<const PAGE_BITS: usize> ExecutionCtxTrait for MeteredCtx<PAGE_BITS> {
     #[inline(always)]
     fn on_memory_operation(&mut self, address_space: u32, ptr: u32, size: u32) {
+        let words = size.div_ceil(4);
+        self.timestamp += words;
+
         debug_assert!(
             address_space != RV32_IMM_AS,
             "address space must not be immediate"
