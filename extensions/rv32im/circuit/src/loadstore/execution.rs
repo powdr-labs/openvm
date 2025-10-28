@@ -118,6 +118,7 @@ where
         size_of::<LoadStorePreCompute>()
     }
 
+    #[cfg(not(feature = "tco"))]
     #[inline(always)]
     fn pre_compute<Ctx: ExecutionCtxTrait>(
         &self,
@@ -128,7 +129,7 @@ where
         let pre_compute: &mut LoadStorePreCompute = data.borrow_mut();
         let (local_opcode, enabled, is_native_store) =
             self.pre_compute_impl(pc, inst, pre_compute)?;
-        dispatch!(execute_e1_impl, local_opcode, enabled, is_native_store)
+        dispatch!(execute_e1_handler, local_opcode, enabled, is_native_store)
     }
 
     #[cfg(feature = "tco")]
@@ -144,12 +145,7 @@ where
         let pre_compute: &mut LoadStorePreCompute = data.borrow_mut();
         let (local_opcode, enabled, is_native_store) =
             self.pre_compute_impl(pc, inst, pre_compute)?;
-        dispatch!(
-            execute_e1_tco_handler,
-            local_opcode,
-            enabled,
-            is_native_store
-        )
+        dispatch!(execute_e1_handler, local_opcode, enabled, is_native_store)
     }
 }
 
@@ -161,6 +157,7 @@ where
         size_of::<E2PreCompute<LoadStorePreCompute>>()
     }
 
+    #[cfg(not(feature = "tco"))]
     fn metered_pre_compute<Ctx>(
         &self,
         chip_idx: usize,
@@ -175,7 +172,7 @@ where
         pre_compute.chip_idx = chip_idx as u32;
         let (local_opcode, enabled, is_native_store) =
             self.pre_compute_impl(pc, inst, &mut pre_compute.data)?;
-        dispatch!(execute_e2_impl, local_opcode, enabled, is_native_store)
+        dispatch!(execute_e2_handler, local_opcode, enabled, is_native_store)
     }
 
     #[cfg(feature = "tco")]
@@ -193,12 +190,7 @@ where
         pre_compute.chip_idx = chip_idx as u32;
         let (local_opcode, enabled, is_native_store) =
             self.pre_compute_impl(pc, inst, &mut pre_compute.data)?;
-        dispatch!(
-            execute_e2_tco_handler,
-            local_opcode,
-            enabled,
-            is_native_store
-        )
+        dispatch!(execute_e2_handler, local_opcode, enabled, is_native_store)
     }
 }
 
@@ -211,10 +203,12 @@ unsafe fn execute_e12_impl<
     const ENABLED: bool,
 >(
     pre_compute: &LoadStorePreCompute,
-    vm_state: &mut VmExecState<F, GuestMemory, CTX>,
-) {
+    instret: &mut u64,
+    pc: &mut u32,
+    exec_state: &mut VmExecState<F, GuestMemory, CTX>,
+) -> Result<(), ExecutionError> {
     let rs1_bytes: [u8; RV32_REGISTER_NUM_LIMBS] =
-        vm_state.vm_read(RV32_REGISTER_AS, pre_compute.b as u32);
+        exec_state.vm_read(RV32_REGISTER_AS, pre_compute.b as u32);
     let rs1_val = u32::from_le_bytes(rs1_bytes);
     let ptr_val = rs1_val.wrapping_add(pre_compute.imm_extended);
     // sign_extend([r32{c,g}(b):2]_e)`
@@ -223,39 +217,42 @@ unsafe fn execute_e12_impl<
     let ptr_val = ptr_val - shift_amount; // aligned ptr
 
     let read_data: [u8; RV32_REGISTER_NUM_LIMBS] = if OP::IS_LOAD {
-        vm_state.vm_read(pre_compute.e as u32, ptr_val)
+        exec_state.vm_read(pre_compute.e as u32, ptr_val)
     } else {
-        vm_state.vm_read(RV32_REGISTER_AS, pre_compute.a as u32)
+        exec_state.vm_read(RV32_REGISTER_AS, pre_compute.a as u32)
     };
 
     // We need to write 4 u32s for STORE.
     let mut write_data: [T; RV32_REGISTER_NUM_LIMBS] = if OP::HOST_READ {
-        vm_state.host_read(pre_compute.e as u32, ptr_val)
+        exec_state.host_read(pre_compute.e as u32, ptr_val)
     } else {
         [T::default(); RV32_REGISTER_NUM_LIMBS]
     };
 
     if !OP::compute_write_data(&mut write_data, read_data, shift_amount as usize) {
-        vm_state.exit_code = Err(ExecutionError::Fail {
-            pc: vm_state.pc,
+        let err = ExecutionError::Fail {
+            pc: *pc,
             msg: "Invalid LoadStoreOp",
-        });
-        return;
+        };
+        return Err(err);
     }
 
     if ENABLED {
         if OP::IS_LOAD {
-            vm_state.vm_write(RV32_REGISTER_AS, pre_compute.a as u32, &write_data);
+            exec_state.vm_write(RV32_REGISTER_AS, pre_compute.a as u32, &write_data);
         } else {
-            vm_state.vm_write(pre_compute.e as u32, ptr_val, &write_data);
+            exec_state.vm_write(pre_compute.e as u32, ptr_val, &write_data);
         }
     }
 
-    vm_state.pc += DEFAULT_PC_STEP;
-    vm_state.instret += 1;
+    *pc += DEFAULT_PC_STEP;
+    *instret += 1;
+
+    Ok(())
 }
 
-#[create_tco_handler]
+#[create_handler]
+#[inline(always)]
 unsafe fn execute_e1_impl<
     F: PrimeField32,
     CTX: ExecutionCtxTrait,
@@ -264,13 +261,17 @@ unsafe fn execute_e1_impl<
     const ENABLED: bool,
 >(
     pre_compute: &[u8],
-    vm_state: &mut VmExecState<F, GuestMemory, CTX>,
-) {
+    instret: &mut u64,
+    pc: &mut u32,
+    _instret_end: u64,
+    exec_state: &mut VmExecState<F, GuestMemory, CTX>,
+) -> Result<(), ExecutionError> {
     let pre_compute: &LoadStorePreCompute = pre_compute.borrow();
-    execute_e12_impl::<F, CTX, T, OP, ENABLED>(pre_compute, vm_state);
+    execute_e12_impl::<F, CTX, T, OP, ENABLED>(pre_compute, instret, pc, exec_state)
 }
 
-#[create_tco_handler]
+#[create_handler]
+#[inline(always)]
 unsafe fn execute_e2_impl<
     F: PrimeField32,
     CTX: MeteredExecutionCtxTrait,
@@ -279,13 +280,16 @@ unsafe fn execute_e2_impl<
     const ENABLED: bool,
 >(
     pre_compute: &[u8],
-    vm_state: &mut VmExecState<F, GuestMemory, CTX>,
-) {
+    instret: &mut u64,
+    pc: &mut u32,
+    _arg: u64,
+    exec_state: &mut VmExecState<F, GuestMemory, CTX>,
+) -> Result<(), ExecutionError> {
     let pre_compute: &E2PreCompute<LoadStorePreCompute> = pre_compute.borrow();
-    vm_state
+    exec_state
         .ctx
         .on_height_change(pre_compute.chip_idx as usize, 1);
-    execute_e12_impl::<F, CTX, T, OP, ENABLED>(&pre_compute.data, vm_state);
+    execute_e12_impl::<F, CTX, T, OP, ENABLED>(&pre_compute.data, instret, pc, exec_state)
 }
 
 trait LoadStoreOp<T> {

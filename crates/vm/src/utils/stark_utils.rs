@@ -68,10 +68,7 @@ where
         log_blowup += 1;
     }
     let fri_params = FriParameters::new_for_testing(log_blowup);
-    #[cfg(feature = "cuda")]
     let debug = std::env::var("OPENVM_SKIP_DEBUG") != Result::Ok(String::from("1"));
-    #[cfg(not(feature = "cuda"))]
-    let debug = true;
     let (final_memory, _) = air_test_impl::<TestStarkEngine, VB>(
         fri_params,
         builder,
@@ -117,7 +114,7 @@ where
     let vk = pk.get_vk();
     let exe = exe.into();
     let input = input.into();
-    let metered_ctx = vm.build_metered_ctx();
+    let metered_ctx = vm.build_metered_ctx(&exe);
     let (segments, _) = vm
         .metered_interpreter(&exe)?
         .execute_metered(input.clone(), metered_ctx)?;
@@ -134,7 +131,7 @@ where
             num_insns,
             trace_heights,
         } = segment;
-        assert_eq!(state.as_ref().unwrap().instret, instret_start);
+        assert_eq!(state.as_ref().unwrap().instret(), instret_start);
         let from_state = Option::take(&mut state).unwrap();
         vm.transport_init_memory_to_device(&from_state.memory);
         let PreflightExecutionOutput {

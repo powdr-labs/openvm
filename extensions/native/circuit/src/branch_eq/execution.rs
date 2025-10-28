@@ -1,4 +1,7 @@
-use std::borrow::{Borrow, BorrowMut};
+use std::{
+    borrow::{Borrow, BorrowMut},
+    mem::size_of,
+};
 
 use openvm_circuit::{
     arch::*,
@@ -108,7 +111,7 @@ where
 
         let (a_is_imm, b_is_imm, is_bne) = self.pre_compute_impl(pc, inst, pre_compute)?;
 
-        dispatch!(execute_e1_tco_handler, a_is_imm, b_is_imm, is_bne)
+        dispatch!(execute_e1_handler, a_is_imm, b_is_imm, is_bne)
     }
 
     #[inline(always)]
@@ -116,6 +119,7 @@ where
         size_of::<NativeBranchEqualPreCompute>()
     }
 
+    #[cfg(not(feature = "tco"))]
     #[inline(always)]
     fn pre_compute<Ctx: ExecutionCtxTrait>(
         &self,
@@ -127,7 +131,7 @@ where
 
         let (a_is_imm, b_is_imm, is_bne) = self.pre_compute_impl(pc, inst, pre_compute)?;
 
-        dispatch!(execute_e1_impl, a_is_imm, b_is_imm, is_bne)
+        dispatch!(execute_e1_handler, a_is_imm, b_is_imm, is_bne)
     }
 }
 
@@ -140,6 +144,7 @@ where
         size_of::<E2PreCompute<NativeBranchEqualPreCompute>>()
     }
 
+    #[cfg(not(feature = "tco"))]
     #[inline(always)]
     fn metered_pre_compute<Ctx: MeteredExecutionCtxTrait>(
         &self,
@@ -154,7 +159,7 @@ where
         let (a_is_imm, b_is_imm, is_bne) =
             self.pre_compute_impl(pc, inst, &mut pre_compute.data)?;
 
-        dispatch!(execute_e2_impl, a_is_imm, b_is_imm, is_bne)
+        dispatch!(execute_e2_handler, a_is_imm, b_is_imm, is_bne)
     }
 
     #[cfg(feature = "tco")]
@@ -171,7 +176,7 @@ where
         let (a_is_imm, b_is_imm, is_bne) =
             self.pre_compute_impl(pc, inst, &mut pre_compute.data)?;
 
-        dispatch!(execute_e2_tco_handler, a_is_imm, b_is_imm, is_bne)
+        dispatch!(execute_e2_handler, a_is_imm, b_is_imm, is_bne)
     }
 }
 
@@ -184,27 +189,30 @@ unsafe fn execute_e12_impl<
     const IS_NE: bool,
 >(
     pre_compute: &NativeBranchEqualPreCompute,
-    vm_state: &mut VmExecState<F, GuestMemory, CTX>,
+    instret: &mut u64,
+    pc: &mut u32,
+    exec_state: &mut VmExecState<F, GuestMemory, CTX>,
 ) {
     let rs1 = if A_IS_IMM {
         transmute_u32_to_field(&pre_compute.a_or_imm)
     } else {
-        vm_state.vm_read::<F, 1>(NATIVE_AS, pre_compute.a_or_imm)[0]
+        exec_state.vm_read::<F, 1>(NATIVE_AS, pre_compute.a_or_imm)[0]
     };
     let rs2 = if B_IS_IMM {
         transmute_u32_to_field(&pre_compute.b_or_imm)
     } else {
-        vm_state.vm_read::<F, 1>(NATIVE_AS, pre_compute.b_or_imm)[0]
+        exec_state.vm_read::<F, 1>(NATIVE_AS, pre_compute.b_or_imm)[0]
     };
     if (rs1 == rs2) ^ IS_NE {
-        vm_state.pc = (vm_state.pc as isize + pre_compute.imm) as u32;
+        *pc = (*pc as isize + pre_compute.imm) as u32;
     } else {
-        vm_state.pc = vm_state.pc.wrapping_add(DEFAULT_PC_STEP);
+        *pc = (*pc).wrapping_add(DEFAULT_PC_STEP);
     }
-    vm_state.instret += 1;
+    *instret += 1;
 }
 
-#[create_tco_handler]
+#[create_handler]
+#[inline(always)]
 unsafe fn execute_e1_impl<
     F: PrimeField32,
     CTX: ExecutionCtxTrait,
@@ -213,13 +221,17 @@ unsafe fn execute_e1_impl<
     const IS_NE: bool,
 >(
     pre_compute: &[u8],
-    vm_state: &mut VmExecState<F, GuestMemory, CTX>,
+    instret: &mut u64,
+    pc: &mut u32,
+    _instret_end: u64,
+    exec_state: &mut VmExecState<F, GuestMemory, CTX>,
 ) {
     let pre_compute: &NativeBranchEqualPreCompute = pre_compute.borrow();
-    execute_e12_impl::<_, _, A_IS_IMM, B_IS_IMM, IS_NE>(pre_compute, vm_state);
+    execute_e12_impl::<_, _, A_IS_IMM, B_IS_IMM, IS_NE>(pre_compute, instret, pc, exec_state);
 }
 
-#[create_tco_handler]
+#[create_handler]
+#[inline(always)]
 unsafe fn execute_e2_impl<
     F: PrimeField32,
     CTX: MeteredExecutionCtxTrait,
@@ -228,11 +240,14 @@ unsafe fn execute_e2_impl<
     const IS_NE: bool,
 >(
     pre_compute: &[u8],
-    vm_state: &mut VmExecState<F, GuestMemory, CTX>,
+    instret: &mut u64,
+    pc: &mut u32,
+    _arg: u64,
+    exec_state: &mut VmExecState<F, GuestMemory, CTX>,
 ) {
     let pre_compute: &E2PreCompute<NativeBranchEqualPreCompute> = pre_compute.borrow();
-    vm_state
+    exec_state
         .ctx
         .on_height_change(pre_compute.chip_idx as usize, 1);
-    execute_e12_impl::<_, _, A_IS_IMM, B_IS_IMM, IS_NE>(&pre_compute.data, vm_state);
+    execute_e12_impl::<_, _, A_IS_IMM, B_IS_IMM, IS_NE>(&pre_compute.data, instret, pc, exec_state);
 }

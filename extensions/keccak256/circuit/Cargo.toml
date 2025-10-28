@@ -36,6 +36,7 @@ struct-reflection.workspace = true
 openvm-stark-sdk = { workspace = true }
 openvm-circuit = { workspace = true, features = ["test-utils"] }
 hex.workspace = true
+tokio = { workspace = true, features = ["full"] }
 
 [build-dependencies]
 openvm-cuda-builder = { workspace = true, optional = true }

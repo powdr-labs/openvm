@@ -63,6 +63,7 @@ where
         size_of::<JalLuiPreCompute>()
     }
 
+    #[cfg(not(feature = "tco"))]
     fn pre_compute<Ctx: ExecutionCtxTrait>(
         &self,
         _pc: u32,
@@ -71,7 +72,7 @@ where
     ) -> Result<ExecuteFunc<F, Ctx>, StaticProgramError> {
         let data: &mut JalLuiPreCompute = data.borrow_mut();
         let (is_jal, enabled) = self.pre_compute_impl(inst, data)?;
-        dispatch!(execute_e1_impl, is_jal, enabled)
+        dispatch!(execute_e1_handler, is_jal, enabled)
     }
 
     #[cfg(feature = "tco")]
@@ -86,7 +87,7 @@ where
     {
         let data: &mut JalLuiPreCompute = data.borrow_mut();
         let (is_jal, enabled) = self.pre_compute_impl(inst, data)?;
-        dispatch!(execute_e1_tco_handler, is_jal, enabled)
+        dispatch!(execute_e1_handler, is_jal, enabled)
     }
 }
 
@@ -98,6 +99,7 @@ where
         size_of::<E2PreCompute<JalLuiPreCompute>>()
     }
 
+    #[cfg(not(feature = "tco"))]
     fn metered_pre_compute<Ctx>(
         &self,
         chip_idx: usize,
@@ -111,7 +113,7 @@ where
         let data: &mut E2PreCompute<JalLuiPreCompute> = data.borrow_mut();
         data.chip_idx = chip_idx as u32;
         let (is_jal, enabled) = self.pre_compute_impl(inst, &mut data.data)?;
-        dispatch!(execute_e2_impl, is_jal, enabled)
+        dispatch!(execute_e2_handler, is_jal, enabled)
     }
 
     #[cfg(feature = "tco")]
@@ -128,10 +130,11 @@ where
         let data: &mut E2PreCompute<JalLuiPreCompute> = data.borrow_mut();
         data.chip_idx = chip_idx as u32;
         let (is_jal, enabled) = self.pre_compute_impl(inst, &mut data.data)?;
-        dispatch!(execute_e2_tco_handler, is_jal, enabled)
+        dispatch!(execute_e2_handler, is_jal, enabled)
     }
 }
 
+#[inline(always)]
 unsafe fn execute_e12_impl<
     F: PrimeField32,
     CTX: ExecutionCtxTrait,
@@ -139,31 +142,34 @@ unsafe fn execute_e12_impl<
     const ENABLED: bool,
 >(
     pre_compute: &JalLuiPreCompute,
-    vm_state: &mut VmExecState<F, GuestMemory, CTX>,
+    instret: &mut u64,
+    pc: &mut u32,
+    exec_state: &mut VmExecState<F, GuestMemory, CTX>,
 ) {
     let JalLuiPreCompute { a, signed_imm } = *pre_compute;
 
     let rd = if IS_JAL {
-        let rd_data = (vm_state.pc + DEFAULT_PC_STEP).to_le_bytes();
-        let next_pc = vm_state.pc as i32 + signed_imm;
+        let rd_data = (*pc + DEFAULT_PC_STEP).to_le_bytes();
+        let next_pc = *pc as i32 + signed_imm;
         debug_assert!(next_pc >= 0);
-        vm_state.pc = next_pc as u32;
+        *pc = next_pc as u32;
         rd_data
     } else {
         let imm = signed_imm as u32;
         let rd = imm << 12;
-        vm_state.pc += DEFAULT_PC_STEP;
+        *pc += DEFAULT_PC_STEP;
         rd.to_le_bytes()
     };
 
     if ENABLED {
-        vm_state.vm_write(RV32_REGISTER_AS, a as u32, &rd);
+        exec_state.vm_write(RV32_REGISTER_AS, a as u32, &rd);
     }
 
-    vm_state.instret += 1;
+    *instret += 1;
 }
 
-#[create_tco_handler]
+#[create_handler]
+#[inline(always)]
 unsafe fn execute_e1_impl<
     F: PrimeField32,
     CTX: ExecutionCtxTrait,
@@ -171,13 +177,17 @@ unsafe fn execute_e1_impl<
     const ENABLED: bool,
 >(
     pre_compute: &[u8],
-    vm_state: &mut VmExecState<F, GuestMemory, CTX>,
+    instret: &mut u64,
+    pc: &mut u32,
+    _instret_end: u64,
+    exec_state: &mut VmExecState<F, GuestMemory, CTX>,
 ) {
     let pre_compute: &JalLuiPreCompute = pre_compute.borrow();
-    execute_e12_impl::<F, CTX, IS_JAL, ENABLED>(pre_compute, vm_state);
+    execute_e12_impl::<F, CTX, IS_JAL, ENABLED>(pre_compute, instret, pc, exec_state);
 }
 
-#[create_tco_handler]
+#[create_handler]
+#[inline(always)]
 unsafe fn execute_e2_impl<
     F: PrimeField32,
     CTX: MeteredExecutionCtxTrait,
@@ -185,11 +195,14 @@ unsafe fn execute_e2_impl<
     const ENABLED: bool,
 >(
     pre_compute: &[u8],
-    vm_state: &mut VmExecState<F, GuestMemory, CTX>,
+    instret: &mut u64,
+    pc: &mut u32,
+    _arg: u64,
+    exec_state: &mut VmExecState<F, GuestMemory, CTX>,
 ) {
     let pre_compute: &E2PreCompute<JalLuiPreCompute> = pre_compute.borrow();
-    vm_state
+    exec_state
         .ctx
         .on_height_change(pre_compute.chip_idx as usize, 1);
-    execute_e12_impl::<F, CTX, IS_JAL, ENABLED>(&pre_compute.data, vm_state);
+    execute_e12_impl::<F, CTX, IS_JAL, ENABLED>(&pre_compute.data, instret, pc, exec_state);
 }
