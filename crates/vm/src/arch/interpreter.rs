@@ -259,6 +259,10 @@ where
         let pc_idx = get_pc_index(pc);
         self.handlers.get(pc_idx).copied()
     }
+
+    pub fn log_pc(pc: u32) {
+        tracing::trace!(pc = pc, "executing instruction");
+    }
 }
 
 impl<'a, F, Ctx> InterpretedInstance<'a, F, Ctx>
@@ -592,7 +596,7 @@ unsafe fn execute_trampoline<F: PrimeField32, Ctx: ExecutionCtxTrait>(
         .as_ref()
         .is_ok_and(|exit_code| exit_code.is_none())
     {
-        tracing::trace!(pc = pc, "executing instruction");
+        InterpretedInstance::<F, Ctx>::log_pc(pc);
         if Ctx::should_suspend(instret, pc, arg, exec_state) {
             break;
         }

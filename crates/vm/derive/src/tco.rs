@@ -70,7 +70,7 @@ pub fn tco_impl(item: TokenStream) -> TokenStream {
         #where_clause
         {
             use ::openvm_circuit::arch::ExecutionError;
-            exec_state.vm_state.log_pc();
+            ::openvm_circuit::arch::interpreter::InterpretedInstance::<#f_type, #ctx_type>::log_pc(pc);
             let pre_compute = interpreter.get_pre_compute(pc);
             #execute_stmt
 
