@@ -57,11 +57,6 @@ impl<F: Clone, MEM> VmState<F, MEM> {
         }
     }
 
-    #[inline(always)]
-    pub fn log_pc(&self) {
-        tracing::trace!(pc = self.pc, "executing instruction");
-    }
-
     pub fn set_instret_and_pc(&mut self, instret: u64, pc: u32) {
         self.instret = instret;
         self.pc = pc;
