@@ -97,6 +97,7 @@ where
         size_of::<LoadSignExtendPreCompute>()
     }
 
+    #[cfg(not(feature = "tco"))]
     #[inline(always)]
     fn pre_compute<Ctx: ExecutionCtxTrait>(
         &self,
@@ -106,7 +107,7 @@ where
     ) -> Result<ExecuteFunc<F, Ctx>, StaticProgramError> {
         let pre_compute: &mut LoadSignExtendPreCompute = data.borrow_mut();
         let (is_loadb, enabled) = self.pre_compute_impl(pc, inst, pre_compute)?;
-        dispatch!(execute_e1_impl, is_loadb, enabled)
+        dispatch!(execute_e1_handler, is_loadb, enabled)
     }
 
     #[cfg(feature = "tco")]
@@ -121,7 +122,7 @@ where
     {
         let pre_compute: &mut LoadSignExtendPreCompute = data.borrow_mut();
         let (is_loadb, enabled) = self.pre_compute_impl(pc, inst, pre_compute)?;
-        dispatch!(execute_e1_tco_handler, is_loadb, enabled)
+        dispatch!(execute_e1_handler, is_loadb, enabled)
     }
 }
 
@@ -134,6 +135,7 @@ where
         size_of::<E2PreCompute<LoadSignExtendPreCompute>>()
     }
 
+    #[cfg(not(feature = "tco"))]
     fn metered_pre_compute<Ctx>(
         &self,
         chip_idx: usize,
@@ -147,7 +149,7 @@ where
         let pre_compute: &mut E2PreCompute<LoadSignExtendPreCompute> = data.borrow_mut();
         pre_compute.chip_idx = chip_idx as u32;
         let (is_loadb, enabled) = self.pre_compute_impl(pc, inst, &mut pre_compute.data)?;
-        dispatch!(execute_e2_impl, is_loadb, enabled)
+        dispatch!(execute_e2_handler, is_loadb, enabled)
     }
 
     #[cfg(feature = "tco")]
@@ -164,7 +166,7 @@ where
         let pre_compute: &mut E2PreCompute<LoadSignExtendPreCompute> = data.borrow_mut();
         pre_compute.chip_idx = chip_idx as u32;
         let (is_loadb, enabled) = self.pre_compute_impl(pc, inst, &mut pre_compute.data)?;
-        dispatch!(execute_e2_tco_handler, is_loadb, enabled)
+        dispatch!(execute_e2_handler, is_loadb, enabled)
     }
 }
 
@@ -176,10 +178,12 @@ unsafe fn execute_e12_impl<
     const ENABLED: bool,
 >(
     pre_compute: &LoadSignExtendPreCompute,
-    vm_state: &mut VmExecState<F, GuestMemory, CTX>,
-) {
+    instret: &mut u64,
+    pc: &mut u32,
+    exec_state: &mut VmExecState<F, GuestMemory, CTX>,
+) -> Result<(), ExecutionError> {
     let rs1_bytes: [u8; RV32_REGISTER_NUM_LIMBS] =
-        vm_state.vm_read(RV32_REGISTER_AS, pre_compute.b as u32);
+        exec_state.vm_read(RV32_REGISTER_AS, pre_compute.b as u32);
     let rs1_val = u32::from_le_bytes(rs1_bytes);
     let ptr_val = rs1_val.wrapping_add(pre_compute.imm_extended);
     // sign_extend([r32{c,g}(b):2]_e)`
@@ -187,7 +191,8 @@ unsafe fn execute_e12_impl<
     let shift_amount = ptr_val % 4;
     let ptr_val = ptr_val - shift_amount; // aligned ptr
 
-    let read_data: [u8; RV32_REGISTER_NUM_LIMBS] = vm_state.vm_read(pre_compute.e as u32, ptr_val);
+    let read_data: [u8; RV32_REGISTER_NUM_LIMBS] =
+        exec_state.vm_read(pre_compute.e as u32, ptr_val);
 
     let write_data = if IS_LOADB {
         let byte = read_data[shift_amount as usize];
@@ -195,25 +200,28 @@ unsafe fn execute_e12_impl<
         sign_extended.to_le_bytes()
     } else {
         if shift_amount != 0 && shift_amount != 2 {
-            vm_state.exit_code = Err(ExecutionError::Fail {
-                pc: vm_state.pc,
+            let err = ExecutionError::Fail {
+                pc: *pc,
                 msg: "LoadSignExtend invalid shift amount",
-            });
-            return;
+            };
+            return Err(err);
         }
         let half: [u8; 2] = array::from_fn(|i| read_data[shift_amount as usize + i]);
         (i16::from_le_bytes(half) as i32).to_le_bytes()
     };
 
     if ENABLED {
-        vm_state.vm_write(RV32_REGISTER_AS, pre_compute.a as u32, &write_data);
+        exec_state.vm_write(RV32_REGISTER_AS, pre_compute.a as u32, &write_data);
     }
 
-    vm_state.pc += DEFAULT_PC_STEP;
-    vm_state.instret += 1;
+    *pc += DEFAULT_PC_STEP;
+    *instret += 1;
+
+    Ok(())
 }
 
-#[create_tco_handler]
+#[create_handler]
+#[inline(always)]
 unsafe fn execute_e1_impl<
     F: PrimeField32,
     CTX: ExecutionCtxTrait,
@@ -221,13 +229,17 @@ unsafe fn execute_e1_impl<
     const ENABLED: bool,
 >(
     pre_compute: &[u8],
-    vm_state: &mut VmExecState<F, GuestMemory, CTX>,
-) {
+    instret: &mut u64,
+    pc: &mut u32,
+    _instret_end: u64,
+    exec_state: &mut VmExecState<F, GuestMemory, CTX>,
+) -> Result<(), ExecutionError> {
     let pre_compute: &LoadSignExtendPreCompute = pre_compute.borrow();
-    execute_e12_impl::<F, CTX, IS_LOADB, ENABLED>(pre_compute, vm_state);
+    execute_e12_impl::<F, CTX, IS_LOADB, ENABLED>(pre_compute, instret, pc, exec_state)
 }
 
-#[create_tco_handler]
+#[create_handler]
+#[inline(always)]
 unsafe fn execute_e2_impl<
     F: PrimeField32,
     CTX: MeteredExecutionCtxTrait,
@@ -235,11 +247,14 @@ unsafe fn execute_e2_impl<
     const ENABLED: bool,
 >(
     pre_compute: &[u8],
-    vm_state: &mut VmExecState<F, GuestMemory, CTX>,
-) {
+    instret: &mut u64,
+    pc: &mut u32,
+    _arg: u64,
+    exec_state: &mut VmExecState<F, GuestMemory, CTX>,
+) -> Result<(), ExecutionError> {
     let pre_compute: &E2PreCompute<LoadSignExtendPreCompute> = pre_compute.borrow();
-    vm_state
+    exec_state
         .ctx
         .on_height_change(pre_compute.chip_idx as usize, 1);
-    execute_e12_impl::<F, CTX, IS_LOADB, ENABLED>(&pre_compute.data, vm_state);
+    execute_e12_impl::<F, CTX, IS_LOADB, ENABLED>(&pre_compute.data, instret, pc, exec_state)
 }

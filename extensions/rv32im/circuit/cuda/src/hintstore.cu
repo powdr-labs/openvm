@@ -175,21 +175,21 @@ __global__ void hintstore_tracegen(
 }
 
 extern "C" int _hintstore_tracegen(
-    Fp *d_trace,
+    Fp *__restrict__ d_trace,
     size_t height,
     size_t width,
-    uint8_t *d_records,
+    uint8_t *__restrict__ d_records,
     uint32_t rows_used,
-    OffsetInfo *d_record_offsets,
+    OffsetInfo *__restrict__ d_record_offsets,
     uint32_t pointer_max_bits,
-    uint32_t *d_range_checker,
+    uint32_t *__restrict__ d_range_checker,
     uint32_t range_checker_num_bins,
-    uint32_t *d_bitwise_lookup,
+    uint32_t *__restrict__ d_bitwise_lookup,
     uint32_t bitwise_num_bits,
     uint32_t timestamp_max_bits
 ) {
     assert(width == sizeof(Rv32HintStoreCols<uint8_t>));
-    auto [grid, block] = kernel_launch_params(height);
+    auto [grid, block] = kernel_launch_params(height, 512);
 
     hintstore_tracegen<<<grid, block>>>(
         d_trace,
@@ -204,5 +204,5 @@ extern "C" int _hintstore_tracegen(
         bitwise_num_bits,
         timestamp_max_bits
     );
-    return cudaGetLastError();
+    return CHECK_KERNEL();
 }

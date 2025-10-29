@@ -1,5 +1,7 @@
 use std::num::NonZero;
 
+use getset::{Getters, Setters, WithSetters};
+use itertools::Itertools;
 use openvm_instructions::riscv::{RV32_IMM_AS, RV32_REGISTER_AS};
 
 use super::{
@@ -16,12 +18,14 @@ use crate::{
 
 pub const DEFAULT_PAGE_BITS: usize = 6;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Getters, Setters, WithSetters)]
 pub struct MeteredCtx<const PAGE_BITS: usize = DEFAULT_PAGE_BITS> {
     pub trace_heights: Vec<u32>,
     pub is_trace_height_constant: Vec<bool>,
     pub memory_ctx: MemoryCtx<PAGE_BITS>,
     pub segmentation_ctx: SegmentationCtx,
+    #[getset(get = "pub", set = "pub", set_with = "pub")]
+    suspend_on_segment: bool,
     /// Lower bound of the timestamp at this point in the segment.
     /// The actual timestamp is larger than this in practice,
     /// for example in the cases where `increment_timestamp` is called on `TracingMemory`
@@ -79,6 +83,7 @@ impl<const PAGE_BITS: usize> MeteredCtx<PAGE_BITS> {
             is_trace_height_constant,
             memory_ctx,
             segmentation_ctx,
+            suspend_on_segment: false,
             // OpenVM execution starts with timestamp = 1
             timestamp: INITIAL_TIMESTAMP + 1,
         };
@@ -124,34 +129,29 @@ impl<const PAGE_BITS: usize> MeteredCtx<PAGE_BITS> {
         // OpenVM execution starts with timestamp = 1
         self.timestamp = INITIAL_TIMESTAMP + 1;
         self.memory_ctx.clear();
-        for (i, &is_constant) in self.is_trace_height_constant.iter().enumerate() {
-            if !is_constant {
-                self.trace_heights[i] = 0;
-            }
-        }
         // Add merkle height contributions for all registers
         self.memory_ctx.add_register_merkle_heights();
     }
 
     #[inline(always)]
-    pub fn check_and_segment(&mut self, instret: u64) {
+    pub fn check_and_segment(&mut self, instret: u64, segment_check_insns: u64) -> bool {
         let threshold = self
             .segmentation_ctx
             .instret_last_segment_check
-            .wrapping_add(self.segmentation_ctx.segment_check_insns);
+            .wrapping_add(segment_check_insns);
         debug_assert!(
             threshold >= self.segmentation_ctx.instret_last_segment_check,
             "overflow in segment check threshold calculation"
         );
         if instret < threshold {
-            return;
+            return false;
         }
 
         self.memory_ctx
             .lazy_update_boundary_heights(&mut self.trace_heights);
         let did_segment = self.segmentation_ctx.check_and_segment(
             instret,
-            &self.trace_heights,
+            &mut self.trace_heights,
             &self.is_trace_height_constant,
             self.timestamp,
         );
@@ -159,20 +159,24 @@ impl<const PAGE_BITS: usize> MeteredCtx<PAGE_BITS> {
         if did_segment {
             self.reset_segment();
         }
+        did_segment
     }
 
     #[allow(dead_code)]
-    pub fn print_heights(&self) {
-        println!("{:>10} {:<30}", "Height", "Air Name");
-        println!("{}", "-".repeat(42));
-        for (i, height) in self.trace_heights.iter().enumerate() {
-            let air_name = self
-                .segmentation_ctx
-                .air_names
-                .get(i)
-                .map(|s| s.as_str())
-                .unwrap_or("Unknown");
-            println!("{:>10} {:<30}", height, air_name);
+    pub fn print_segment(&self) {
+        println!("{}", "-".repeat(80));
+        println!("Segment {}", self.segmentation_ctx.segments.len() - 1);
+        println!("{}", "-".repeat(80));
+        println!("{:>10} {:>10} {:<30}", "Width", "Height", "Air Name");
+        println!("{}", "-".repeat(80));
+        for ((&width, &height), air_name) in self
+            .segmentation_ctx
+            .widths
+            .iter()
+            .zip_eq(self.trace_heights.iter())
+            .zip_eq(self.segmentation_ctx.air_names.iter())
+        {
+            println!("{:>10} {:>10} {:<30}", width, height, air_name.as_str());
         }
     }
 }
@@ -208,23 +212,31 @@ impl<const PAGE_BITS: usize> ExecutionCtxTrait for MeteredCtx<PAGE_BITS> {
     }
 
     #[inline(always)]
-    fn should_suspend<F>(vm_state: &mut VmExecState<F, GuestMemory, Self>) -> bool {
-        // E2 always runs until termination. Here we use the function as a hook called every
-        // instruction.
-        vm_state.ctx.check_and_segment(vm_state.instret);
-        false
+    fn should_suspend<F>(
+        instret: u64,
+        _pc: u32,
+        segment_check_insns: u64,
+        exec_state: &mut VmExecState<F, GuestMemory, Self>,
+    ) -> bool {
+        // If `segment_suspend` is set, suspend when a segment is determined (but the VM state might
+        // be after the segment boundary because the segment happens in the previous checkpoint).
+        // Otherwise, execute until termination.
+        exec_state
+            .ctx
+            .check_and_segment(instret, segment_check_insns)
+            && exec_state.ctx.suspend_on_segment
     }
 
     #[inline(always)]
-    fn on_terminate<F>(vm_state: &mut VmExecState<F, GuestMemory, Self>) {
-        vm_state
+    fn on_terminate<F>(instret: u64, _pc: u32, exec_state: &mut VmExecState<F, GuestMemory, Self>) {
+        exec_state
             .ctx
             .memory_ctx
-            .lazy_update_boundary_heights(&mut vm_state.ctx.trace_heights);
-        vm_state
+            .lazy_update_boundary_heights(&mut exec_state.ctx.trace_heights);
+        exec_state
             .ctx
             .segmentation_ctx
-            .segment(vm_state.instret, &vm_state.ctx.trace_heights);
+            .create_final_segment(instret, &exec_state.ctx.trace_heights);
     }
 }
 

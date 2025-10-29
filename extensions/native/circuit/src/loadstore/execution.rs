@@ -1,6 +1,7 @@
 use std::{
     array,
     borrow::{Borrow, BorrowMut},
+    mem::size_of,
 };
 
 use openvm_circuit::{arch::*, system::memory::online::GuestMemory};
@@ -63,6 +64,7 @@ where
         size_of::<NativeLoadStorePreCompute<F>>()
     }
 
+    #[cfg(not(feature = "tco"))]
     #[inline(always)]
     fn pre_compute<Ctx: ExecutionCtxTrait>(
         &self,
@@ -75,9 +77,11 @@ where
         let local_opcode = self.pre_compute_impl(pc, inst, pre_compute)?;
 
         let fn_ptr = match local_opcode {
-            NativeLoadStoreOpcode::LOADW => execute_e1_loadw::<F, Ctx, NUM_CELLS>,
-            NativeLoadStoreOpcode::STOREW => execute_e1_storew::<F, Ctx, NUM_CELLS>,
-            NativeLoadStoreOpcode::HINT_STOREW => execute_e1_hint_storew::<F, Ctx, NUM_CELLS>,
+            NativeLoadStoreOpcode::LOADW => execute_e1_loadw_handler::<F, Ctx, NUM_CELLS>,
+            NativeLoadStoreOpcode::STOREW => execute_e1_storew_handler::<F, Ctx, NUM_CELLS>,
+            NativeLoadStoreOpcode::HINT_STOREW => {
+                execute_e1_hint_storew_handler::<F, Ctx, NUM_CELLS>
+            }
         };
 
         Ok(fn_ptr)
@@ -95,10 +99,10 @@ where
         let local_opcode = self.pre_compute_impl(pc, inst, pre_compute)?;
 
         let fn_ptr = match local_opcode {
-            NativeLoadStoreOpcode::LOADW => execute_e1_loadw_tco_handler::<F, Ctx, NUM_CELLS>,
-            NativeLoadStoreOpcode::STOREW => execute_e1_storew_tco_handler::<F, Ctx, NUM_CELLS>,
+            NativeLoadStoreOpcode::LOADW => execute_e1_loadw_handler::<F, Ctx, NUM_CELLS>,
+            NativeLoadStoreOpcode::STOREW => execute_e1_storew_handler::<F, Ctx, NUM_CELLS>,
             NativeLoadStoreOpcode::HINT_STOREW => {
-                execute_e1_hint_storew_tco_handler::<F, Ctx, NUM_CELLS>
+                execute_e1_hint_storew_handler::<F, Ctx, NUM_CELLS>
             }
         };
 
@@ -115,6 +119,7 @@ where
         size_of::<E2PreCompute<NativeLoadStorePreCompute<F>>>()
     }
 
+    #[cfg(not(feature = "tco"))]
     #[inline(always)]
     fn metered_pre_compute<Ctx: MeteredExecutionCtxTrait>(
         &self,
@@ -129,9 +134,11 @@ where
         let local_opcode = self.pre_compute_impl(pc, inst, &mut pre_compute.data)?;
 
         let fn_ptr = match local_opcode {
-            NativeLoadStoreOpcode::LOADW => execute_e2_loadw::<F, Ctx, NUM_CELLS>,
-            NativeLoadStoreOpcode::STOREW => execute_e2_storew::<F, Ctx, NUM_CELLS>,
-            NativeLoadStoreOpcode::HINT_STOREW => execute_e2_hint_storew::<F, Ctx, NUM_CELLS>,
+            NativeLoadStoreOpcode::LOADW => execute_e2_loadw_handler::<F, Ctx, NUM_CELLS>,
+            NativeLoadStoreOpcode::STOREW => execute_e2_storew_handler::<F, Ctx, NUM_CELLS>,
+            NativeLoadStoreOpcode::HINT_STOREW => {
+                execute_e2_hint_storew_handler::<F, Ctx, NUM_CELLS>
+            }
         };
 
         Ok(fn_ptr)
@@ -151,10 +158,10 @@ where
         let local_opcode = self.pre_compute_impl(pc, inst, &mut pre_compute.data)?;
 
         let fn_ptr = match local_opcode {
-            NativeLoadStoreOpcode::LOADW => execute_e2_loadw_tco_handler::<F, Ctx, NUM_CELLS>,
-            NativeLoadStoreOpcode::STOREW => execute_e2_storew_tco_handler::<F, Ctx, NUM_CELLS>,
+            NativeLoadStoreOpcode::LOADW => execute_e2_loadw_handler::<F, Ctx, NUM_CELLS>,
+            NativeLoadStoreOpcode::STOREW => execute_e2_storew_handler::<F, Ctx, NUM_CELLS>,
             NativeLoadStoreOpcode::HINT_STOREW => {
-                execute_e2_hint_storew_tco_handler::<F, Ctx, NUM_CELLS>
+                execute_e2_hint_storew_handler::<F, Ctx, NUM_CELLS>
             }
         };
 
@@ -162,114 +169,142 @@ where
     }
 }
 
-#[create_tco_handler]
+#[create_handler]
+#[inline(always)]
 unsafe fn execute_e1_loadw<F: PrimeField32, CTX: ExecutionCtxTrait, const NUM_CELLS: usize>(
     pre_compute: &[u8],
-    vm_state: &mut VmExecState<F, GuestMemory, CTX>,
+    instret: &mut u64,
+    pc: &mut u32,
+    _instret_end: u64,
+    exec_state: &mut VmExecState<F, GuestMemory, CTX>,
 ) {
     let pre_compute: &NativeLoadStorePreCompute<F> = pre_compute.borrow();
-    execute_e12_loadw::<_, _, NUM_CELLS>(pre_compute, vm_state);
+    execute_e12_loadw::<_, _, NUM_CELLS>(pre_compute, instret, pc, exec_state);
 }
 
-#[create_tco_handler]
+#[create_handler]
+#[inline(always)]
 unsafe fn execute_e1_storew<F: PrimeField32, CTX: ExecutionCtxTrait, const NUM_CELLS: usize>(
     pre_compute: &[u8],
-    vm_state: &mut VmExecState<F, GuestMemory, CTX>,
+    instret: &mut u64,
+    pc: &mut u32,
+    _instret_end: u64,
+    exec_state: &mut VmExecState<F, GuestMemory, CTX>,
 ) {
     let pre_compute: &NativeLoadStorePreCompute<F> = pre_compute.borrow();
-    execute_e12_storew::<_, _, NUM_CELLS>(pre_compute, vm_state);
+    execute_e12_storew::<_, _, NUM_CELLS>(pre_compute, instret, pc, exec_state);
 }
 
-#[create_tco_handler]
+#[create_handler]
+#[inline(always)]
 unsafe fn execute_e1_hint_storew<
     F: PrimeField32,
     CTX: ExecutionCtxTrait,
     const NUM_CELLS: usize,
 >(
     pre_compute: &[u8],
-    vm_state: &mut VmExecState<F, GuestMemory, CTX>,
-) {
+    instret: &mut u64,
+    pc: &mut u32,
+    _instret_end: u64,
+    exec_state: &mut VmExecState<F, GuestMemory, CTX>,
+) -> Result<(), ExecutionError> {
     let pre_compute: &NativeLoadStorePreCompute<F> = pre_compute.borrow();
-    execute_e12_hint_storew::<_, _, NUM_CELLS>(pre_compute, vm_state);
+    execute_e12_hint_storew::<_, _, NUM_CELLS>(pre_compute, instret, pc, exec_state)
 }
 
-#[create_tco_handler]
+#[create_handler]
+#[inline(always)]
 unsafe fn execute_e2_loadw<
     F: PrimeField32,
     CTX: MeteredExecutionCtxTrait,
     const NUM_CELLS: usize,
 >(
     pre_compute: &[u8],
-    vm_state: &mut VmExecState<F, GuestMemory, CTX>,
+    instret: &mut u64,
+    pc: &mut u32,
+    _arg: u64,
+    exec_state: &mut VmExecState<F, GuestMemory, CTX>,
 ) {
     let pre_compute: &E2PreCompute<NativeLoadStorePreCompute<F>> = pre_compute.borrow();
-    vm_state
+    exec_state
         .ctx
         .on_height_change(pre_compute.chip_idx as usize, 1);
-    execute_e12_loadw::<_, _, NUM_CELLS>(&pre_compute.data, vm_state);
+    execute_e12_loadw::<_, _, NUM_CELLS>(&pre_compute.data, instret, pc, exec_state);
 }
 
-#[create_tco_handler]
+#[create_handler]
+#[inline(always)]
 unsafe fn execute_e2_storew<
     F: PrimeField32,
     CTX: MeteredExecutionCtxTrait,
     const NUM_CELLS: usize,
 >(
     pre_compute: &[u8],
-    vm_state: &mut VmExecState<F, GuestMemory, CTX>,
+    instret: &mut u64,
+    pc: &mut u32,
+    _arg: u64,
+    exec_state: &mut VmExecState<F, GuestMemory, CTX>,
 ) {
     let pre_compute: &E2PreCompute<NativeLoadStorePreCompute<F>> = pre_compute.borrow();
-    vm_state
+    exec_state
         .ctx
         .on_height_change(pre_compute.chip_idx as usize, 1);
-    execute_e12_storew::<_, _, NUM_CELLS>(&pre_compute.data, vm_state);
+    execute_e12_storew::<_, _, NUM_CELLS>(&pre_compute.data, instret, pc, exec_state);
 }
 
-#[create_tco_handler]
+#[create_handler]
+#[inline(always)]
 unsafe fn execute_e2_hint_storew<
     F: PrimeField32,
     CTX: MeteredExecutionCtxTrait,
     const NUM_CELLS: usize,
 >(
     pre_compute: &[u8],
-    vm_state: &mut VmExecState<F, GuestMemory, CTX>,
-) {
+    instret: &mut u64,
+    pc: &mut u32,
+    _arg: u64,
+    exec_state: &mut VmExecState<F, GuestMemory, CTX>,
+) -> Result<(), ExecutionError> {
     let pre_compute: &E2PreCompute<NativeLoadStorePreCompute<F>> = pre_compute.borrow();
-    vm_state
+    exec_state
         .ctx
         .on_height_change(pre_compute.chip_idx as usize, 1);
-    execute_e12_hint_storew::<_, _, NUM_CELLS>(&pre_compute.data, vm_state);
+    execute_e12_hint_storew::<_, _, NUM_CELLS>(&pre_compute.data, instret, pc, exec_state)
 }
 
 #[inline(always)]
 unsafe fn execute_e12_loadw<F: PrimeField32, CTX: ExecutionCtxTrait, const NUM_CELLS: usize>(
     pre_compute: &NativeLoadStorePreCompute<F>,
-    vm_state: &mut VmExecState<F, GuestMemory, CTX>,
+    instret: &mut u64,
+    pc: &mut u32,
+    exec_state: &mut VmExecState<F, GuestMemory, CTX>,
 ) {
-    let [read_cell]: [F; 1] = vm_state.vm_read(AS::Native as u32, pre_compute.c);
+    let [read_cell]: [F; 1] = exec_state.vm_read(AS::Native as u32, pre_compute.c);
 
     let data_read_ptr = (read_cell + pre_compute.b).as_canonical_u32();
-    let data_read: [F; NUM_CELLS] = vm_state.vm_read(AS::Native as u32, data_read_ptr);
+    let data_read: [F; NUM_CELLS] = exec_state.vm_read(AS::Native as u32, data_read_ptr);
 
-    vm_state.vm_write(AS::Native as u32, pre_compute.a, &data_read);
+    exec_state.vm_write(AS::Native as u32, pre_compute.a, &data_read);
 
-    vm_state.pc = vm_state.pc.wrapping_add(DEFAULT_PC_STEP);
-    vm_state.instret += 1;
+    *pc = (*pc).wrapping_add(DEFAULT_PC_STEP);
+    *instret += 1;
 }
 
 #[inline(always)]
 unsafe fn execute_e12_storew<F: PrimeField32, CTX: ExecutionCtxTrait, const NUM_CELLS: usize>(
     pre_compute: &NativeLoadStorePreCompute<F>,
-    vm_state: &mut VmExecState<F, GuestMemory, CTX>,
+    instret: &mut u64,
+    pc: &mut u32,
+    exec_state: &mut VmExecState<F, GuestMemory, CTX>,
 ) {
-    let [read_cell]: [F; 1] = vm_state.vm_read(AS::Native as u32, pre_compute.c);
-    let data_read: [F; NUM_CELLS] = vm_state.vm_read(AS::Native as u32, pre_compute.a);
+    let [read_cell]: [F; 1] = exec_state.vm_read(AS::Native as u32, pre_compute.c);
+    let data_read: [F; NUM_CELLS] = exec_state.vm_read(AS::Native as u32, pre_compute.a);
 
     let data_write_ptr = (read_cell + pre_compute.b).as_canonical_u32();
-    vm_state.vm_write(AS::Native as u32, data_write_ptr, &data_read);
+    exec_state.vm_write(AS::Native as u32, data_write_ptr, &data_read);
 
-    vm_state.pc = vm_state.pc.wrapping_add(DEFAULT_PC_STEP);
-    vm_state.instret += 1;
+    *pc = (*pc).wrapping_add(DEFAULT_PC_STEP);
+    *instret += 1;
 }
 
 #[inline(always)]
@@ -279,20 +314,24 @@ unsafe fn execute_e12_hint_storew<
     const NUM_CELLS: usize,
 >(
     pre_compute: &NativeLoadStorePreCompute<F>,
-    vm_state: &mut VmExecState<F, GuestMemory, CTX>,
-) {
-    let [read_cell]: [F; 1] = vm_state.vm_read(AS::Native as u32, pre_compute.c);
+    instret: &mut u64,
+    pc: &mut u32,
+    exec_state: &mut VmExecState<F, GuestMemory, CTX>,
+) -> Result<(), ExecutionError> {
+    let [read_cell]: [F; 1] = exec_state.vm_read(AS::Native as u32, pre_compute.c);
 
-    if vm_state.streams.hint_stream.len() < NUM_CELLS {
-        vm_state.exit_code = Err(ExecutionError::HintOutOfBounds { pc: vm_state.pc });
-        return;
+    if exec_state.streams.hint_stream.len() < NUM_CELLS {
+        let err = ExecutionError::HintOutOfBounds { pc: *pc };
+        return Err(err);
     }
     let data: [F; NUM_CELLS] =
-        array::from_fn(|_| vm_state.streams.hint_stream.pop_front().unwrap());
+        array::from_fn(|_| exec_state.streams.hint_stream.pop_front().unwrap());
 
     let data_write_ptr = (read_cell + pre_compute.b).as_canonical_u32();
-    vm_state.vm_write(AS::Native as u32, data_write_ptr, &data);
+    exec_state.vm_write(AS::Native as u32, data_write_ptr, &data);
 
-    vm_state.pc = vm_state.pc.wrapping_add(DEFAULT_PC_STEP);
-    vm_state.instret += 1;
+    *pc = (*pc).wrapping_add(DEFAULT_PC_STEP);
+    *instret += 1;
+
+    Ok(())
 }

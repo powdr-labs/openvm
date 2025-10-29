@@ -97,9 +97,9 @@ pub mod test_utils {
         let input = input_stream.into();
 
         let engine = E::new(FriParameters::new_for_testing(1));
-        let (vm, _) = VirtualMachine::new_with_keygen(engine, builder, config)?;
-        let ctx = vm.build_metered_ctx();
         let exe = VmExe::new(program);
+        let (vm, _) = VirtualMachine::new_with_keygen(engine, builder, config)?;
+        let ctx = vm.build_metered_ctx(&exe);
         let (mut segments, _) = vm
             .metered_interpreter(&exe)?
             .execute_metered(input.clone(), ctx)?;
@@ -115,7 +115,8 @@ pub mod test_utils {
         let output =
             vm.execute_preflight(&mut preflight_interpreter, state, None, &trace_heights)?;
         assert_eq!(
-            output.to_state.instret, num_insns,
+            output.to_state.instret(),
+            num_insns,
             "metered execution insn count doesn't match preflight execution"
         );
         Ok((output, vm))

@@ -375,7 +375,7 @@ where
         let vm = app_prover.vm();
         let exe = app_prover.exe();
 
-        let ctx = vm.build_metered_ctx();
+        let ctx = vm.build_metered_ctx(&exe);
         let interpreter = vm
             .metered_interpreter(&exe)
             .map_err(VirtualMachineError::from)?;
@@ -411,7 +411,7 @@ where
         let (cost, final_state) = interpreter
             .execute_metered_cost(inputs, ctx)
             .map_err(VirtualMachineError::from)?;
-        let instret = final_state.instret;
+        let instret = final_state.instret();
 
         let public_values = extract_public_values(
             self.executor.config.as_ref().num_public_values,

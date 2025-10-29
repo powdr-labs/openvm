@@ -462,7 +462,7 @@ where
             .iter()
             .all(|&air_idx| air_idx < trace_heights.len()));
 
-        let instret_end = num_insns.map(|ni| state.instret.saturating_add(ni));
+        let instret_end = num_insns.map(|ni| state.instret().saturating_add(ni));
         // TODO[jpw]: figure out how to compute RA specific main_widths
         let main_widths = self
             .pk
@@ -483,22 +483,24 @@ where
         let access_adapter_arena_size_bound = records::arena_size_bound(
             &trace_heights[adapter_offset..adapter_offset + num_adapters],
         );
+        let instret = state.instret();
+        let pc = state.pc();
         let memory = TracingMemory::from_image(
             state.memory,
             system_config.initial_block_size(),
             access_adapter_arena_size_bound,
         );
-        let from_state = ExecutionState::new(state.pc, memory.timestamp());
-        let vm_state = VmState {
-            instret: state.instret,
-            pc: state.pc,
+        let from_state = ExecutionState::new(pc, memory.timestamp());
+        let vm_state = VmState::new(
+            instret,
+            pc,
             memory,
-            streams: state.streams,
-            rng: state.rng,
-            custom_pvs: state.custom_pvs,
+            state.streams,
+            state.rng,
+            state.custom_pvs,
             #[cfg(feature = "metrics")]
-            metrics: state.metrics,
-        };
+            state.metrics,
+        );
         let mut exec_state = VmExecState::new(vm_state, ctx);
         interpreter.reset_execution_frequencies();
         execute_spanned!("execute_preflight", interpreter, &mut exec_state)?;
@@ -510,8 +512,10 @@ where
         #[cfg(feature = "perf-metrics")]
         crate::metrics::end_segment_metrics(&mut exec_state);
 
+        let instret = exec_state.vm_state.instret();
+        let pc = exec_state.vm_state.pc();
         let memory = exec_state.vm_state.memory;
-        let to_state = ExecutionState::new(exec_state.vm_state.pc, memory.timestamp());
+        let to_state = ExecutionState::new(pc, memory.timestamp());
         let public_values = exec_state
             .vm_state
             .custom_pvs
@@ -529,16 +533,16 @@ where
             public_values,
         };
         let record_arenas = exec_state.ctx.arenas;
-        let to_state = VmState {
-            instret: exec_state.vm_state.instret,
-            pc: exec_state.vm_state.pc,
-            memory: memory.data,
-            streams: exec_state.vm_state.streams,
-            rng: exec_state.vm_state.rng,
-            custom_pvs: exec_state.vm_state.custom_pvs,
+        let to_state = VmState::new(
+            instret,
+            pc,
+            memory.data,
+            exec_state.vm_state.streams,
+            exec_state.vm_state.rng,
+            exec_state.vm_state.custom_pvs,
             #[cfg(feature = "metrics")]
-            metrics: exec_state.vm_state.metrics,
-        };
+            exec_state.vm_state.metrics,
+        );
         Ok(PreflightExecutionOutput {
             system_records,
             record_arenas,
@@ -776,8 +780,11 @@ where
     }
 
     /// Convenience method to construct a [MeteredCtx] using data from the stored proving key.
-    pub fn build_metered_ctx(&self) -> MeteredCtx {
-        let (constant_trace_heights, air_names, widths, interactions): (
+    pub fn build_metered_ctx(&self, exe: &VmExe<Val<E::SC>>) -> MeteredCtx {
+        let config = self.config().as_ref();
+        let program_len = exe.program.num_defined_instructions();
+
+        let (mut constant_trace_heights, air_names, widths, interactions): (
             Vec<_>,
             Vec<_>,
             Vec<_>,
@@ -799,6 +806,13 @@ where
                 (constant_trace_height, air_names, width, num_interactions)
             })
             .multiunzip();
+
+        // Program trace is the same for all segments
+        constant_trace_heights[PROGRAM_AIR_ID] = Some(program_len);
+        if config.has_public_values_chip() {
+            // Public values chip is only present when there's a single segment
+            constant_trace_heights[PUBLIC_VALUES_AIR_ID] = Some(config.num_public_values);
+        }
 
         self.executor().build_metered_ctx(
             &constant_trace_heights,
@@ -971,7 +985,7 @@ where
         let input = input.into();
         self.reset_state(input.clone());
         let vm = &mut self.vm;
-        let metered_ctx = vm.build_metered_ctx();
+        let metered_ctx = vm.build_metered_ctx(&self.exe);
         let metered_interpreter = vm.metered_interpreter(&self.exe)?;
         let (segments, _) = metered_interpreter.execute_metered(input, metered_ctx)?;
         let mut proofs = Vec::with_capacity(segments.len());
@@ -985,7 +999,7 @@ where
                 num_insns,
                 trace_heights,
             } = segment;
-            assert_eq!(state.as_ref().unwrap().instret, instret_start);
+            assert_eq!(state.as_ref().unwrap().instret(), instret_start);
             let from_state = Option::take(&mut state).unwrap();
             vm.transport_init_memory_to_device(&from_state.memory);
             let PreflightExecutionOutput {
@@ -1046,7 +1060,7 @@ where
         let (proof, final_memory) = vm.prove(&mut self.interpreter, state, None, &trace_heights)?;
         let final_memory = final_memory.ok_or(ExecutionError::DidNotTerminate)?;
         // Put back state to avoid re-allocation
-        self.state = Some(VmState::new(
+        self.state = Some(VmState::new_with_defaults(
             0,
             exe.pc_start,
             final_memory,
