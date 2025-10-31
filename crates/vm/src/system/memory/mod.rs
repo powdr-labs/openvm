@@ -7,7 +7,6 @@ use openvm_stark_backend::{
     interaction::PermutationCheckBus,
     p3_field::Field,
     p3_util::{log2_ceil_usize, log2_strict_usize},
-    AirRef,
 };
 
 pub mod adapter;
@@ -24,7 +23,7 @@ pub use controller::*;
 pub use online::{Address, AddressMap, INITIAL_TIMESTAMP};
 
 use crate::{
-    arch::{MemoryConfig, ADDR_SPACE_OFFSET},
+    arch::{AirRefWithColumnNames, MemoryConfig, ADDR_SPACE_OFFSET},
     system::memory::{
         adapter::AccessAdapterAir, dimensions::MemoryDimensions, interface::MemoryInterfaceAirs,
         merkle::MemoryMerkleAir, offline_checker::MemoryBridge, persistent::PersistentBoundaryAir,
@@ -75,7 +74,7 @@ impl<S, T> MemoryAddress<S, T> {
 pub struct MemoryAirInventory<SC: StarkGenericConfig> {
     pub bridge: MemoryBridge,
     pub interface: MemoryInterfaceAirs,
-    pub access_adapters: Vec<AirRef<SC>>,
+    pub access_adapters: Vec<AirRefWithColumnNames<SC>>,
 }
 
 impl<SC: StarkGenericConfig> MemoryAirInventory<SC> {
@@ -122,12 +121,12 @@ impl<SC: StarkGenericConfig> MemoryAirInventory<SC> {
         let lt_air = IsLtSubAir::new(range_bus, mem_config.timestamp_max_bits);
         let maan = mem_config.max_access_adapter_n;
         assert!(matches!(maan, 2 | 4 | 8 | 16 | 32));
-        let access_adapters: Vec<AirRef<SC>> = [
-            Arc::new(AccessAdapterAir::<2> { memory_bus, lt_air }) as AirRef<SC>,
-            Arc::new(AccessAdapterAir::<4> { memory_bus, lt_air }) as AirRef<SC>,
-            Arc::new(AccessAdapterAir::<8> { memory_bus, lt_air }) as AirRef<SC>,
-            Arc::new(AccessAdapterAir::<16> { memory_bus, lt_air }) as AirRef<SC>,
-            Arc::new(AccessAdapterAir::<32> { memory_bus, lt_air }) as AirRef<SC>,
+        let access_adapters: Vec<AirRefWithColumnNames<SC>> = [
+            Arc::new(AccessAdapterAir::<2> { memory_bus, lt_air }) as AirRefWithColumnNames<SC>,
+            Arc::new(AccessAdapterAir::<4> { memory_bus, lt_air }) as AirRefWithColumnNames<SC>,
+            Arc::new(AccessAdapterAir::<8> { memory_bus, lt_air }) as AirRefWithColumnNames<SC>,
+            Arc::new(AccessAdapterAir::<16> { memory_bus, lt_air }) as AirRefWithColumnNames<SC>,
+            Arc::new(AccessAdapterAir::<32> { memory_bus, lt_air }) as AirRefWithColumnNames<SC>,
         ]
         .into_iter()
         .take(log2_strict_usize(maan))
@@ -141,8 +140,8 @@ impl<SC: StarkGenericConfig> MemoryAirInventory<SC> {
     }
 
     /// The order of memory AIRs is boundary, merkle (if exists), access adapters
-    pub fn into_airs(self) -> Vec<AirRef<SC>> {
-        let mut airs: Vec<AirRef<SC>> = Vec::new();
+    pub fn into_airs(self) -> Vec<AirRefWithColumnNames<SC>> {
+        let mut airs: Vec<AirRefWithColumnNames<SC>> = Vec::new();
         match self.interface {
             MemoryInterfaceAirs::Volatile { boundary } => {
                 airs.push(Arc::new(boundary));

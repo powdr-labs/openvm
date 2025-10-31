@@ -16,7 +16,7 @@ use openvm_stark_backend::{
     config::{StarkGenericConfig, Val},
     interaction::{BusIndex, LookupBus},
     p3_field::{Field, PrimeField32},
-    AirRef, ChipUsageGetter,
+    ChipUsageGetter,
 };
 
 #[cfg(test)]
@@ -27,7 +27,10 @@ mod chip;
 pub use chip::*;
 
 use crate::{
-    arch::hasher::{Hasher, HasherChip},
+    arch::{
+        hasher::{Hasher, HasherChip},
+        AirRefWithColumnNames,
+    },
     system::poseidon2::air::Poseidon2PeripheryAir,
 };
 pub mod columns;
@@ -60,7 +63,7 @@ pub fn new_poseidon2_periphery_air<SC: StarkGenericConfig>(
     poseidon2_config: Poseidon2Config<Val<SC>>,
     direct_bus: LookupBus,
     max_constraint_degree: usize,
-) -> AirRef<SC> {
+) -> AirRefWithColumnNames<SC> {
     if max_constraint_degree >= 7 {
         Arc::new(Poseidon2PeripheryAir::<Val<SC>, 0>::new(
             Arc::new(Poseidon2SubAir::new(poseidon2_config.constants.into())),

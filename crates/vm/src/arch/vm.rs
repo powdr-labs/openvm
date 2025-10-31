@@ -1315,6 +1315,8 @@ pub fn debug_proving_ctx<E, VB>(
     let (airs, pks, proof_inputs): (Vec<_>, Vec<_>, Vec<_>) =
         multiunzip(ctx.per_air.iter().map(|(air_id, air_ctx)| {
             // Transfer from device **back** to host so the debugger can read the data.
+
+            use openvm_stark_backend::rap::AnyRap;
             let cached_mains = air_ctx
                 .cached_mains
                 .iter()
@@ -1331,7 +1333,7 @@ pub fn debug_proving_ctx<E, VB>(
                 public_values,
             };
             (
-                global_airs[*air_id].clone(),
+                global_airs[*air_id].clone() as Arc<dyn AnyRap<_>>,
                 pk.per_air[*air_id].clone(),
                 raw,
             )

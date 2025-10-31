@@ -31,7 +31,7 @@ use openvm_stark_backend::{
         types::{AirProvingContext, ProvingContext},
     },
     rap::AnyRap,
-    AirRef, AnyChip, Chip,
+    AnyChip, Chip,
 };
 use rustc_hash::FxHashMap;
 use tracing::info_span;
@@ -145,7 +145,7 @@ pub struct AirInventory<SC: StarkGenericConfig> {
     /// Note that the system will ensure that the first AIR in the list is always the
     /// [VariableRangeCheckerAir].
     #[get = "pub"]
-    ext_airs: Vec<AirRef<SC>>,
+    ext_airs: Vec<AirRefWithColumnNames<SC>>,
     /// `ext_start[i]` will have the starting index in `ext_airs` for extension `i`
     ext_start: Vec<usize>,
 
@@ -399,6 +399,16 @@ impl<F, E> ExecutorInventoryBuilder<'_, F, E> {
     }
 }
 
+pub trait ColumnNames {}
+
+impl<T> ColumnNames for T {}
+
+pub trait AnyRapWithColumnNames<SC: StarkGenericConfig>: AnyRap<SC> + ColumnNames {}
+
+pub type AirRefWithColumnNames<SC> = Arc<dyn AnyRapWithColumnNames<SC>>;
+
+impl<SC: StarkGenericConfig, R: AnyRap<SC> + ColumnNames> AnyRapWithColumnNames<SC> for R {}
+
 impl<SC: StarkGenericConfig> AirInventory<SC> {
     /// Outside of this crate, [AirInventory] must be constructed via [SystemConfig].
     pub(crate) fn new(
@@ -434,11 +444,11 @@ impl<SC: StarkGenericConfig> AirInventory<SC> {
             .filter_map(|air| air.as_any().downcast_ref())
     }
 
-    pub fn add_air<A: AnyRap<SC> + 'static>(&mut self, air: A) {
+    pub fn add_air<A: AnyRapWithColumnNames<SC> + 'static>(&mut self, air: A) {
         self.add_air_ref(Arc::new(air));
     }
 
-    pub fn add_air_ref(&mut self, air: AirRef<SC>) {
+    pub fn add_air_ref(&mut self, air: AirRefWithColumnNames<SC>) {
         self.ext_airs.push(air);
     }
 
@@ -452,7 +462,7 @@ impl<SC: StarkGenericConfig> AirInventory<SC> {
     /// This is the system AIRs, followed by the other AIRs in the **reverse** of the order they
     /// were added in the VM extension definitions. In particular, the AIRs that have dependencies
     /// appear later. The system guarantees that the last AIR is the [VariableRangeCheckerAir].
-    pub fn into_airs(self) -> impl Iterator<Item = AirRef<SC>> {
+    pub fn into_airs(self) -> impl Iterator<Item = AirRefWithColumnNames<SC>> {
         self.system
             .into_airs()
             .into_iter()
