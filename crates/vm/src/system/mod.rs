@@ -19,18 +19,19 @@ use openvm_stark_backend::{
         hal::{MatrixDimensions, ProverBackend},
         types::{AirProvingContext, CommittedTraceData},
     },
-    AirRef, Chip,
+    Chip,
 };
 use rustc_hash::FxHashMap;
 
 use self::{connector::VmConnectorAir, program::ProgramAir, public_values::PublicValuesAir};
 use crate::{
     arch::{
-        vm_poseidon2_config, AirInventory, AirInventoryError, BusIndexManager, ChipInventory,
-        ChipInventoryError, DenseRecordArena, ExecutionBridge, ExecutionBus, ExecutionState,
-        ExecutorInventory, ExecutorInventoryError, MatrixRecordArena, PhantomSubExecutor,
-        RowMajorMatrixArena, SystemConfig, VmAirWrapper, VmBuilder, VmChipComplex, VmChipWrapper,
-        VmCircuitConfig, VmExecutionConfig, CONNECTOR_AIR_ID, PROGRAM_AIR_ID, PUBLIC_VALUES_AIR_ID,
+        vm_poseidon2_config, AirInventory, AirInventoryError, AirRefWithColumnNames,
+        BusIndexManager, ChipInventory, ChipInventoryError, DenseRecordArena, ExecutionBridge,
+        ExecutionBus, ExecutionState, ExecutorInventory, ExecutorInventoryError, MatrixRecordArena,
+        PhantomSubExecutor, RowMajorMatrixArena, SystemConfig, VmAirWrapper, VmBuilder,
+        VmChipComplex, VmChipWrapper, VmCircuitConfig, VmExecutionConfig, CONNECTOR_AIR_ID,
+        PROGRAM_AIR_ID, PUBLIC_VALUES_AIR_ID,
     },
     system::{
         connector::VmConnectorChip,
@@ -224,8 +225,8 @@ impl<SC: StarkGenericConfig> SystemAirInventory<SC> {
         }
     }
 
-    pub fn into_airs(self) -> Vec<AirRef<SC>> {
-        let mut airs: Vec<AirRef<SC>> = Vec::new();
+    pub fn into_airs(self) -> Vec<AirRefWithColumnNames<SC>> {
+        let mut airs: Vec<AirRefWithColumnNames<SC>> = Vec::new();
         airs.push(Arc::new(self.program));
         airs.push(Arc::new(self.connector));
         if let Some(public_values) = self.public_values {
