@@ -702,7 +702,6 @@ where
                 zip(self.inventory.chips.iter().enumerate().rev(), record_arenas).map(
                     |((insertion_idx, chip), records)| {
                         // Only create a span if record is not empty:
-                        println!("TRACE FOR CHIP: {}", self.inventory.airs.ext_airs[insertion_idx].name());
                         let _span = (!records.is_empty()).then(|| {
                             let air_name = self.inventory.airs.ext_airs[insertion_idx].name();
                             info_span!("single_trace_gen", air = air_name).entered()
