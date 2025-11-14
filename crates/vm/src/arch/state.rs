@@ -5,7 +5,7 @@ use std::{
 
 use eyre::eyre;
 use getset::{CopyGetters, MutGetters};
-use openvm_instructions::exe::SparseMemoryImage;
+use openvm_instructions::{exe::SparseMemoryImage, program::ApcCondition};
 use rand::{rngs::StdRng, SeedableRng};
 use tracing::instrument;
 
@@ -74,6 +74,12 @@ impl<F: Clone, MEM> VmState<F, MEM> {
             #[cfg(feature = "metrics")]
             metrics: &mut self.metrics,
         }
+    }
+}
+
+impl<F, MEM> VmState<F, MEM> {
+    pub fn should_execute_apc(&self, condition: ApcCondition) -> bool {
+        condition.should_run
     }
 }
 

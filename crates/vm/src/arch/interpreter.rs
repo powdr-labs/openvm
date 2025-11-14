@@ -10,10 +10,7 @@ use std::{
 use itertools::Itertools;
 use openvm_circuit_primitives_derive::AlignedBytesBorrow;
 use openvm_instructions::{
-    exe::{SparseMemoryImage, VmExe},
-    instruction::Instruction,
-    program::{Program, DEFAULT_PC_STEP},
-    LocalOpcode, SystemOpcode,
+    LocalOpcode, SystemOpcode, exe::{SparseMemoryImage, VmExe}, instruction::Instruction, program::{ApcCondition, DEFAULT_PC_STEP, Program}
 };
 use openvm_stark_backend::p3_field::PrimeField32;
 use tracing::info_span;
@@ -68,7 +65,14 @@ pub struct InterpretedInstance<'a, F, Ctx> {
 #[cfg_attr(feature = "tco", allow(dead_code))]
 struct PreComputeInstruction<'a, F, Ctx> {
     pub handler: ExecuteFunc<F, Ctx>,
+    pub apc_handler: Option<(ExecuteFunc<F, Ctx>, ApcCondition)>,
     pub pre_compute: &'a [u8],
+}
+
+impl<'a, F, Ctx> PreComputeInstruction<'a, F, Ctx> {
+    fn handler(&self, state: &VmState<F>) -> &ExecuteFunc<F, Ctx> {
+        self.apc_handler.as_ref().and_then(|(apc_handler, condition)| state.should_execute_apc(*condition).then_some(apc_handler)).unwrap_or(&self.handler)
+    }
 }
 
 #[derive(AlignedBytesBorrow, Clone)]
@@ -603,7 +607,7 @@ unsafe fn execute_trampoline<F: PrimeField32, Ctx: ExecutionCtxTrait>(
         let pc_index = get_pc_index(pc);
         if let Some(inst) = fn_ptrs.get(pc_index) {
             // SAFETY: pre_compute assumed to live long enough
-            unsafe { (inst.handler)(inst.pre_compute, &mut instret, &mut pc, arg, exec_state) };
+            unsafe { (inst.handler(exec_state))(inst.pre_compute, &mut instret, &mut pc, arg, exec_state) };
         } else {
             exec_state.exit_code = Err(ExecutionError::PcOutOfBounds(pc));
         }
@@ -716,7 +720,7 @@ fn get_pre_compute_max_size<F, E: Executor<F>>(
                 0
             }
         })
-        .chain(program.apc_by_pc_index.values().map(|(inst, _)| {
+        .chain(program.apc_by_pc_index.values().map(|(inst, _, _)| {
                 inventory
                     .get_executor(inst.opcode)
                     .map(|executor| executor.pre_compute_size())
@@ -748,7 +752,7 @@ fn get_metered_pre_compute_max_size<F, E: MeteredExecutor<F>>(
                 0
             }
         })
-        .chain(program.apc_by_pc_index.values().map(|(inst, _)| {
+        .chain(program.apc_by_pc_index.values().map(|(inst, _, _)| {
                 inventory
                     .get_executor(inst.opcode)
                     .map(|executor| executor.metered_pre_compute_size())
@@ -797,17 +801,22 @@ where
                 // Recover the pc_index using the base_index offset. This is guaranteed not to underflow because the first `base_index` entries are `None`, so we would not be in this branch.
                 let pc_index = i - base_index;
                 // If an apc exists at this pc index, override the instruction
-                let inst = program.apc_by_pc_index.get(&pc_index).map(|(inst, _)| inst).unwrap_or(inst);
+                let apc_inst = program.apc_by_pc_index.get(&pc_index).map(|(inst, _, condition)| (inst, condition));
                 tracing::trace!("get_pre_compute_instruction {inst:?}");
                 let pc = program.pc_base + i as u32 * DEFAULT_PC_STEP;
                 if let Some(handler) = get_system_opcode_handler(inst, buf) {
                     PreComputeInstruction {
                         handler,
+                        apc_handler: None,
                         pre_compute: buf,
                     }
                 } else if let Some(executor) = inventory.get_executor(inst.opcode) {
                     PreComputeInstruction {
                         handler: executor.pre_compute(pc, inst, buf)?,
+                        apc_handler: apc_inst.map(|(apc_inst, condition)| {
+                            (inventory.get_executor(apc_inst.opcode).unwrap()
+                                .pre_compute(pc, apc_inst, buf).unwrap(), *condition)
+                        }),
                         pre_compute: buf,
                     }
                 } else {
@@ -820,6 +829,7 @@ where
                 // Dead instruction at this pc
                 PreComputeInstruction {
                     handler: unreachable_handler,
+                    apc_handler: None,
                     pre_compute: buf,
                 }
             };
@@ -860,12 +870,13 @@ where
                 // Recover the pc_index using the base_index offset. This is guaranteed not to underflow because the first `base_index` entries are `None`, so we would not be in this branch.
                 let pc_index = i - base_index;
                 // If an apc exists at this pc index, override the instruction
-                let inst = program.apc_by_pc_index.get(&pc_index).map(|(inst, _)| inst).unwrap_or(inst);
+                let apc_inst = program.apc_by_pc_index.get(&pc_index).map(|(inst, _, condition)| (inst, condition));
                 tracing::trace!("get_metered_pre_compute_instruction {inst:?}");
                 let pc = program.pc_base + i as u32 * DEFAULT_PC_STEP;
                 if let Some(handler) = get_system_opcode_handler(inst, buf) {
                     PreComputeInstruction {
                         handler,
+                        apc_handler: None,
                         pre_compute: buf,
                     }
                 } else if let Some(&executor_idx) = inventory.instruction_lookup.get(&inst.opcode) {
@@ -877,6 +888,18 @@ where
                     let air_idx = executor_idx_to_air_idx[executor_idx];
                     PreComputeInstruction {
                         handler: executor.metered_pre_compute(air_idx, pc, inst, buf)?,
+                        apc_handler: apc_inst
+                            .map(|(apc_inst, condition)| {
+                                let executor_idx = *inventory.instruction_lookup.get(&apc_inst.opcode).unwrap() as usize;
+                                                    let executor = inventory
+                        .executors
+                        .get(executor_idx)
+                        .expect("ExecutorInventory ensures executor_idx is in bounds");
+                                        let air_idx = executor_idx_to_air_idx[executor_idx];
+
+                                (inventory.get_executor(apc_inst.opcode).unwrap()
+                                    .metered_pre_compute(air_idx, pc, apc_inst, buf).unwrap(), *condition)
+                            }),
                         pre_compute: buf,
                     }
                 } else {
@@ -888,6 +911,7 @@ where
             } else {
                 PreComputeInstruction {
                     handler: unreachable_handler,
+                    apc_handler: None,
                     pre_compute: buf,
                 }
             };

@@ -12,6 +12,13 @@ pub const PC_BITS: usize = 30;
 pub const DEFAULT_PC_STEP: u32 = 4;
 pub const MAX_ALLOWED_PC: u32 = (1 << PC_BITS) - 1;
 
+/// Conditions which must be satisfied for the APC to be run
+// TODO: express runtime conditions
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub struct ApcCondition {
+    pub should_run: bool,
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(bound(serialize = "F: Serialize", deserialize = "F: Deserialize<'de>"))]
 pub struct Program<F> {
@@ -24,7 +31,7 @@ pub struct Program<F> {
         deserialize_with = "deserialize_instructions_and_debug_infos"
     )]
     pub instructions_and_debug_infos: Vec<Option<(Instruction<F>, Option<DebugInfo>)>>,
-    pub apc_by_pc_index: HashMap<usize, (Instruction<F>, Option<DebugInfo>)>, 
+    pub apc_by_pc_index: HashMap<usize, (Instruction<F>, Option<DebugInfo>, ApcCondition)>,
     pub pc_base: u32,
 }
 
@@ -68,11 +75,11 @@ impl<F: Field> Program<F> {
         }
     }
 
-    pub fn add_apc_instruction_at_pc_index(&mut self, pc_index: usize, opcode: VmOpcode) {
+    pub fn add_apc_instruction_at_pc_index(&mut self, pc_index: usize, opcode: VmOpcode, condition: ApcCondition) {
         let debug: Option<DebugInfo> = self.instructions_and_debug_infos
             [pc_index].as_ref().unwrap().1.clone();
 
-        self.apc_by_pc_index.insert(pc_index, (Instruction::from_usize(opcode, []), debug));
+        self.apc_by_pc_index.insert(pc_index, (Instruction::from_usize(opcode, []), debug, condition));
     }
 
     /// We assume that pc_start = pc_base = 0 everywhere except the RISC-V programs, until we need
@@ -172,7 +179,7 @@ impl<F: Field> Program<F> {
             .extend(other.instructions_and_debug_infos);
     }
     
-    pub fn get_apc_instruction(&self, pc_index: usize) -> Option<&(Instruction<F>, Option<DebugInfo>)> {
+    pub fn get_apc_instruction(&self, pc_index: usize) -> Option<&(Instruction<F>, Option<DebugInfo>, ApcCondition)> {
         self.apc_by_pc_index.get(&pc_index)
     }
 }
