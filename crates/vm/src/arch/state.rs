@@ -184,7 +184,17 @@ where
     ) -> [T; BLOCK_SIZE] {
         self.ctx
             .on_memory_operation(addr_space, ptr, BLOCK_SIZE as u32);
-        self.host_read(addr_space, ptr)
+        let read = self.host_read(addr_space, ptr);
+
+        tracing::event!(
+            target: "read",
+            tracing::Level::TRACE,
+            address_space = addr_space as u64,
+            address = ptr as u64,
+            value = 0u64, // just log the first element for now
+        );
+
+        read
     }
 
     /// Runtime write operation for a block of memory
@@ -197,7 +207,15 @@ where
     ) {
         self.ctx
             .on_memory_operation(addr_space, ptr, BLOCK_SIZE as u32);
-        self.host_write(addr_space, ptr, data)
+        self.host_write(addr_space, ptr, data);
+
+        tracing::event!(
+            target: "write",
+            tracing::Level::TRACE,
+            address_space = addr_space as u64,
+            address = ptr as u64,
+            value = 0u64, // just log the first element for now
+        );
     }
 
     #[inline(always)]
