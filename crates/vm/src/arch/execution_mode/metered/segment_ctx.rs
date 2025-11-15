@@ -192,10 +192,10 @@ impl SegmentationCtx {
                 tracing::info!(
                     "instret {:10} | height ({:8}) > max ({:8}) | chip {:3} ({}) ",
                     instret,
+                    padded_height,
+                    self.segmentation_limits.max_trace_height,
                     i,
                     air_name,
-                    padded_height,
-                    self.segmentation_limits.max_trace_height
                 );
                 return true;
             }
@@ -279,9 +279,15 @@ impl SegmentationCtx {
                 self.checkpoint_trace_heights.clone(),
             )
         } else {
+            let trace_heights_str = trace_heights
+                .iter()
+                .zip(self.air_names.iter())
+                .filter(|(&height, _)| height > 0)
+                .map(|(&height, name)| format!("  {} = {}", name, height))
+                .collect::<Vec<_>>()
+                .join("\n");
             tracing::warn!(
-                "No valid checkpoint, creating segment using instret={instret}, trace_heights={:?}",
-                trace_heights
+                "No valid checkpoint, creating segment using instret={instret}\ntrace_heights=[\n{trace_heights_str}\n]"
             );
             // No valid checkpoint, use current values
             (instret, trace_heights.to_vec())
