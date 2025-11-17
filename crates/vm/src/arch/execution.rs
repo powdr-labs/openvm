@@ -1,7 +1,7 @@
 use openvm_circuit_primitives::AlignedBytesBorrow;
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{
-    PhantomDiscriminant, VmOpcode, instruction::Instruction, program::{ApcCondition, DEFAULT_PC_STEP}
+    PhantomDiscriminant, VmOpcode, instruction::Instruction, program::{ApcCondition, Choice, DEFAULT_PC_STEP, Decision}
 };
 use openvm_stark_backend::{
     interaction::{BusIndex, InteractionBuilder, PermutationCheckBus},
@@ -103,51 +103,6 @@ pub type ExecuteFunc<F, CTX> = unsafe fn(
     arg: u64,
     exec_state: &mut VmExecState<F, GuestMemory, CTX>,
 );
-
-#[derive(Clone, Copy)]
-pub struct Decision<H> {
-    pub software: H,
-    pub apc: Option<(H, ApcCondition)>,
-}
-
-impl<H> From<H> for Decision<H> {
-    fn from(software: H) -> Self {
-        Self {
-            software,
-            apc: None,
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-pub enum Choice<H> {
-    Software(H),
-    Apc(H)
-}
-
-impl<H> AsRef<H> for Choice<H> {
-    fn as_ref(&self) -> &H {
-        match self {
-            Self::Software(h) => h,
-            Self::Apc(h) => h,
-        }
-    }
-}
-
-impl<H> Choice<H> {
-    pub fn into_inner(self) -> H {
-        match self {
-            Self::Software(h) => h,
-            Self::Apc(h) => h,
-        }
-    }
-}
-
-impl<H> Decision<H> {
-    pub fn choose<F, MEM>(&self, vm_state: &VmState<F, MEM>) -> Choice<&H> {
-        self.apc.as_ref().and_then(|(apc, condition)| vm_state.should_execute_apc(condition).then_some(Choice::Apc(apc))).unwrap_or_else(|| Choice::Software(&self.software))
-    }
-}
 
 /// Handler for tail call elimination. The `CTX` is assumed to contain pointers to the pre-computed
 /// buffer and the function handler table.

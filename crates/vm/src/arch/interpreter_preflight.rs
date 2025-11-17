@@ -3,7 +3,7 @@ use std::{iter::repeat_n, sync::Arc};
 #[cfg(not(feature = "parallel"))]
 use itertools::Itertools;
 use libc::PROC_EVENT_COMM;
-use openvm_instructions::{LocalOpcode, SystemOpcode, instruction::Instruction, program::{ApcCondition, Program}};
+use openvm_instructions::{LocalOpcode, SystemOpcode, instruction::Instruction, program::{ApcCondition, Choice, Program}};
 use openvm_stark_backend::{
     p3_field::{Field, PrimeField32},
     p3_maybe_rayon::prelude::*,
@@ -11,10 +11,12 @@ use openvm_stark_backend::{
 
 use crate::{
     arch::{
-        Arena, Choice, Decision, ExecutionError, ExecutorId, ExecutorInventory, PreflightExecutor, StaticProgramError, VmExecState, execution_mode::PreflightCtx, interpreter::get_pc_index
+        Arena, ExecutionError, ExecutorId, ExecutorInventory, PreflightExecutor, StaticProgramError, VmExecState, execution_mode::PreflightCtx, interpreter::get_pc_index
     },
     system::memory::online::TracingMemory,
 };
+
+use crate::arch::instructions::program::Decision;
 
 /// VM preflight executor (E3 executor) for use with trace generation.
 /// Note: This executor doesn't hold any VM state and can be used for multiple execution.
@@ -28,7 +30,7 @@ pub struct PreflightInterpretedInstance<F, E> {
     /// at that pc.
     // PERF[jpw/ayush]: We could map directly to the raw pointer(u64) for executor, but storing the
     // u32 may be better for cache efficiency.
-    pc_handler: Vec<crate::arch::Decision<PcEntry<F>>>,
+    pc_handler: Vec<Decision<PcEntry<F>>>,
     // pc_handler, execution_frequencies will all have the same length, which equals
     // `Program::len()`
     execution_frequencies: Vec<u32>,
@@ -68,21 +70,15 @@ impl<F: Field, E> PreflightInterpretedInstance<F, E> {
         let mut pc_handler = Vec::with_capacity(base_idx + len);
         pc_handler.extend(repeat_n(PcEntry::undefined().into(), base_idx));
         for (pc_idx, insn_and_debug_info) in program.instructions_and_debug_infos.iter().enumerate() {
-            
-            // If an apc exists at this pc index
-            let apc = 
-                program.apc_by_pc_index
-                .get(&pc_idx);
-            
             if let Some((insn, condition)) = insn_and_debug_info {
                 let insn = insn.clone();
-                let executor_idx = if insn.opcode == SystemOpcode::TERMINATE.global_opcode() {
+                let executor_idx = if insn.software.opcode == SystemOpcode::TERMINATE.global_opcode() {
                     // The execution loop will always branch to terminate before using this executor
                     0
                 } else {
-                    *inventory.instruction_lookup.get(&insn.opcode).ok_or(
+                    *inventory.instruction_lookup.get(&insn.software.opcode).ok_or(
                         StaticProgramError::ExecutorNotFound {
-                            opcode: insn.opcode,
+                            opcode: insn.software.opcode,
                         },
                     )?
                 };
@@ -90,12 +86,12 @@ impl<F: Field, E> PreflightInterpretedInstance<F, E> {
                     (executor_idx as usize) < inventory.executors.len(),
                     "ExecutorInventory ensures executor_idx is in bounds"
                 );
-                let pc_entry = PcEntry { insn, executor_idx };
-                let apc_entry = apc.map(|(instr, _, condition)| {
+                let software_entry = PcEntry { insn: insn.software, executor_idx };
+                let apc_entry = insn.apc.map(|(instr, condition)| {
                     let executor_idx = *inventory.instruction_lookup.get(&instr.opcode).unwrap();
-                    (PcEntry { insn: instr.clone(), executor_idx }, *condition)
+                    (PcEntry { insn: instr.clone(), executor_idx }, condition)
                 });
-                pc_handler.push(Decision { software: pc_entry, apc: apc_entry });
+                pc_handler.push(Decision { software: software_entry, apc: apc_entry });
             } else {
                 pc_handler.push(PcEntry::undefined().into());
             }
@@ -177,7 +173,7 @@ impl<F: PrimeField32, E> PreflightInterpretedInstance<F, E> {
             .get(pc_idx)
             .ok_or_else(|| ExecutionError::PcOutOfBounds(pc))?;
 
-        let pc_entry = pc_entry.choose(&state.vm_state);
+        let pc_entry = state.choose(pc_entry);
 
         if matches!(pc_entry, Choice::Software(_)) {
             // SAFETY: `execution_frequencies` has the same length as `pc_handler` so `get_pc_entry`
@@ -187,7 +183,7 @@ impl<F: PrimeField32, E> PreflightInterpretedInstance<F, E> {
             };
         }
 
-        let pc_entry = pc_entry.as_ref();
+        let pc_entry = pc_entry.into_inner();
 
         // SAFETY: the `executor_idx` comes from ExecutorInventory, which ensures that
         // `executor_idx` is within bounds

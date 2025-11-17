@@ -10,7 +10,7 @@ use std::{
 use itertools::Itertools;
 use openvm_circuit_primitives_derive::AlignedBytesBorrow;
 use openvm_instructions::{
-    LocalOpcode, SystemOpcode, exe::{SparseMemoryImage, VmExe}, instruction::Instruction, program::{ApcCondition, DEFAULT_PC_STEP, Program}
+    LocalOpcode, SystemOpcode, exe::{SparseMemoryImage, VmExe}, instruction::Instruction, program::{ApcCondition, DEFAULT_PC_STEP, Decision, Program}
 };
 use openvm_stark_backend::p3_field::PrimeField32;
 use tracing::info_span;
@@ -19,7 +19,7 @@ use tracing::info_span;
 use crate::arch::{Handler};
 use crate::{
     arch::{
-        Decision, ExecuteFunc, ExecutionError, Executor, ExecutorInventory, ExitCode, MeteredExecutor, StaticProgramError, Streams, SystemConfig, VmExecState, VmState, execution_mode::{
+        ExecuteFunc, ExecutionError, Executor, ExecutorInventory, ExitCode, MeteredExecutor, StaticProgramError, Streams, SystemConfig, VmExecState, VmState, execution_mode::{
             ExecutionCtx, ExecutionCtxTrait, MeteredCostCtx, MeteredCtx, MeteredExecutionCtxTrait,
             Segment,
         }
@@ -613,7 +613,7 @@ unsafe fn execute_trampoline<F: PrimeField32, Ctx: ExecutionCtxTrait>(
         let pc_index = get_pc_index(pc);
         if let Some(inst) = fn_ptrs.get(pc_index) {
             // SAFETY: pre_compute assumed to live long enough
-            unsafe { (inst.handler.choose(exec_state)).as_ref()(inst.pre_compute, &mut instret, &mut pc, arg, exec_state) };
+            unsafe { exec_state.choose(&inst.handler).as_ref()(inst.pre_compute, &mut instret, &mut pc, arg, exec_state) };
         } else {
             exec_state.exit_code = Err(ExecutionError::PcOutOfBounds(pc));
         }
@@ -712,26 +712,22 @@ fn get_pre_compute_max_size<F, E: Executor<F>>(
     program
         .instructions_and_debug_infos
         .iter()
-        .map(|inst_opt| {
+        .flat_map(|inst_opt| {
             if let Some((inst, _)) = inst_opt {
-                if let Some(size) = system_opcode_pre_compute_size(inst) {
-                    size
+                if let Some(size) = system_opcode_pre_compute_size(&inst.software) {
+                    vec![size]
                 } else {
+                    inst.all_options().map(|inst|
                     inventory
                         .get_executor(inst.opcode)
                         .map(|executor| executor.pre_compute_size())
                         .unwrap()
+                    ).collect()
                 }
             } else {
-                0
+                vec![0]
             }
         })
-        .chain(program.apc_by_pc_index.values().map(|(inst, _, _)| {
-                inventory
-                    .get_executor(inst.opcode)
-                    .map(|executor| executor.pre_compute_size())
-                    .unwrap()
-        }))
         .max()
         .unwrap()
         .next_power_of_two()
@@ -744,26 +740,21 @@ fn get_metered_pre_compute_max_size<F, E: MeteredExecutor<F>>(
     program
         .instructions_and_debug_infos
         .iter()
-        .map(|inst_opt| {
+        .flat_map(|inst_opt| {
             if let Some((inst, _)) = inst_opt {
-                if let Some(size) = system_opcode_pre_compute_size(inst) {
-                    size
+                if let Some(size) = system_opcode_pre_compute_size(&inst.software) {
+                    vec![size]
                 } else {
+                    inst.all_options().map(|inst|
                     inventory
                         .get_executor(inst.opcode)
                         .map(|executor| executor.metered_pre_compute_size())
-                        .unwrap()
+                        .unwrap()).collect()
                 }
             } else {
-                0
+                vec![0]
             }
         })
-        .chain(program.apc_by_pc_index.values().map(|(inst, _, _)| {
-                inventory
-                    .get_executor(inst.opcode)
-                    .map(|executor| executor.metered_pre_compute_size())
-                    .unwrap()
-        }))
         .max()
         .unwrap()
         .next_power_of_two()
@@ -804,24 +795,18 @@ where
             // `PreComputeInstruction`s.
             let buf: &mut [u8] = unsafe { &mut *(*buf as *mut [u8]) };
             let pre_inst = if let Some((inst, _)) = inst_opt {
-                // Recover the pc_index using the base_index offset. This is guaranteed not to underflow because the first `base_index` entries are `None`, so we would not be in this branch.
-                let pc_index = i - base_index;
-                // If an apc exists at this pc index, override the instruction
-                let apc_inst = program.apc_by_pc_index.get(&pc_index).map(|(inst, _, condition)| (inst, condition));
                 tracing::trace!("get_pre_compute_instruction {inst:?}");
                 let pc = program.pc_base + i as u32 * DEFAULT_PC_STEP;
-                if let Some(handler) = get_system_opcode_handler(inst, buf) {
+                if let Some(handler) = get_system_opcode_handler(&inst.software, buf) {
                     PreComputeInstruction {
                         handler: handler.into(),
                         pre_compute: buf,
                     }
-                } else if let Some(executor) = inventory.get_executor(inst.opcode) {
-                    use crate::arch::Decision;
-
-                    let handler = executor.pre_compute(pc, inst, buf)?;
-                    let apc =  apc_inst.map(|(apc_inst, condition)| {
-                        (inventory.get_executor(apc_inst.opcode).unwrap()
-                            .pre_compute(pc, apc_inst, buf).unwrap(), *condition)
+                } else if let Some(executor) = inventory.get_executor(inst.software.opcode) {
+                    let handler = executor.pre_compute(pc, &inst.software, buf)?;
+                    let apc =  inst.apc.as_ref().map(|(inst, condition)| {
+                        (inventory.get_executor(inst.opcode).unwrap()
+                            .pre_compute(pc, &inst, buf).unwrap(), *condition)
                     });
                     PreComputeInstruction {
                         handler: Decision { software: handler, apc },
@@ -830,7 +815,7 @@ where
                 } else {
                     return Err(StaticProgramError::DisabledOperation {
                         pc,
-                        opcode: inst.opcode,
+                        opcode: inst.software.opcode,
                     });
                 }
             } else {
@@ -874,38 +859,32 @@ where
             // `PreComputeInstruction`s.
             let buf: &mut [u8] = unsafe { &mut *(*buf as *mut [u8]) };
             let pre_inst = if let Some((inst, _)) = inst_opt {
-                // Recover the pc_index using the base_index offset. This is guaranteed not to underflow because the first `base_index` entries are `None`, so we would not be in this branch.
-                let pc_index = i - base_index;
-                // If an apc exists at this pc index, override the instruction
-                let apc_inst = program.apc_by_pc_index.get(&pc_index).map(|(inst, _, condition)| (inst, condition));
                 tracing::trace!("get_metered_pre_compute_instruction {inst:?}");
                 let pc = program.pc_base + i as u32 * DEFAULT_PC_STEP;
-                if let Some(handler) = get_system_opcode_handler(inst, buf) {
+                if let Some(handler) = get_system_opcode_handler(&inst.software, buf) {
                     PreComputeInstruction {
                         handler: handler.into(),
                         pre_compute: buf,
                     }
-                } else if let Some(&executor_idx) = inventory.instruction_lookup.get(&inst.opcode) {
-                    use crate::arch::Decision;
-
+                } else if let Some(&executor_idx) = inventory.instruction_lookup.get(&inst.software.opcode) {
                     let executor_idx = executor_idx as usize;
                     let executor = inventory
                         .executors
                         .get(executor_idx)
                         .expect("ExecutorInventory ensures executor_idx is in bounds");
                     let air_idx = executor_idx_to_air_idx[executor_idx];
-                    let handler = executor.metered_pre_compute(air_idx, pc, inst, buf)?;
-                    let apc = apc_inst
-                            .map(|(apc_inst, condition)| {
-                                let executor_idx = *inventory.instruction_lookup.get(&apc_inst.opcode).unwrap() as usize;
+                    let handler = executor.metered_pre_compute(air_idx, pc, &inst.software, buf)?;
+                    let apc = inst.apc.as_ref()
+                            .map(|(inst, condition)| {
+                                let executor_idx = *inventory.instruction_lookup.get(&inst.opcode).unwrap() as usize;
                                                     let executor = inventory
                         .executors
                         .get(executor_idx)
                         .expect("ExecutorInventory ensures executor_idx is in bounds");
                                         let air_idx = executor_idx_to_air_idx[executor_idx];
 
-                                (inventory.get_executor(apc_inst.opcode).unwrap()
-                                    .metered_pre_compute(air_idx, pc, apc_inst, buf).unwrap(), *condition)
+                                (inventory.get_executor(inst.opcode).unwrap()
+                                    .metered_pre_compute(air_idx, pc, &inst, buf).unwrap(), *condition)
                             });
                     PreComputeInstruction {
                         handler: Decision {software: handler, apc},
@@ -914,7 +893,7 @@ where
                 } else {
                     return Err(StaticProgramError::DisabledOperation {
                         pc,
-                        opcode: inst.opcode,
+                        opcode: inst.software.opcode,
                     });
                 }
             } else {

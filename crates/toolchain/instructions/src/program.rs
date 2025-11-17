@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::{self, Display}, ops::Deref, sync::Arc};
+use std::{collections::HashMap, fmt::{self, Display}, iter::once, ops::Deref, sync::Arc};
 
 use itertools::Itertools;
 use openvm_stark_backend::p3_field::Field;
@@ -30,8 +30,7 @@ pub struct Program<F> {
         serialize_with = "serialize_instructions_and_debug_infos",
         deserialize_with = "deserialize_instructions_and_debug_infos"
     )]
-    pub instructions_and_debug_infos: Vec<Option<(Instruction<F>, Option<DebugInfo>)>>,
-    pub apc_by_pc_index: HashMap<usize, (Instruction<F>, Option<DebugInfo>, ApcCondition)>,
+    pub instructions_and_debug_infos: Vec<Option<(Decision<Instruction<F>>, Option<DebugInfo>)>>,
     pub pc_base: u32,
 }
 
@@ -45,7 +44,6 @@ impl<F: Field> Program<F> {
     pub fn new_empty(pc_base: u32) -> Self {
         Self {
             instructions_and_debug_infos: vec![],
-            apc_by_pc_index: HashMap::new(),
             pc_base,
         }
     }
@@ -54,9 +52,8 @@ impl<F: Field> Program<F> {
         Self {
             instructions_and_debug_infos: instructions
                 .iter()
-                .map(|instruction| Some((instruction.clone(), None)))
+                .map(|instruction| Some((instruction.clone().into(), None)))
                 .collect(),
-            apc_by_pc_index: HashMap::new(),
             pc_base,
         }
     }
@@ -68,18 +65,17 @@ impl<F: Field> Program<F> {
         Self {
             instructions_and_debug_infos: instructions
                 .iter()
-                .map(|instruction| instruction.clone().map(|instruction| (instruction, None)))
+                .map(|instruction| instruction.clone().map(|instruction| (instruction.into(), None)))
                 .collect(),
-            apc_by_pc_index: HashMap::new(),
             pc_base,
         }
     }
 
-    pub fn add_apc_instruction_at_pc_index(&mut self, pc_index: usize, opcode: VmOpcode, condition: ApcCondition) {
-        let debug: Option<DebugInfo> = self.instructions_and_debug_infos
-            [pc_index].as_ref().unwrap().1.clone();
+    pub fn add_apc_instruction_at_pc_index(&mut self, pc_index: usize, opcode: VmOpcode, condition: ApcCondition) {        
+        let (decision, _) = &mut self.instructions_and_debug_infos.get_mut(pc_index).expect("pc index out of bounds").as_mut().expect("pc index out of bounds");
 
-        self.apc_by_pc_index.insert(pc_index, (Instruction::from_usize(opcode, []), debug, condition));
+        assert!(decision.apc.is_none());
+        decision.apc = Some((Instruction::from_usize(opcode, []), condition));
     }
 
     /// We assume that pc_start = pc_base = 0 everywhere except the RISC-V programs, until we need
@@ -92,9 +88,8 @@ impl<F: Field> Program<F> {
             instructions_and_debug_infos: instructions
                 .iter()
                 .zip_eq(debug_infos.iter())
-                .map(|(instruction, debug_info)| Some((instruction.clone(), debug_info.clone())))
+                .map(|(instruction, debug_info)| Some((instruction.clone().into(), debug_info.clone())))
                 .collect(),
-            apc_by_pc_index: HashMap::new(),
             pc_base: 0,
         }
     }
@@ -126,7 +121,7 @@ impl<F: Field> Program<F> {
         self.instructions_and_debug_infos
             .iter()
             .flatten()
-            .map(|(instruction, _)| instruction.clone())
+            .flat_map(|(instruction, _)| instruction.all_options().cloned())
             .collect()
     }
 
@@ -135,7 +130,7 @@ impl<F: Field> Program<F> {
         self.defined_instructions().len()
     }
 
-    pub fn enumerate_by_pc(&self) -> Vec<(u32, Instruction<F>, Option<DebugInfo>)> {
+    pub fn enumerate_software_by_pc(&self) -> Vec<(u32, Instruction<F>, Option<DebugInfo>)> {
         self.instructions_and_debug_infos
             .iter()
             .enumerate()
@@ -143,7 +138,7 @@ impl<F: Field> Program<F> {
                 option.clone().map(|(instruction, debug_info)| {
                     (
                         self.pc_base + (DEFAULT_PC_STEP * (index as u32)),
-                        instruction,
+                        instruction.software,
                         debug_info,
                     )
                 })
@@ -152,13 +147,13 @@ impl<F: Field> Program<F> {
     }
 
     // such that pc = pc_base + (step * index)
-    pub fn get_instruction_and_debug_info(
+    pub fn get_software_instruction_and_debug_info(
         &self,
         index: usize,
-    ) -> Option<&(Instruction<F>, Option<DebugInfo>)> {
+    ) -> Option<(&Instruction<F>, &Option<DebugInfo>)> {
         self.instructions_and_debug_infos
             .get(index)
-            .and_then(|x| x.as_ref())
+            .and_then(|x| x.as_ref().map(|(decision, debug)| (&decision.software, debug)))
     }
 
     pub fn push_instruction_and_debug_info(
@@ -167,7 +162,7 @@ impl<F: Field> Program<F> {
         debug_info: Option<DebugInfo>,
     ) {
         self.instructions_and_debug_infos
-            .push(Some((instruction, debug_info)));
+            .push(Some((Decision::from(instruction), debug_info)));
     }
 
     pub fn push_instruction(&mut self, instruction: Instruction<F>) {
@@ -177,10 +172,6 @@ impl<F: Field> Program<F> {
     pub fn append(&mut self, other: Program<F>) {
         self.instructions_and_debug_infos
             .extend(other.instructions_and_debug_infos);
-    }
-    
-    pub fn get_apc_instruction(&self, pc_index: usize) -> Option<&(Instruction<F>, Option<DebugInfo>, ApcCondition)> {
-        self.apc_by_pc_index.get(&pc_index)
     }
 }
 
@@ -262,7 +253,7 @@ pub fn display_program_with_pc<F: Field>(program: &Program<F>) {
 // meaningful because the program is executed by another binary. So here we only serialize
 // instructions.
 fn serialize_instructions_and_debug_infos<F: Serialize, S: Serializer>(
-    data: &[Option<(Instruction<F>, Option<DebugInfo>)>],
+    data: &[Option<(Decision<Instruction<F>>, Option<DebugInfo>)>],
     serializer: S,
 ) -> Result<S::Ok, S::Error> {
     let mut ins_data = Vec::with_capacity(data.len());
@@ -278,15 +269,60 @@ fn serialize_instructions_and_debug_infos<F: Serialize, S: Serializer>(
 #[allow(clippy::type_complexity)]
 fn deserialize_instructions_and_debug_infos<'de, F: Deserialize<'de>, D: Deserializer<'de>>(
     deserializer: D,
-) -> Result<Vec<Option<(Instruction<F>, Option<DebugInfo>)>>, D::Error> {
-    let (inst_data, total_len): (Vec<(Instruction<F>, u32)>, u32) =
+) -> Result<Vec<Option<(Decision<Instruction<F>>, Option<DebugInfo>)>>, D::Error> {
+    let (inst_data, total_len): (Vec<(Decision<Instruction<F>>, u32)>, u32) =
         Deserialize::deserialize(deserializer)?;
-    let mut ret: Vec<Option<(Instruction<F>, Option<DebugInfo>)>> = Vec::new();
+    let mut ret: Vec<Option<(Decision<Instruction<F>>, Option<DebugInfo>)>> = Vec::new();
     ret.resize_with(total_len as usize, || None);
     for (inst, i) in inst_data {
         ret[i as usize] = Some((inst, None));
     }
     Ok(ret)
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct Decision<H> {
+    pub software: H,
+    pub apc: Option<(H, ApcCondition)>,
+}
+
+impl<H> Decision<H> {
+    pub fn all_options(&self) -> impl Iterator<Item = &H> {
+        once(&self.software).chain(self.apc.as_ref().map(|(apc, _)| apc))
+    }
+}
+
+impl<H> From<H> for Decision<H> {
+    fn from(software: H) -> Self {
+        Self {
+            software,
+            apc: None,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum Choice<H> {
+    Software(H),
+    Apc(H)
+}
+
+impl<H> AsRef<H> for Choice<H> {
+    fn as_ref(&self) -> &H {
+        match self {
+            Self::Software(h) => h,
+            Self::Apc(h) => h,
+        }
+    }
+}
+
+impl<H> Choice<H> {
+    pub fn into_inner(self) -> H {
+        match self {
+            Self::Software(h) => h,
+            Self::Apc(h) => h,
+        }
+    }
 }
 
 #[cfg(test)]

@@ -5,7 +5,7 @@ use std::{
 
 use eyre::eyre;
 use getset::{CopyGetters, MutGetters};
-use openvm_instructions::{exe::SparseMemoryImage, program::ApcCondition};
+use openvm_instructions::{exe::SparseMemoryImage, program::{ApcCondition, Choice, Decision}};
 use rand::{rngs::StdRng, SeedableRng};
 use tracing::instrument;
 
@@ -13,7 +13,7 @@ use super::{create_memory_image, ExecutionError, Streams};
 #[cfg(feature = "metrics")]
 use crate::metrics::VmMetrics;
 use crate::{
-    arch::{Decision, SystemConfig, VmStateMut, execution_mode::ExecutionCtxTrait},
+    arch::{SystemConfig, VmStateMut, execution_mode::ExecutionCtxTrait},
     system::memory::online::GuestMemory,
 };
 
@@ -160,6 +160,18 @@ impl<F, MEM, CTX> VmExecState<F, MEM, CTX> {
             exit_code: Ok(*self.exit_code.as_ref().unwrap()),
             ctx: self.ctx.clone(),
         })
+    }
+
+    pub fn choose<'a, 'b, H>(&'a self, decision: &'b Decision<H>) -> Choice<&'b H> {
+        decision
+            .apc
+            .as_ref()
+            .and_then(|(apc, condition)| 
+                self.should_execute_apc(condition)
+                    .then_some(Choice::Apc(apc))
+                )
+                .unwrap_or_else(|| Choice::Software(&decision.software)
+            )
     }
 }
 
