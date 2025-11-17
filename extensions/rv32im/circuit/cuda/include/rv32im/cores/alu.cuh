@@ -139,4 +139,52 @@ template <size_t NUM_LIMBS> struct BaseAluCore {
             }
         }
     }
+
+    __device__ void fill_trace_row_new(RowSlice row, BaseAluCoreRecord<NUM_LIMBS> record, uint32_t *sub) {
+        uint8_t a[NUM_LIMBS];
+        uint8_t carry_buf[NUM_LIMBS];
+
+        switch (record.local_opcode) {
+        case 0:
+            run_add<NUM_LIMBS>(record.b, record.c, a, carry_buf);
+            break;
+        case 1:
+            run_sub<NUM_LIMBS>(record.b, record.c, a, carry_buf);
+            break;
+        case 2:
+            run_xor<NUM_LIMBS>(record.b, record.c, a);
+            break;
+        case 3:
+            run_or<NUM_LIMBS>(record.b, record.c, a);
+            break;
+        case 4:
+            run_and<NUM_LIMBS>(record.b, record.c, a);
+            break;
+        default:
+#pragma unroll
+            for (size_t i = 0; i < NUM_LIMBS; i++) {
+                a[i] = 0;
+                carry_buf[i] = 0;
+            }
+        }
+
+        // TODO: we just optionally write here but we can also optionally compute things like `run_add` above
+        COL_WRITE_ARRAY_NEW(row, Cols, a, a, sub);
+        COL_WRITE_ARRAY_NEW(row, Cols, b, record.b, sub);
+        COL_WRITE_ARRAY_NEW(row, Cols, c, record.c, sub);
+
+        COL_WRITE_VALUE_NEW(row, Cols, opcode_add_flag, record.local_opcode == 0, sub);
+        COL_WRITE_VALUE_NEW(row, Cols, opcode_sub_flag, record.local_opcode == 1, sub);
+        COL_WRITE_VALUE_NEW(row, Cols, opcode_xor_flag, record.local_opcode == 2, sub);
+        COL_WRITE_VALUE_NEW(row, Cols, opcode_or_flag, record.local_opcode == 3, sub);
+        COL_WRITE_VALUE_NEW(row, Cols, opcode_and_flag, record.local_opcode == 4, sub);
+#pragma unroll
+        for (size_t i = 0; i < NUM_LIMBS; i++) {
+            if (record.local_opcode == 0 || record.local_opcode == 1) {
+                bitwise_lookup.add_xor(a[i], a[i]);
+            } else {
+                bitwise_lookup.add_xor(record.b[i], record.c[i]);
+            }
+        }
+    }
 };

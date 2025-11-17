@@ -322,6 +322,9 @@ pub mod alu_cuda {
             d_bitwise_lookup: *mut u32,
             bitwise_num_bits: usize,
             timestamp_max_bits: u32,
+            // d_apc_trace: *mut F,
+            subs: *mut u32,
+            // apc_row_index: *mut u32,
         ) -> i32;
     }
 
@@ -334,6 +337,9 @@ pub mod alu_cuda {
         d_bitwise_lookup: &DeviceBuffer<F>,
         bitwise_num_bits: usize,
         timestamp_max_bits: u32,
+        // d_apc_trace: &DeviceBuffer<F>,
+        subs: Vec<u32>,
+        // apc_row_index: Option<Vec<u32>>,
     ) -> Result<(), CudaError> {
         let width = d_trace.len() / height;
         CudaError::from_result(_alu_tracegen(
@@ -346,6 +352,9 @@ pub mod alu_cuda {
             d_bitwise_lookup.as_mut_ptr() as *mut u32,
             bitwise_num_bits,
             timestamp_max_bits,
+            // d_apc_trace.as_mut_ptr(),
+            subs,
+            // apc_row_index,
         ))
     }
 }
