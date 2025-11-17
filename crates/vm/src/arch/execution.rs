@@ -106,14 +106,14 @@ pub type ExecuteFunc<F, CTX> = unsafe fn(
 
 #[derive(Clone, Copy)]
 pub struct Decision<H> {
-    pub handler: H,
+    pub software: H,
     pub apc: Option<(H, ApcCondition)>,
 }
 
 impl<H> From<H> for Decision<H> {
-    fn from(handler: H) -> Self {
+    fn from(software: H) -> Self {
         Self {
-            handler,
+            software,
             apc: None,
         }
     }
@@ -145,7 +145,7 @@ impl<H> Choice<H> {
 
 impl<H> Decision<H> {
     pub fn choose<F, MEM>(&self, vm_state: &VmState<F, MEM>) -> Choice<&H> {
-        self.apc.as_ref().and_then(|(apc, condition)| vm_state.should_execute_apc(condition).then_some(Choice::Apc(apc))).unwrap_or_else(|| Choice::Software(&self.handler))
+        self.apc.as_ref().and_then(|(apc, condition)| vm_state.should_execute_apc(condition).then_some(Choice::Apc(apc))).unwrap_or_else(|| Choice::Software(&self.software))
     }
 }
 

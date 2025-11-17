@@ -824,7 +824,7 @@ where
                             .pre_compute(pc, apc_inst, buf).unwrap(), *condition)
                     });
                     PreComputeInstruction {
-                        handler: Decision { handler, apc },
+                        handler: Decision { software: handler, apc },
                         pre_compute: buf,
                     }
                 } else {
@@ -908,7 +908,7 @@ where
                                     .metered_pre_compute(air_idx, pc, apc_inst, buf).unwrap(), *condition)
                             });
                     PreComputeInstruction {
-                        handler: Decision {handler, apc},
+                        handler: Decision {software: handler, apc},
                         pre_compute: buf,
                     }
                 } else {

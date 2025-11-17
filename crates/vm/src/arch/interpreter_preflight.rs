@@ -95,7 +95,7 @@ impl<F: Field, E> PreflightInterpretedInstance<F, E> {
                     let executor_idx = *inventory.instruction_lookup.get(&instr.opcode).unwrap();
                     (PcEntry { insn: instr.clone(), executor_idx }, *condition)
                 });
-                pc_handler.push(Decision { handler: pc_entry, apc: apc_entry });
+                pc_handler.push(Decision { software: pc_entry, apc: apc_entry });
             } else {
                 pc_handler.push(PcEntry::undefined().into());
             }
@@ -119,7 +119,7 @@ impl<F: Field, E> PreflightInterpretedInstance<F, E> {
             .par_iter()
             .zip_eq(&self.execution_frequencies)
             .skip(base_idx)
-            .filter_map(|(entry, freq)| entry.handler.is_some().then_some(*freq))
+            .filter_map(|(entry, freq)| entry.software.is_some().then_some(*freq))
             .collect()
     }
 
