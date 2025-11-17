@@ -1,7 +1,7 @@
 use openvm_circuit_primitives::AlignedBytesBorrow;
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{
-    instruction::Instruction, program::DEFAULT_PC_STEP, PhantomDiscriminant, VmOpcode,
+    PhantomDiscriminant, VmOpcode, instruction::Instruction, program::{ApcCondition, Choice, DEFAULT_PC_STEP, Decision}
 };
 use openvm_stark_backend::{
     interaction::{BusIndex, InteractionBuilder, PermutationCheckBus},
@@ -14,11 +14,11 @@ use thiserror::Error;
 
 use super::{execution_mode::ExecutionCtxTrait, Streams, VmExecState};
 #[cfg(feature = "tco")]
-use crate::arch::interpreter::InterpretedInstance;
+use crate::arch::{interpreter::InterpretedInstance};
 #[cfg(feature = "metrics")]
 use crate::metrics::VmMetrics;
 use crate::{
-    arch::{execution_mode::MeteredExecutionCtxTrait, ExecutorInventoryError, MatrixRecordArena},
+    arch::{ExecutorInventoryError, MatrixRecordArena, VmState, execution_mode::MeteredExecutionCtxTrait},
     system::{
         memory::online::{GuestMemory, TracingMemory},
         program::ProgramBus,

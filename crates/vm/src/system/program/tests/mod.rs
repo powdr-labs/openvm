@@ -72,7 +72,7 @@ fn interaction_test(program: Program<BabyBear>, execution: Vec<u32>) {
     let mut program_cells = vec![];
     let program = &committed_exe.exe.program;
     for (index, frequency) in execution_frequencies.into_iter().enumerate() {
-        let option = program.get_instruction_and_debug_info(index);
+        let option = program.get_software_instruction_and_debug_info(index);
         if let Some((instruction, _)) = option {
             program_cells.extend([
                 BabyBear::from_canonical_u32(frequency),

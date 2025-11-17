@@ -85,7 +85,11 @@ pub fn tco_impl(item: TokenStream) -> TokenStream {
                 exec_state.exit_code = Err(ExecutionError::PcOutOfBounds(pc));
                 return;
             }
+
             let next_handler = next_handler.unwrap_unchecked();
+
+            let next_handler = exec_state.choose(next_handler);
+            let next_handler = *next_handler.into_inner();
 
             // NOTE: `become` is a keyword that requires Rust Nightly.
             // It is part of the explicit tail calls RFC: <https://github.com/rust-lang/rust/issues/112788>
