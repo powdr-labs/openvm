@@ -1,7 +1,7 @@
 use openvm_circuit_primitives::AlignedBytesBorrow;
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{
-    instruction::Instruction, program::DEFAULT_PC_STEP, PhantomDiscriminant, VmOpcode,
+    PhantomDiscriminant, VmOpcode, instruction::Instruction, program::{ApcCondition, DEFAULT_PC_STEP}
 };
 use openvm_stark_backend::{
     interaction::{BusIndex, InteractionBuilder, PermutationCheckBus},
@@ -14,7 +14,7 @@ use thiserror::Error;
 
 use super::{execution_mode::ExecutionCtxTrait, Streams, VmExecState};
 #[cfg(feature = "tco")]
-use crate::arch::interpreter::InterpretedInstance;
+use crate::arch::{VmState, interpreter::InterpretedInstance};
 #[cfg(feature = "metrics")]
 use crate::metrics::VmMetrics;
 use crate::{
@@ -103,6 +103,30 @@ pub type ExecuteFunc<F, CTX> = unsafe fn(
     arg: u64,
     exec_state: &mut VmExecState<F, GuestMemory, CTX>,
 );
+
+#[cfg(feature = "tco")]
+#[derive(Clone, Copy)]
+pub struct ApcHandler<F, CTX> {
+    pub handler: Handler<F, CTX>,
+    pub apc: Option<(Handler<F, CTX>, ApcCondition)>,
+}
+
+#[cfg(feature = "tco")]
+impl<F, CTX> From<Handler<F, CTX>> for ApcHandler<F, CTX> {
+    fn from(handler: Handler<F, CTX>) -> Self {
+        Self {
+            handler,
+            apc: None,
+        }
+    }
+}
+
+#[cfg(feature = "tco")]
+impl<F, CTX> ApcHandler<F, CTX> {
+    pub fn handler(&self, vm_state: &VmState<F>) -> Handler<F, CTX> {
+        self.apc.and_then(|(apc, condition)| vm_state.should_execute_apc(condition).then_some(apc)).unwrap_or(self.handler)
+    }
+}
 
 /// Handler for tail call elimination. The `CTX` is assumed to contain pointers to the pre-computed
 /// buffer and the function handler table.
