@@ -78,7 +78,7 @@ impl<F: Clone, MEM> VmState<F, MEM> {
 }
 
 impl<F, MEM> VmState<F, MEM> {
-    pub fn should_execute_apc(&self, condition: &ApcCondition) -> bool {
+    pub fn evaluate(&self, condition: &ApcCondition) -> bool {
         condition.should_run
     }
 }
@@ -167,7 +167,7 @@ impl<F, MEM, CTX> VmExecState<F, MEM, CTX> {
             .apc
             .as_ref()
             .and_then(|(apc, condition)| 
-                self.should_execute_apc(condition)
+                self.evaluate(condition)
                     .then_some(Choice::Apc(apc))
                 )
                 .unwrap_or_else(|| Choice::Software(&decision.software)

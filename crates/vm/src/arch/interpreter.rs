@@ -109,7 +109,7 @@ macro_rules! run {
                     .get_handler($pc)
                     .ok_or(ExecutionError::PcOutOfBounds($pc))?;
 
-                let handler = handler.choose(&$exec_state.vm_state);
+                let handler = $exec_state.choose(handler);
                 let handler = handler.as_ref();
                 
                 // SAFETY:
@@ -178,22 +178,20 @@ where
             .map(
                 |(i, (inst_opt, pre_compute))| -> Result<Decision<Handler<F, Ctx>>, StaticProgramError> {
                     if let Some((inst, _)) = inst_opt {
+
                         // Recover the pc_index using the base_index offset. This is guaranteed not to underflow because the first `base_index` entries are `None`, so we would not be in this branch.
                         let pc_idx = i - base_index;
 
-                        // If an apc exists at this pc index, override the instruction
-                        let apc_inst = program.apc_by_pc_index.get(&pc_idx).map(|(inst, _, apc_condition)| (inst, apc_condition));
-
                         let pc = program.pc_base + pc_idx as u32 * DEFAULT_PC_STEP;
-                        if get_system_opcode_handler::<F, Ctx>(inst, pre_compute).is_some() {
+                        if get_system_opcode_handler::<F, Ctx>(&inst.software, pre_compute).is_some() {
                             Ok((terminate_execute_e12_tco_handler as Handler<_, _>).into())
                         } else {
                             // unwrap because get_pre_compute_instructions would have errored
                             // already on DisabledOperation
-                            let executor = inventory.get_executor(inst.opcode).unwrap();
-                            let handler = executor.handler(pc, inst, pre_compute)?;
-                            let apc_handler_and_condition: Option<(Handler<F, Ctx>, ApcCondition)> = apc_inst.map(|(apc_inst, condition)| inventory.get_executor(apc_inst.opcode).unwrap().handler(pc, apc_inst, pre_compute).map(|apc_handler| (apc_handler, *condition))).transpose()?;
-                            let handler = Decision {handler, apc: apc_handler_and_condition};
+                            let executor = inventory.get_executor(inst.software.opcode).unwrap();
+                            let software = executor.handler(pc, &inst.software, pre_compute)?;
+                            let apc_handler_and_condition: Option<(Handler<F, Ctx>, ApcCondition)> = inst.apc.as_ref().map(|(apc_inst, condition)| inventory.get_executor(apc_inst.opcode).unwrap().handler(pc, apc_inst, pre_compute).map(|apc_handler| (apc_handler, *condition))).transpose()?;
+                            let handler = Decision {software, apc: apc_handler_and_condition};
                             Ok(handler)
                         }
                     } else {
@@ -313,26 +311,23 @@ where
                         // Recover the pc_index using the base_index offset. This is guaranteed not to underflow because the first `base_index` entries are `None`, so we would not be in this branch.
                         let pc_idx = i - base_index;
 
-                        // If an apc exists at this pc index, override the instruction
-                        let apc_inst = program.apc_by_pc_index.get(&pc_idx).map(|(inst, _, apc_condition)| (inst, apc_condition));
-
                         let pc = program.pc_base + pc_idx as u32 * DEFAULT_PC_STEP;
-                        if get_system_opcode_handler::<F, Ctx>(inst, pre_compute).is_some() {
+                        if get_system_opcode_handler::<F, Ctx>(&inst.software, pre_compute).is_some() {
                             Ok((terminate_execute_e12_tco_handler as Handler<_, _>).into())
                         } else {
                             // unwrap because get_pre_compute_instructions would have errored
                             // already on DisabledOperation
-                            let executor_idx = inventory.instruction_lookup[&inst.opcode] as usize;
+                            let executor_idx = inventory.instruction_lookup[&inst.software.opcode] as usize;
                             let executor = &inventory.executors[executor_idx];
                             let air_idx = executor_idx_to_air_idx[executor_idx];
-                            let handler = executor.metered_handler(air_idx, pc, inst, pre_compute)?;
-                            let apc_handler_and_condition = apc_inst.map(|(apc_inst, condition)| {
+                            let software = executor.metered_handler(air_idx, pc, &inst.software, pre_compute)?;
+                            let apc_handler_and_condition = inst.apc.as_ref().map(|(apc_inst, condition)| {
                                 let executor_idx = inventory.instruction_lookup[&apc_inst.opcode] as usize;
                                 let executor = &inventory.executors[executor_idx];
                                 let air_idx = executor_idx_to_air_idx[executor_idx];
                                 executor.metered_handler(air_idx, pc, apc_inst, pre_compute)
                                     .map(|apc_handler| (apc_handler, *condition))}).transpose()?;
-                            let handler = Decision {handler, apc: apc_handler_and_condition};
+                            let handler = Decision {software, apc: apc_handler_and_condition};
                             Ok(handler)
                         }
                     } else {
