@@ -323,7 +323,7 @@ pub mod alu_cuda {
             bitwise_num_bits: usize,
             timestamp_max_bits: u32,
             // d_apc_trace: *mut F,
-            subs: *mut u32,
+            d_subs: *mut u32,
             // apc_row_index: *mut u32,
         ) -> i32;
     }
@@ -338,7 +338,7 @@ pub mod alu_cuda {
         bitwise_num_bits: usize,
         timestamp_max_bits: u32,
         // d_apc_trace: &DeviceBuffer<F>,
-        subs: Vec<u32>,
+        d_subs: &DeviceBuffer<u32>,
         // apc_row_index: Option<Vec<u32>>,
     ) -> Result<(), CudaError> {
         let width = d_trace.len() / height;
@@ -353,7 +353,7 @@ pub mod alu_cuda {
             bitwise_num_bits,
             timestamp_max_bits,
             // d_apc_trace.as_mut_ptr(),
-            subs,
+            d_subs.as_mut_ptr() as *mut u32,
             // apc_row_index,
         ))
     }

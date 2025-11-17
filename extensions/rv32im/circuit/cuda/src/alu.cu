@@ -30,9 +30,9 @@ __global__ void alu_tracegen(
     size_t range_checker_bins,
     uint32_t *d_bitwise_lookup_ptr,
     size_t bitwise_num_bits,
-    uint32_t timestamp_max_bits
-    Fp *d_apc_trace,
-    uint32_t *subs, // same length as dummy width
+    uint32_t timestamp_max_bits,
+    // Fp *d_apc_trace,
+    uint32_t *subs // same length as dummy width
     // size_t width, // dummy width
     // uint32_t *apc_row_index, // dummy row mapping to apc row same length as d_records
 ) {
@@ -42,14 +42,14 @@ __global__ void alu_tracegen(
         auto const &rec = d_records[idx];
         // RowSlice apc_row(d_apc_trace + apc_row_index[idx], height);
         // auto const sub = subs[idx * width]; // offset the subs to the corresponding dummy row
-        uint32_t *sub = &subs;
+        uint32_t *sub = subs;
 
         Rv32BaseAluAdapter adapter(
             VariableRangeChecker(d_range_checker_ptr, range_checker_bins),
             BitwiseOperationLookup(d_bitwise_lookup_ptr, bitwise_num_bits),
             timestamp_max_bits
         );
-        adapter.fill_trace_row_new(row, rec.adapter, apc_row, sub, 0); // sub offset is 0
+        adapter.fill_trace_row_new(row, rec.adapter, sub);
 
         Rv32BaseAluCore core(BitwiseOperationLookup(d_bitwise_lookup_ptr, bitwise_num_bits));
         core.fill_trace_row_new(row.slice_from(COL_INDEX(Rv32BaseAluCols, core) - number_of_gaps_in(sub, sizeof(Rv32BaseAluCols<uint8_t>))), rec.core, sub);
@@ -70,7 +70,7 @@ extern "C" int _alu_tracegen(
     size_t bitwise_num_bits,
     uint32_t timestamp_max_bits,
     // Fp *d_apc_trace,
-    uint32_t *subs, // same length as dummy width
+    uint32_t *subs // same length as dummy width
     // uint32_t *apc_row_index, // dummy row mapping to apc row same length as d_records
 ) {
     assert((height & (height - 1)) == 0);
@@ -86,8 +86,8 @@ extern "C" int _alu_tracegen(
         d_bitwise_lookup_ptr,
         bitwise_num_bits,
         timestamp_max_bits,
-        Fp *d_apc_trace,
-        uint32_t *subs, // same length as dummy width
+        // Fp *d_apc_trace,
+        subs // same length as dummy width
         // size_t width, // dummy width
         // uint32_t *apc_row_index, // dummy row mapping to apc row same length as d_records
     );

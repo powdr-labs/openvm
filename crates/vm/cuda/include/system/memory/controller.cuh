@@ -30,7 +30,7 @@ struct MemoryAuxColsFactory {
             prev_timestamp,
             timestamp,
             AUX_LEN,
-            row.slice_from(COL_INDEX(MemoryBaseAuxCols, timestamp_lt_aux)) - number_of_gaps_in(sub, sizeof(MemoryBaseAuxCols<uint8_t>)),
+            row.slice_from(COL_INDEX(MemoryBaseAuxCols, timestamp_lt_aux) - number_of_gaps_in(sub, sizeof(MemoryBaseAuxCols<uint8_t>))),
             sub
         );
         COL_WRITE_VALUE_NEW(row, MemoryBaseAuxCols, prev_timestamp, prev_timestamp, sub);

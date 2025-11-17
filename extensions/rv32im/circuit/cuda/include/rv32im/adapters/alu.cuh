@@ -81,4 +81,50 @@ struct Rv32BaseAluAdapter {
             record.from_timestamp + 2
         );
     }
+
+    __device__ void fill_trace_row_new(RowSlice row, Rv32BaseAluAdapterRecord record, uint32_t *sub) {
+        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, from_state.pc, record.from_pc, sub);
+        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, from_state.timestamp, record.from_timestamp, sub);
+
+        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, rd_ptr, record.rd_ptr, sub);
+        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, rs1_ptr, record.rs1_ptr, sub);
+        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, rs2, record.rs2, sub);
+        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, rs2_as, record.rs2_as, sub);
+
+        // Read auxiliary for rs1
+        mem_helper.fill_new(
+            row.slice_from(COL_INDEX(Rv32BaseAluAdapterCols, reads_aux[0]) - number_of_gaps_in(sub, sizeof(Rv32BaseAluAdapterCols<uint8_t>))),
+            record.reads_aux[0].prev_timestamp,
+            record.from_timestamp,
+            sub
+        );
+
+        // rs2: register read when rs2_as == RV32_REGISTER_AS (== 1), otherwise immediate.
+        if (record.rs2_as != 0) {
+            mem_helper.fill_new(
+                row.slice_from(COL_INDEX(Rv32BaseAluAdapterCols, reads_aux[1]) - number_of_gaps_in(sub, sizeof(Rv32BaseAluAdapterCols<uint8_t>))),
+                record.reads_aux[1].prev_timestamp,
+                record.from_timestamp + 1,
+                sub
+            );
+        } else {
+            RowSlice rs2_aux = row.slice_from(COL_INDEX(Rv32BaseAluAdapterCols, reads_aux[1]) - number_of_gaps_in(sub, sizeof(Rv32BaseAluAdapterCols<uint8_t>)));
+#pragma unroll
+            for (size_t i = 0; i < sizeof(MemoryReadAuxCols<uint8_t>); i++) {
+                rs2_aux.write(i, 0);
+            }
+            uint32_t mask = (1u << RV32_CELL_BITS) - 1u;
+            bitwise_lookup.add_range(record.rs2 & mask, (record.rs2 >> RV32_CELL_BITS) & mask);
+        }
+
+        COL_WRITE_ARRAY(
+            row, Rv32BaseAluAdapterCols, writes_aux.prev_data, record.writes_aux.prev_data
+        );
+        mem_helper.fill_new(
+            row.slice_from(COL_INDEX(Rv32BaseAluAdapterCols, writes_aux) - number_of_gaps_in(sub, sizeof(Rv32BaseAluAdapterCols<uint8_t>))),
+            record.writes_aux.prev_timestamp,
+            record.from_timestamp + 2,
+            sub
+        );
+    }
 };

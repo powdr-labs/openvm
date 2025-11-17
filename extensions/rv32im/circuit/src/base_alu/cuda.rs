@@ -46,7 +46,10 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
         let d_trace = DeviceMatrix::<F>::with_capacity(trace_height, trace_width);
 
         // TODO: use actual sub not hardcoded
-        let subs = (0..(d_trace.buffer().len() / height)).collect::<Vec<u32>>();
+        let d_subs = (0..(d_trace.buffer().len() as u32 / trace_height as u32))
+            .collect::<Vec<u32>>()
+            .to_device()
+            .unwrap();
 
         unsafe {
             tracegen(
@@ -59,8 +62,8 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
                 RV32_CELL_BITS,
                 self.timestamp_max_bits as u32,
                 // d_apc_trace.buffer(),
-                subs, // same length as dummy width
-                // apc_row_index, // dummy row mapping to apc row same length as d_records
+                &d_subs, // same length as dummy width
+                         // apc_row_index, // dummy row mapping to apc row same length as d_records
             )
             .unwrap();
         }
