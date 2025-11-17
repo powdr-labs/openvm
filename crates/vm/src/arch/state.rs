@@ -13,7 +13,7 @@ use super::{create_memory_image, ExecutionError, Streams};
 #[cfg(feature = "metrics")]
 use crate::metrics::VmMetrics;
 use crate::{
-    arch::{execution_mode::ExecutionCtxTrait, SystemConfig, VmStateMut},
+    arch::{Decision, SystemConfig, VmStateMut, execution_mode::ExecutionCtxTrait},
     system::memory::online::GuestMemory,
 };
 
@@ -78,7 +78,7 @@ impl<F: Clone, MEM> VmState<F, MEM> {
 }
 
 impl<F, MEM> VmState<F, MEM> {
-    pub fn should_execute_apc(&self, condition: ApcCondition) -> bool {
+    pub fn should_execute_apc(&self, condition: &ApcCondition) -> bool {
         condition.should_run
     }
 }

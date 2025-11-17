@@ -88,7 +88,7 @@ pub fn tco_impl(item: TokenStream) -> TokenStream {
 
             let next_handler = next_handler.unwrap_unchecked();
 
-            let next_handler = next_handler.handler(&exec_state.vm_state);
+            let next_handler = *next_handler.choose(&exec_state.vm_state).into_inner();
 
             // NOTE: `become` is a keyword that requires Rust Nightly.
             // It is part of the explicit tail calls RFC: <https://github.com/rust-lang/rust/issues/112788>

@@ -2,6 +2,7 @@ use std::{iter::repeat_n, sync::Arc};
 
 #[cfg(not(feature = "parallel"))]
 use itertools::Itertools;
+use libc::PROC_EVENT_COMM;
 use openvm_instructions::{LocalOpcode, SystemOpcode, instruction::Instruction, program::{ApcCondition, Program}};
 use openvm_stark_backend::{
     p3_field::{Field, PrimeField32},
@@ -10,8 +11,7 @@ use openvm_stark_backend::{
 
 use crate::{
     arch::{
-        execution_mode::PreflightCtx, interpreter::get_pc_index, Arena, ExecutionError, ExecutorId,
-        ExecutorInventory, PreflightExecutor, StaticProgramError, VmExecState,
+        Arena, Choice, Decision, ExecutionError, ExecutorId, ExecutorInventory, PreflightExecutor, StaticProgramError, VmExecState, execution_mode::PreflightCtx, interpreter::get_pc_index
     },
     system::memory::online::TracingMemory,
 };
@@ -28,7 +28,7 @@ pub struct PreflightInterpretedInstance<F, E> {
     /// at that pc.
     // PERF[jpw/ayush]: We could map directly to the raw pointer(u64) for executor, but storing the
     // u32 may be better for cache efficiency.
-    pc_handler: Vec<(PcEntry<F>, Option<(PcEntry<F>, ApcCondition)>)>,
+    pc_handler: Vec<crate::arch::Decision<PcEntry<F>>>,
     // pc_handler, execution_frequencies will all have the same length, which equals
     // `Program::len()`
     execution_frequencies: Vec<u32>,
@@ -66,7 +66,7 @@ impl<F: Field, E> PreflightInterpretedInstance<F, E> {
         let pc_base = program.pc_base;
         let base_idx = get_pc_index(pc_base);
         let mut pc_handler = Vec::with_capacity(base_idx + len);
-        pc_handler.extend(repeat_n((PcEntry::undefined(), None), base_idx));
+        pc_handler.extend(repeat_n(PcEntry::undefined().into(), base_idx));
         for (pc_idx, insn_and_debug_info) in program.instructions_and_debug_infos.iter().enumerate() {
             
             // If an apc exists at this pc index
@@ -95,9 +95,9 @@ impl<F: Field, E> PreflightInterpretedInstance<F, E> {
                     let executor_idx = *inventory.instruction_lookup.get(&instr.opcode).unwrap();
                     (PcEntry { insn: instr.clone(), executor_idx }, *condition)
                 });
-                pc_handler.push((pc_entry, apc_entry));
+                pc_handler.push(Decision { handler: pc_entry, apc: apc_entry });
             } else {
-                pc_handler.push((PcEntry::undefined(), None));
+                pc_handler.push(PcEntry::undefined().into());
             }
         }
         Ok(Self {
@@ -119,7 +119,7 @@ impl<F: Field, E> PreflightInterpretedInstance<F, E> {
             .par_iter()
             .zip_eq(&self.execution_frequencies)
             .skip(base_idx)
-            .filter_map(|((entry, _), freq)| entry.is_some().then_some(*freq))
+            .filter_map(|(entry, freq)| entry.handler.is_some().then_some(*freq))
             .collect()
     }
 
@@ -172,21 +172,23 @@ impl<F: PrimeField32, E> PreflightInterpretedInstance<F, E> {
     {
         let pc = state.pc();
         let pc_idx = get_pc_index(pc);
-        let (pc_entry, apc_entry) = self
+        let pc_entry = self
             .pc_handler
             .get(pc_idx)
             .ok_or_else(|| ExecutionError::PcOutOfBounds(pc))?;
 
-        // Iff there's an apc, execute it iff the state allows
-        let should_run_apc = apc_entry.as_ref().map(|(_, condition)| state.should_execute_apc(*condition)).unwrap_or(false);
+        let pc_entry = pc_entry.choose(&state.vm_state);
 
-        if !should_run_apc {
+        if matches!(pc_entry, Choice::Software(_)) {
             // SAFETY: `execution_frequencies` has the same length as `pc_handler` so `get_pc_entry`
             // already does the bounds check
             unsafe {
                 *self.execution_frequencies.get_unchecked_mut(pc_idx) += 1;
             };
         }
+
+        let pc_entry = pc_entry.as_ref();
+
         // SAFETY: the `executor_idx` comes from ExecutorInventory, which ensures that
         // `executor_idx` is within bounds
         let executor = unsafe {

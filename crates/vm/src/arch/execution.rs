@@ -14,11 +14,11 @@ use thiserror::Error;
 
 use super::{execution_mode::ExecutionCtxTrait, Streams, VmExecState};
 #[cfg(feature = "tco")]
-use crate::arch::{VmState, interpreter::InterpretedInstance};
+use crate::arch::{interpreter::InterpretedInstance};
 #[cfg(feature = "metrics")]
 use crate::metrics::VmMetrics;
 use crate::{
-    arch::{execution_mode::MeteredExecutionCtxTrait, ExecutorInventoryError, MatrixRecordArena},
+    arch::{ExecutorInventoryError, MatrixRecordArena, VmState, execution_mode::MeteredExecutionCtxTrait},
     system::{
         memory::online::{GuestMemory, TracingMemory},
         program::ProgramBus,
@@ -104,16 +104,14 @@ pub type ExecuteFunc<F, CTX> = unsafe fn(
     exec_state: &mut VmExecState<F, GuestMemory, CTX>,
 );
 
-#[cfg(feature = "tco")]
 #[derive(Clone, Copy)]
-pub struct ApcHandler<F, CTX> {
-    pub handler: Handler<F, CTX>,
-    pub apc: Option<(Handler<F, CTX>, ApcCondition)>,
+pub struct Decision<H> {
+    pub handler: H,
+    pub apc: Option<(H, ApcCondition)>,
 }
 
-#[cfg(feature = "tco")]
-impl<F, CTX> From<Handler<F, CTX>> for ApcHandler<F, CTX> {
-    fn from(handler: Handler<F, CTX>) -> Self {
+impl<H> From<H> for Decision<H> {
+    fn from(handler: H) -> Self {
         Self {
             handler,
             apc: None,
@@ -121,10 +119,33 @@ impl<F, CTX> From<Handler<F, CTX>> for ApcHandler<F, CTX> {
     }
 }
 
-#[cfg(feature = "tco")]
-impl<F, CTX> ApcHandler<F, CTX> {
-    pub fn handler(&self, vm_state: &VmState<F>) -> Handler<F, CTX> {
-        self.apc.and_then(|(apc, condition)| vm_state.should_execute_apc(condition).then_some(apc)).unwrap_or(self.handler)
+#[derive(Clone, Copy)]
+pub enum Choice<H> {
+    Software(H),
+    Apc(H)
+}
+
+impl<H> AsRef<H> for Choice<H> {
+    fn as_ref(&self) -> &H {
+        match self {
+            Self::Software(h) => h,
+            Self::Apc(h) => h,
+        }
+    }
+}
+
+impl<H> Choice<H> {
+    pub fn into_inner(self) -> H {
+        match self {
+            Self::Software(h) => h,
+            Self::Apc(h) => h,
+        }
+    }
+}
+
+impl<H> Decision<H> {
+    pub fn choose<F, MEM>(&self, vm_state: &VmState<F, MEM>) -> Choice<&H> {
+        self.apc.as_ref().and_then(|(apc, condition)| vm_state.should_execute_apc(condition).then_some(Choice::Apc(apc))).unwrap_or_else(|| Choice::Software(&self.handler))
     }
 }
 
