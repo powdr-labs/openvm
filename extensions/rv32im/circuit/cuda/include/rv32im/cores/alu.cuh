@@ -140,7 +140,7 @@ template <size_t NUM_LIMBS> struct BaseAluCore {
         }
     }
 
-    __device__ void fill_trace_row_new(RowSlice row, BaseAluCoreRecord<NUM_LIMBS> record, uint32_t *sub) {
+    __device__ void fill_trace_row_new(RowSliceNew row, BaseAluCoreRecord<NUM_LIMBS> record, uint32_t *sub) {
         uint8_t a[NUM_LIMBS];
         uint8_t carry_buf[NUM_LIMBS];
 

@@ -4,6 +4,79 @@
 #include <cstddef>
 #include <cstdint>
 
+
+/// A RowSlice is a contiguous section of a row in col-based trace.
+struct RowSliceNew {
+    Fp *ptr;
+    size_t stride;
+    size_t optimized_offset;
+    size_t dummy_offset;
+
+
+    __device__ RowSliceNew(Fp *ptr, size_t stride, size_t optimized_offset, size_t dummy_offset) : ptr(ptr), stride(stride), optimized_offset(optimized_offset), dummy_offset(dummy_offset) {}
+
+    __device__ __forceinline__ Fp &operator[](size_t column_index) const {
+        // While implementing tracegen for SHA256, we encountered what we believe to be an nvcc
+        // compiler bug. Occasionally, at various non-zero PTXAS optimization levels the compiler
+        // tries to replace this multiplication with a series of SHL, ADD, and AND instructions
+        // that we believe erroneously adds ~2^49 to the final address via an improper carry
+        // propagation. To read more, see https://github.com/stephenh-axiom-xyz/cuda-illegal.
+        return ptr[column_index * stride];
+    }
+
+    __device__ static RowSliceNew null() { return RowSliceNew(nullptr, 0, 0, 0); }
+
+    __device__ bool is_valid() const { return ptr != nullptr; }
+
+    template <typename T>
+    __device__ __forceinline__ void write(size_t column_index, T value) const {
+        ptr[column_index * stride] = value;
+    }
+
+    template <typename T>
+    __device__ __forceinline__ void write_array(size_t column_index, size_t length, const T *values)
+        const {
+#pragma unroll
+        for (size_t i = 0; i < length; i++) {
+            ptr[(column_index + i) * stride] = values[i];
+        }
+    }
+
+    template <typename T>
+    __device__ __forceinline__ void write_array_new(size_t column_index, size_t length, const T *values, const uint32_t *sub)
+        const {
+#pragma unroll
+        for (size_t i = 0; i < length; i++) {
+            if (sub[i] != UINT32_MAX) {
+                ptr[(column_index + i) * stride] = values[i];
+            }
+        }
+    }
+
+    template <typename T>
+    __device__ __forceinline__ void write_bits(size_t column_index, const T value) const {
+#pragma unroll
+        for (size_t i = 0; i < sizeof(T) * 8; i++) {
+            ptr[(column_index + i) * stride] = (value >> i) & 1;
+        }
+    }
+
+    __device__ __forceinline__ void fill_zero(size_t column_index_from, size_t length) const {
+#pragma unroll
+        for (size_t i = 0, c = column_index_from; i < length; i++, c++) {
+            ptr[c * stride] = 0;
+        }
+    }
+
+    __device__ __forceinline__ RowSliceNew slice_from(size_t column_index, uint32_t gap) const {
+        return RowSliceNew(ptr + (column_index - gap) * stride, stride, optimized_offset + column_index - gap, dummy_offset + column_index);
+    }
+
+    __device__ __forceinline__ RowSliceNew shift_row(size_t n) const {
+        return RowSliceNew(ptr + n, stride, optimized_offset, dummy_offset);
+    }
+};
+
 /// A RowSlice is a contiguous section of a row in col-based trace.
 struct RowSlice {
     Fp *ptr;
@@ -87,9 +160,9 @@ struct RowSlice {
 #define COL_WRITE_VALUE_NEW(ROW, STRUCT, FIELD, VALUE, SUB)                                         \
     do {                                                                                            \
         const size_t _col_idx = COL_INDEX(STRUCT, FIELD);                                           \
-        const auto _apc_idx = (SUB)[_col_idx];                                                      \
+        const auto _apc_idx = (SUB)[_col_idx + ROW.dummy_offset];                                                      \
         if (_apc_idx != UINT32_MAX) {                                                               \
-            (ROW).write(_apc_idx, VALUE);                                                           \
+            (ROW).write(_apc_idx - ROW.optimized_offset, VALUE);                                                           \
         }                                                                                           \
     } while (0)
 

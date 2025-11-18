@@ -86,7 +86,7 @@ struct VariableRangeChecker {
     __device__ __forceinline__ void decompose_new(
         uint32_t x,
         size_t bits,
-        RowSlice limbs,
+        RowSliceNew limbs,
         const size_t limbs_len,
         uint32_t *sub
     ) {

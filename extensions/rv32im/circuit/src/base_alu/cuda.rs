@@ -63,7 +63,7 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
                 self.timestamp_max_bits as u32,
                 // d_apc_trace.buffer(),
                 &d_subs, // same length as dummy width
-                         // apc_row_index, // dummy row mapping to apc row same length as d_records
+                1, // calls_per_apc_row: 1 for non-apc
             )
             .unwrap();
         }
