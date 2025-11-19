@@ -34,7 +34,7 @@ __global__ void alu_tracegen(
     // Fp *d_apc_trace,
     uint32_t *subs, // same length as dummy width
     uint32_t calls_per_apc_row, // 1 for non-apc
-    size_t width // dummy width
+    size_t width // dummy width or apc width
     // uint32_t *apc_row_index, // dummy row mapping to apc row same length as d_records
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -56,7 +56,12 @@ __global__ void alu_tracegen(
         core.fill_trace_row_new(row.slice_from(COL_INDEX(Rv32BaseAluCols, core), number_of_gaps_in(sub, sizeof(Rv32BaseAluCols<uint8_t>))), rec.core, sub);
     } else {
         // TODO: use APC width if APC
-        row.fill_zero(0, sizeof(Rv32BaseAluCols<uint8_t>));
+        // this is now a hack because calls_per_apc_row can still be 1 even if we are in an APC
+        if (calls_per_apc_row == 1) {
+            row.fill_zero(0, sizeof(Rv32BaseAluCols<uint8_t>));
+        } else {
+            row.fill_zero(0, width);
+        }
     }
 }
 
@@ -77,7 +82,7 @@ extern "C" int _alu_tracegen(
 ) {
     assert((height & (height - 1)) == 0);
     assert(height >= d_records.len());
-    assert(width == sizeof(Rv32BaseAluCols<uint8_t>));
+    // assert(width == sizeof(Rv32BaseAluCols<uint8_t>)); // this is no longer true for APC
     auto [grid, block] = kernel_launch_params(height);
     alu_tracegen<<<grid, block>>>(
         d_trace,
@@ -91,7 +96,7 @@ extern "C" int _alu_tracegen(
         // Fp *d_apc_trace,
         subs, // same length as dummy width
         calls_per_apc_row, // 1 for non-apc
-        width // dummy width
+        width // dummy width or apc width
         // uint32_t *apc_row_index, // dummy row mapping to apc row same length as d_records
     );
     return CHECK_KERNEL();
