@@ -10,9 +10,7 @@
 //! same struct and `VmProverExtension` is implemented on a separate struct (usually a ZST) to
 //! get around Rust orphan rules.
 use std::{
-    any::{type_name, Any},
-    iter::{self, zip},
-    sync::Arc,
+    any::{Any, type_name}, collections::HashMap, iter::{self, zip}, sync::Arc
 };
 
 use getset::{CopyGetters, Getters};
@@ -702,13 +700,24 @@ where
                 zip(self.inventory.chips.iter().enumerate().rev(), record_arenas).map(
                     |((insertion_idx, chip), records)| {
                         // Only create a span if record is not empty:
+                        let air_name = self.inventory.airs.ext_airs[insertion_idx].name();
                         let _span = (!records.is_empty()).then(|| {
-                            let air_name = self.inventory.airs.ext_airs[insertion_idx].name();
                             info_span!("single_trace_gen", air = air_name).entered()
                         });
-                        chip.generate_proving_ctx(records)
+                        (air_name, chip.generate_proving_ctxs(records))
                     },
-                ),
+                ).scan(HashMap::new(), |rejected_collector: &mut HashMap<String, Vec<_>>, (air_name, mut ctxs): (String, openvm_stark_backend::prover::types::AirProvingContexts<PB>)| {
+                    // Add this chip's rejected rows to the collector
+                    for (name, rejected) in ctxs.rejected {
+                        rejected_collector.entry(name).or_default().push(rejected)
+                    }
+                    let mut main = ctxs.main;
+                    // Add the rejected rows from other chips to this air. This assumes rejected rows can only point to chips inserted before, which is verified for apcs.
+                    for (rows, rejected) in rejected_collector.remove(&air_name).into_iter().flatten() {
+                        main.append(rejected, &rows);
+                    }
+                    Some(main)
+                }),
             )
             .enumerate()
             .filter(|(_air_id, ctx)| {
