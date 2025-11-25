@@ -706,15 +706,15 @@ where
                         });
                         (air_name, chip.generate_proving_ctxs(records))
                     },
-                ).scan(HashMap::new(), |rejected_collector: &mut HashMap<String, Vec<_>>, (air_name, mut ctxs): (String, openvm_stark_backend::prover::types::AirProvingContexts<PB>)| {
+                ).scan(HashMap::new(), |rejected_collector: &mut HashMap<String, Vec<(AirProvingContext<_>, Vec<usize>)>>, (air_name, ctxs): (String, openvm_stark_backend::prover::types::AirProvingContexts<PB>)| {
                     // Add this chip's rejected rows to the collector
                     for (name, rejected) in ctxs.rejected {
                         rejected_collector.entry(name).or_default().push(rejected)
                     }
                     let mut main = ctxs.main;
                     // Add the rejected rows from other chips to this air. This assumes rejected rows can only point to chips inserted before, which is verified for apcs.
-                    for (rows, rejected) in rejected_collector.remove(&air_name).into_iter().flatten() {
-                        main.append(rejected, &rows);
+                    if let Some(rejected) = rejected_collector.remove(&air_name) {
+                        main.append(rejected);
                     }
                     Some(main)
                 }),
