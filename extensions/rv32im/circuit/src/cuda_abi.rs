@@ -324,6 +324,8 @@ pub mod alu_cuda {
             timestamp_max_bits: u32,
             // d_apc_trace: *mut F,
             d_subs: *mut u32,
+            d_pre_opt_widths: *mut u32,
+            d_post_opt_widths: *mut u32,
             calls_per_apc_row: u32, // 1 for non-apc
         ) -> i32;
     }
@@ -339,6 +341,8 @@ pub mod alu_cuda {
         timestamp_max_bits: u32,
         // d_apc_trace: &DeviceBuffer<F>,
         d_subs: &DeviceBuffer<u32>,
+        d_pre_opt_widths: &DeviceBuffer<u32>,
+        d_post_opt_widths: &DeviceBuffer<u32>,
         calls_per_apc_row: u32 // 1 for non-apc
     ) -> Result<(), CudaError> {
         let width = d_trace.len() / height;
@@ -354,6 +358,8 @@ pub mod alu_cuda {
             timestamp_max_bits,
             // d_apc_trace.as_mut_ptr(),
             d_subs.as_mut_ptr() as *mut u32,
+            d_pre_opt_widths.as_mut_ptr() as *mut u32,
+            d_post_opt_widths.as_mut_ptr() as *mut u32,
             calls_per_apc_row, // 1 for non-apc
             // apc_row_index,
         ))

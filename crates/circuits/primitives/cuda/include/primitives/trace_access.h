@@ -1,9 +1,13 @@
 #pragma once
 
 #include "fp.h"
+#include "primitives/row_print_buffer.cuh"
 #include <cstddef>
 #include <cstdint>
+#include <type_traits>
 
+
+__device__ __forceinline__ size_t number_of_gaps_in(const uint32_t *sub, size_t start, size_t len);
 
 /// A RowSlice is a contiguous section of a row in col-based trace.
 struct RowSliceNew {
@@ -11,9 +15,10 @@ struct RowSliceNew {
     size_t stride;
     size_t optimized_offset;
     size_t dummy_offset;
+    uint32_t *subs;
 
 
-    __device__ RowSliceNew(Fp *ptr, size_t stride, size_t optimized_offset, size_t dummy_offset) : ptr(ptr), stride(stride), optimized_offset(optimized_offset), dummy_offset(dummy_offset) {}
+    __device__ RowSliceNew(Fp *ptr, size_t stride, size_t optimized_offset, size_t dummy_offset, uint32_t *subs) : ptr(ptr), stride(stride), optimized_offset(optimized_offset), dummy_offset(dummy_offset), subs(subs) {}
 
     __device__ __forceinline__ Fp &operator[](size_t column_index) const {
         // While implementing tracegen for SHA256, we encountered what we believe to be an nvcc
@@ -24,7 +29,7 @@ struct RowSliceNew {
         return ptr[column_index * stride];
     }
 
-    __device__ static RowSliceNew null() { return RowSliceNew(nullptr, 0, 0, 0); }
+    __device__ static RowSliceNew null() { return RowSliceNew(nullptr, 0, 0, 0, nullptr); }
 
     __device__ bool is_valid() const { return ptr != nullptr; }
 
@@ -45,10 +50,11 @@ struct RowSliceNew {
     template <typename T>
     __device__ __forceinline__ void write_array_new(size_t column_index, size_t length, const T *values, const uint32_t *sub)
         const {
+            uint32_t gap = number_of_gaps_in(subs, dummy_offset, column_index);
 #pragma unroll
         for (size_t i = 0; i < length; i++) {
-            if (sub[i] != UINT32_MAX) {
-                ptr[(column_index + i) * stride] = values[i];
+            if (subs[dummy_offset + column_index + i] != UINT32_MAX) {
+                ptr[(column_index - gap + i) * stride] = values[i];
             }
         }
     }
@@ -68,12 +74,26 @@ struct RowSliceNew {
         }
     }
 
-    __device__ __forceinline__ RowSliceNew slice_from(size_t column_index, uint32_t gap) const {
-        return RowSliceNew(ptr + (column_index - gap) * stride, stride, optimized_offset + column_index - gap, dummy_offset + column_index);
+    __device__ __forceinline__ RowSliceNew slice_from(size_t column_index) const {
+        uint32_t gap = number_of_gaps_in(subs, dummy_offset, column_index);
+        RowPrintBuffer buffer;
+        buffer.reset();
+        buffer.append_literal("slice_from: optimized_offset before ");
+        buffer.append_uint(optimized_offset);
+        buffer.append_literal(" | dummy_offset before ");
+        buffer.append_uint(dummy_offset);
+        buffer.append_literal(" | column_index ");
+        buffer.append_uint(column_index);
+        buffer.append_literal(" | gap ");
+        buffer.append_uint(gap);
+        buffer.append_literal("\n");
+        buffer.flush();
+
+        return RowSliceNew(ptr + (column_index - gap) * stride, stride, optimized_offset + column_index - gap, dummy_offset + column_index, subs);
     }
 
     __device__ __forceinline__ RowSliceNew shift_row(size_t n) const {
-        return RowSliceNew(ptr + n, stride, optimized_offset, dummy_offset);
+        return RowSliceNew(ptr + n, stride, optimized_offset, dummy_offset, subs);
     }
 };
 
@@ -112,17 +132,6 @@ struct RowSlice {
     }
 
     template <typename T>
-    __device__ __forceinline__ void write_array_new(size_t column_index, size_t length, const T *values, const uint32_t *sub)
-        const {
-#pragma unroll
-        for (size_t i = 0; i < length; i++) {
-            if (sub[i] != UINT32_MAX) {
-                ptr[(column_index + i) * stride] = values[i];
-            }
-        }
-    }
-
-    template <typename T>
     __device__ __forceinline__ void write_bits(size_t column_index, const T value) const {
 #pragma unroll
         for (size_t i = 0; i < sizeof(T) * 8; i++) {
@@ -146,6 +155,51 @@ struct RowSlice {
     }
 };
 
+template <typename T>
+__device__ __forceinline__ unsigned long long to_debug_uint(T value) {
+    using Base = std::remove_cv_t<std::remove_reference_t<T>>;
+    if constexpr (std::is_same_v<Base, Fp>) {
+        return static_cast<unsigned long long>(value.asRaw());
+    } else {
+        return static_cast<unsigned long long>(value);
+    }
+}
+
+template <typename RowT, typename ValueT>
+__device__ __forceinline__ void debug_log_col_write_new(
+    const RowT &row,
+    size_t column_index,
+    uint32_t apc_idx,
+    ValueT value
+) {
+    RowPrintBuffer buffer;
+    buffer.reset();
+    buffer.append_literal("COL_WRITE VALUE ");
+    buffer.append_uint(to_debug_uint(value));
+    buffer.append_literal(" from col_idx ");
+    buffer.append_uint(static_cast<unsigned long long>(column_index));
+    buffer.append_literal(" which is absolute col_idx ");
+    buffer.append_uint(
+        static_cast<unsigned long long>(column_index + row.dummy_offset)
+    );
+    if (apc_idx != UINT32_MAX) {
+        buffer.append_literal(" to apc_idx ");
+        buffer.append_uint(apc_idx);
+        buffer.append_literal(" which is relative apc_idx ");
+        long long relative = static_cast<long long>(apc_idx)
+            - static_cast<long long>(row.optimized_offset);
+        if (relative >= 0) {
+            buffer.append_uint(static_cast<unsigned long long>(relative));
+        } else {
+            buffer.append_literal("(negative)");
+        }
+    } else {
+        buffer.append_literal(" (skipped; apc_idx == UINT32_MAX)");
+    }
+    buffer.append_literal("\n");
+    buffer.flush();
+}
+
 /// Compute the 0-based column index of member `FIELD` within struct template `STRUCT<T>`,
 /// by instantiating it as `STRUCT<uint8_t>` so that offsetof yields the element index.
 #define COL_INDEX(STRUCT, FIELD) (offsetof(STRUCT<uint8_t>, FIELD))
@@ -159,11 +213,15 @@ struct RowSlice {
 /// Conditionally write a single value into `FIELD` based on APC sub-columns.
 #define COL_WRITE_VALUE_NEW(ROW, STRUCT, FIELD, VALUE, SUB)                                         \
     do {                                                                                            \
+        auto _row_ref = (ROW);                                                                      \
+        const auto *_sub_ptr = (SUB);                                                               \
         const size_t _col_idx = COL_INDEX(STRUCT, FIELD);                                           \
-        const auto _apc_idx = (SUB)[_col_idx + ROW.dummy_offset];                                                      \
+        const auto _apc_idx = _sub_ptr[_col_idx + _row_ref.dummy_offset];                           \
+        const auto _value_tmp = (VALUE);                                                            \
         if (_apc_idx != UINT32_MAX) {                                                               \
-            (ROW).write(_apc_idx - ROW.optimized_offset, VALUE);                                                           \
+            _row_ref.write(_apc_idx - _row_ref.optimized_offset, _value_tmp);                       \
         }                                                                                           \
+        debug_log_col_write_new(_row_ref, _col_idx, _apc_idx, _value_tmp);                          \
     } while (0)
 
 /// Write an array of values into the fixed‐length `FIELD` array of `STRUCT<T>` for one row.
@@ -183,10 +241,10 @@ struct RowSlice {
         COL_INDEX(STRUCT, FIELD), sizeof(static_cast<STRUCT<uint8_t> *>(nullptr)->FIELD)           \
     )
 
-__device__ __forceinline__ size_t number_of_gaps_in(const uint32_t *sub, size_t len) {
+__device__ __forceinline__ size_t number_of_gaps_in(const uint32_t *sub, size_t start, size_t len) {
     size_t gaps = 0;
 #pragma unroll
-    for (size_t i = 0; i < len; ++i) {
+    for (size_t i = start; i < start + len; ++i) {
         if (sub[i] == UINT32_MAX) {
             ++gaps;
         }

@@ -28,7 +28,7 @@ pub struct Rv32BaseAluChipGpu {
 }
 
 impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
-    fn  generate_proving_ctx_new(&self, arena: DenseRecordArena, d_trace: &DeviceBuffer<F>, d_subs: &DeviceBuffer<u32>, calls_per_apc_row: u32) {
+    fn generate_proving_ctx_new(&self, arena: DenseRecordArena, d_trace: &DeviceBuffer<F>, d_subs: &DeviceBuffer<u32>, d_pre_opt_widths: &DeviceBuffer<u32>, d_post_opt_widths: &DeviceBuffer<u32>, calls_per_apc_row: u32, apc_height: usize) {
         const RECORD_SIZE: usize = size_of::<(
             Rv32BaseAluAdapterRecord,
             BaseAluCoreRecord<RV32_REGISTER_NUM_LIMBS>,
@@ -40,9 +40,12 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
         }
         debug_assert_eq!(records.len() % RECORD_SIZE, 0);
 
-        let trace_width = BaseAluCoreCols::<F, RV32_REGISTER_NUM_LIMBS, RV32_CELL_BITS>::width()
-            + Rv32BaseAluAdapterCols::<F>::width();
-        let trace_height = next_power_of_two_or_zero(records.len() / RECORD_SIZE);
+        // let trace_width = BaseAluCoreCols::<F, RV32_REGISTER_NUM_LIMBS, RV32_CELL_BITS>::width()
+        //     + Rv32BaseAluAdapterCols::<F>::width();
+
+        // TODO: make this conditional in APC vs non APC
+        // let trace_height = next_power_of_two_or_zero(records.len() / RECORD_SIZE);
+        let trace_height = apc_height;
 
         let d_records = records.to_device().unwrap();
 
@@ -58,6 +61,8 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
                 self.timestamp_max_bits as u32,
                 // d_apc_trace.buffer(),
                 d_subs, // same length as dummy width
+                d_pre_opt_widths,
+                d_post_opt_widths,
                 calls_per_apc_row,
             )
             .unwrap();
@@ -90,6 +95,18 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
             .to_device()
             .unwrap();
 
+        let d_pre_opt_widths = (0..(d_trace.buffer().len() as u32 / trace_height as u32))
+            .map(|_| 0u32)
+            .collect::<Vec<u32>>()
+            .to_device()
+            .unwrap();
+
+        let d_post_opt_widths = (0..(d_trace.buffer().len() as u32 / trace_height as u32))
+            .map(|_| 0u32)
+            .collect::<Vec<u32>>()
+            .to_device()
+            .unwrap();
+
         unsafe {
             tracegen(
                 d_trace.buffer(),
@@ -102,6 +119,8 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
                 self.timestamp_max_bits as u32,
                 // d_apc_trace.buffer(),
                 &d_subs, // same length as dummy width
+                &d_pre_opt_widths,
+                &d_post_opt_widths,
                 1, // calls_per_apc_row: 1 for non-apc
             )
             .unwrap();
