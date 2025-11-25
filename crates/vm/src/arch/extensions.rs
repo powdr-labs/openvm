@@ -10,7 +10,10 @@
 //! same struct and `VmProverExtension` is implemented on a separate struct (usually a ZST) to
 //! get around Rust orphan rules.
 use std::{
-    any::{Any, type_name}, collections::HashMap, iter::{self, zip}, sync::Arc
+    any::{type_name, Any},
+    collections::HashMap,
+    iter::{self, zip},
+    sync::Arc,
 };
 
 use getset::{CopyGetters, Getters};
@@ -691,33 +694,46 @@ where
         // chip is parallelized). We could introduce more parallelism, while potentially increasing
         // the peak memory usage, by keeping a dependency tree and generating traces at the same
         // layer of the tree in parallel.
-        let ctx_without_empties: Vec<(usize, AirProvingContext<_>)> = iter::empty()
+
+        // For each pc, how many times it was rejected
+        let mut rejected_pcs: HashMap<u32, usize> = HashMap::new();
+
+        let mut ctx_without_empties: Vec<(usize, AirProvingContext<_>)> = iter::empty()
             .chain(info_span!("system_trace_gen").in_scope(|| {
                 self.system
                     .generate_proving_ctx(system_records, sys_record_arenas)
             }))
             .chain(
-                zip(self.inventory.chips.iter().enumerate().rev(), record_arenas).map(
-                    |((insertion_idx, chip), records)| {
+                zip(self.inventory.chips.iter().enumerate().rev(), record_arenas)
+                    .map(|((insertion_idx, chip), records)| {
                         // Only create a span if record is not empty:
                         let air_name = self.inventory.airs.ext_airs[insertion_idx].name();
-                        let _span = (!records.is_empty()).then(|| {
-                            info_span!("single_trace_gen", air = air_name).entered()
-                        });
+                        let _span = (!records.is_empty())
+                            .then(|| info_span!("single_trace_gen", air = air_name).entered());
                         (air_name, chip.generate_proving_ctxs(records))
-                    },
-                ).scan(HashMap::new(), |rejected_collector: &mut HashMap<String, Vec<(AirProvingContext<_>, Vec<usize>)>>, (air_name, ctxs): (String, openvm_stark_backend::prover::types::AirProvingContexts<PB>)| {
-                    // Add this chip's rejected rows to the collector
-                    for (name, rejected) in ctxs.rejected {
-                        rejected_collector.entry(name).or_default().push(rejected)
-                    }
-                    let mut main = ctxs.main;
-                    // Add the rejected rows from other chips to this air. This assumes rejected rows can only point to chips inserted before, which is verified for apcs.
-                    if let Some(rejected) = rejected_collector.remove(&air_name) {
-                        main.append(rejected);
-                    }
-                    Some(main)
-                }),
+                    })
+                    .scan(
+                        HashMap::new(),
+                        |rejected_collector: &mut HashMap<String, Vec<(_, Vec<usize>)>>,
+                         (air_name, ctxs): (
+                            String,
+                            openvm_stark_backend::prover::types::AirProvingContexts<PB>,
+                        )| {
+                            // Add this chip's rejected rows to the collector
+                            for (name, rejected) in ctxs.rejected.rows_per_air {
+                                rejected_collector.entry(name).or_default().push(rejected)
+                            }
+                            let mut main = ctxs.main;
+                            // Add the rejected rows from other chips to this air. This assumes rejected rows can only point to chips inserted before, which is verified for apcs.
+                            if let Some(rejected) = rejected_collector.remove(&air_name) {
+                                main.append(rejected);
+                            }
+                            for pc in ctxs.rejected.pcs {
+                                *rejected_pcs.entry(pc).or_default() += 1;
+                            }
+                            Some(main)
+                        },
+                    ),
             )
             .enumerate()
             .filter(|(_air_id, ctx)| {
@@ -725,6 +741,17 @@ where
                     && ctx.main_trace_height() > 0
             })
             .collect();
+
+        use p3_field::FieldAlgebra;
+        // Convert rejected pcs to field element
+        let rejected_pcs = rejected_pcs
+            .into_iter()
+            .map(|(key, value)| (PB::Val::from_canonical_u32(key), value))
+            .collect();
+        // get the program context, the assumption is that it is the first one
+        let (_, program_ctx) = &mut ctx_without_empties[0];
+        // add the rejected pcs
+        program_ctx.add_frequencies(rejected_pcs);
 
         Ok(ProvingContext {
             per_air: ctx_without_empties,
