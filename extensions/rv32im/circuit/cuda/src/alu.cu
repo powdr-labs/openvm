@@ -33,15 +33,14 @@ __global__ void alu_tracegen(
     uint32_t *d_bitwise_lookup_ptr,
     size_t bitwise_num_bits,
     uint32_t timestamp_max_bits,
-    // Fp *d_apc_trace,
     uint32_t *subs, // same length as dummy width
     uint32_t *d_pre_opt_widths,
     uint32_t *d_post_opt_widths,
     uint32_t calls_per_apc_row, // 1 for non-apc
     size_t width // dummy width or apc width
-    // uint32_t *apc_row_index, // dummy row mapping to apc row same length as d_records
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    // d_post_opt_widths is always 0 for non APC case
     RowSliceNew row(d_trace + idx / calls_per_apc_row + d_post_opt_widths[idx % calls_per_apc_row] * height, height, d_post_opt_widths[idx % calls_per_apc_row], d_pre_opt_widths[idx % calls_per_apc_row], subs); // we need to slice to the correct APC row, but if non-APC it's dividing by 1 and therefore the same idx
 
     // Print a single APC row via a buffer to avoid noisy, interleaved output.
@@ -140,7 +139,9 @@ __global__ void alu_tracegen(
         // this is now a hack because calls_per_apc_row can still be 1 even if we are in an APC
         if (calls_per_apc_row == 1) {
             row.fill_zero(0, sizeof(Rv32BaseAluCols<uint8_t>));
-        } else {
+        } else if (idx % calls_per_apc_row == 0) {
+            // APC case: only fill if it's the first original instruction
+            // because otherwise the APC row doesn't start with 0 offset
             row.fill_zero(0, 41); // hardcoded APC width for now
         }
     }
@@ -180,12 +181,10 @@ extern "C" int _alu_tracegen(
     uint32_t *d_bitwise_lookup_ptr,
     size_t bitwise_num_bits,
     uint32_t timestamp_max_bits,
-    // Fp *d_apc_trace,
     uint32_t *subs, // same length as dummy width
     uint32_t *d_pre_opt_widths,
     uint32_t *d_post_opt_widths,
     uint32_t calls_per_apc_row // 1 for non-apc
-    // uint32_t *apc_row_index, // dummy row mapping to apc row same length as d_records
 ) {
     assert((height & (height - 1)) == 0);
     // assert(height >= d_records.len()); // might be false for apc case
@@ -200,13 +199,11 @@ extern "C" int _alu_tracegen(
         d_bitwise_lookup_ptr,
         bitwise_num_bits,
         timestamp_max_bits,
-        // Fp *d_apc_trace,
         subs, // same length as dummy width
         d_pre_opt_widths,
         d_post_opt_widths,
         calls_per_apc_row, // 1 for non-apc
         width // dummy width or apc width
-        // uint32_t *apc_row_index, // dummy row mapping to apc row same length as d_records
     );
 
     return CHECK_KERNEL();

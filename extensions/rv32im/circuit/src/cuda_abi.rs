@@ -341,7 +341,6 @@ pub mod alu_cuda {
         d_bitwise_lookup: &DeviceBuffer<F>,
         bitwise_num_bits: usize,
         timestamp_max_bits: u32,
-        // d_apc_trace: &DeviceBuffer<F>,
         d_subs: &DeviceBuffer<u32>,
         d_pre_opt_widths: &DeviceBuffer<u32>,
         d_post_opt_widths: &DeviceBuffer<u32>,
@@ -359,12 +358,10 @@ pub mod alu_cuda {
             d_bitwise_lookup.as_mut_ptr() as *mut u32,
             bitwise_num_bits,
             timestamp_max_bits,
-            // d_apc_trace.as_mut_ptr(),
             d_subs.as_mut_ptr() as *mut u32,
             d_pre_opt_widths.as_mut_ptr() as *mut u32,
             d_post_opt_widths.as_mut_ptr() as *mut u32,
             calls_per_apc_row, // 1 for non-apc
-            // apc_row_index,
         ))
     }
 }
