@@ -315,6 +315,7 @@ pub mod alu_cuda {
         fn _alu_tracegen(
             d_trace: *mut F,
             height: usize,
+            original_height: usize,
             width: usize,
             d_records: DeviceBufferView,
             d_range_checker: *mut u32,
@@ -333,6 +334,7 @@ pub mod alu_cuda {
     pub unsafe fn tracegen(
         d_trace: &DeviceBuffer<F>,
         height: usize,
+        original_height: usize,
         d_records: &DeviceBuffer<u8>,
         d_range_checker: &DeviceBuffer<F>,
         range_bins: usize,
@@ -349,6 +351,7 @@ pub mod alu_cuda {
         CudaError::from_result(_alu_tracegen(
             d_trace.as_mut_ptr(),
             height,
+            original_height,
             width,
             d_records.view(),
             d_range_checker.as_mut_ptr() as *mut u32,

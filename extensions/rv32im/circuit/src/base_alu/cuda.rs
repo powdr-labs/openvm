@@ -44,7 +44,7 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
         //     + Rv32BaseAluAdapterCols::<F>::width();
 
         // TODO: make this conditional in APC vs non APC
-        // let trace_height = next_power_of_two_or_zero(records.len() / RECORD_SIZE);
+        let original_trace_height = next_power_of_two_or_zero(records.len() / RECORD_SIZE);
         let trace_height = apc_height;
 
         let d_records = records.to_device().unwrap();
@@ -53,6 +53,7 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
             tracegen(
                 d_trace, // replaced with apc trace
                 trace_height,
+                original_trace_height,
                 &d_records,
                 &self.range_checker.count,
                 self.range_checker.count.len(),
@@ -110,6 +111,7 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
         unsafe {
             tracegen(
                 d_trace.buffer(),
+                trace_height,
                 trace_height,
                 &d_records,
                 &self.range_checker.count,

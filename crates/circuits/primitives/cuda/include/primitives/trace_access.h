@@ -211,6 +211,7 @@ __device__ __forceinline__ void debug_log_col_write_new(
 #define COL_WRITE_VALUE(ROW, STRUCT, FIELD, VALUE) (ROW).write(COL_INDEX(STRUCT, FIELD), VALUE)
 
 /// Conditionally write a single value into `FIELD` based on APC sub-columns.
+/// TODO: move gating to write                                                           
 #define COL_WRITE_VALUE_NEW(ROW, STRUCT, FIELD, VALUE, SUB)                                         \
     do {                                                                                            \
         auto _row_ref = (ROW);                                                                      \

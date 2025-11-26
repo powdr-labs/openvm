@@ -78,9 +78,9 @@ __global__ void alu_tracegen(
             BitwiseOperationLookup(d_bitwise_lookup_ptr, bitwise_num_bits),
             timestamp_max_bits
         );
-        if (idx == 1) {
+        // if (idx == 1) {
             adapter.fill_trace_row_new(row, rec.adapter, subs, idx);
-        }
+        // }
 
         // Print a single APC row via a buffer to avoid noisy, interleaved output.
         if (calls_per_apc_row > 1) {
@@ -107,9 +107,9 @@ __global__ void alu_tracegen(
 
         Rv32BaseAluCore core(BitwiseOperationLookup(d_bitwise_lookup_ptr, bitwise_num_bits));
         
-        if (idx == 1) {
+        // if (idx == 1) {
             core.fill_trace_row_new(row.slice_from(COL_INDEX(Rv32BaseAluCols, core)), rec.core, subs);
-        }
+        // }
 
         // Print a single APC row via a buffer to avoid noisy, interleaved output.
         if (calls_per_apc_row > 1) {
@@ -172,6 +172,7 @@ __global__ void alu_tracegen(
 extern "C" int _alu_tracegen(
     Fp *d_trace,
     size_t height,
+    size_t original_height,
     size_t width,
     DeviceBufferConstView<Rv32BaseAluRecord> d_records,
     uint32_t *d_range_checker_ptr,
@@ -189,7 +190,7 @@ extern "C" int _alu_tracegen(
     assert((height & (height - 1)) == 0);
     // assert(height >= d_records.len()); // might be false for apc case
     // assert(width == sizeof(Rv32BaseAluCols<uint8_t>)); // this is no longer true for APC
-    auto [grid, block] = kernel_launch_params(height);
+    auto [grid, block] = kernel_launch_params(original_height);
     alu_tracegen<<<grid, block>>>(
         d_trace,
         height,
@@ -207,16 +208,6 @@ extern "C" int _alu_tracegen(
         width // dummy width or apc width
         // uint32_t *apc_row_index, // dummy row mapping to apc row same length as d_records
     );
-    // print all rows here
-    for (size_t i = 0; i < height; i++) {
-        printf("Row %zu: ", i);
-        for (size_t j = 0; j < width; j++) {
-            Fp val = d_trace[j * height + i];
-            printf("%llu ", static_cast<unsigned long long>(val));
-        }
-        printf("\n");
-    }
-    printf("\n");
 
     return CHECK_KERNEL();
 }
