@@ -34,6 +34,7 @@ use openvm_stark_backend::{
     rap::AnyRap,
     AirRef, AnyChip, Chip,
 };
+use p3_baby_bear::BabyBear;
 use rustc_hash::FxHashMap;
 use tracing::info_span;
 
@@ -696,7 +697,7 @@ where
         // layer of the tree in parallel.
 
         // For each pc, how many times it was rejected
-        let mut rejected_pcs: HashMap<u32, usize> = HashMap::new();
+        let mut rejected_pcs: HashMap<PB::Val, usize> = HashMap::new();
 
         let mut ctx_without_empties: Vec<(usize, AirProvingContext<_>)> = iter::empty()
             .chain(info_span!("system_trace_gen").in_scope(|| {
@@ -742,12 +743,6 @@ where
             })
             .collect();
 
-        use p3_field::FieldAlgebra;
-        // Convert rejected pcs to field element
-        let rejected_pcs = rejected_pcs
-            .into_iter()
-            .map(|(key, value)| (PB::Val::from_canonical_u32(key), value))
-            .collect();
         // get the program context, the assumption is that it is the first one
         let (_, program_ctx) = &mut ctx_without_empties[0];
         // add the rejected pcs
