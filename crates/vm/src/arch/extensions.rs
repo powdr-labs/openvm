@@ -10,9 +10,9 @@
 //! same struct and `VmProverExtension` is implemented on a separate struct (usually a ZST) to
 //! get around Rust orphan rules.
 use std::{
-    any::{type_name, Any},
+    any::{Any, type_name},
     collections::HashMap,
-    iter::{self, zip},
+    iter::{self, once, zip},
     sync::Arc,
 };
 
@@ -664,7 +664,7 @@ where
     /// not require a record arena.
     pub(crate) fn generate_proving_ctx(
         &mut self,
-        system_records: SystemRecords<PB::Val>,
+        mut system_records: SystemRecords<PB::Val>,
         record_arenas: Vec<RA>,
         // trace_height_constraints: &[LinearConstraint],
     ) -> Result<ProvingContext<PB>, GenerationError> {
@@ -674,7 +674,7 @@ where
         // Execution has finished at this point.
         // ASSUMPTION WHICH MUST HOLD: non-system chips do not have a dependency on the system chips
         // during trace generation. Given this assumption, we can generate trace on the system chips
-        // first.
+        // first. Note that the assumption is not required for the program chip, whose trace generation happens last.
         let num_sys_airs = self.system_config().num_airs();
         let num_airs = num_sys_airs + self.inventory.chips.len();
         if num_airs != record_arenas.len() {
@@ -697,12 +697,13 @@ where
         // layer of the tree in parallel.
 
         // For each pc, how many times it was rejected
-        let mut rejected_pcs: HashMap<PB::Val, usize> = HashMap::new();
+        let mut rejected_pcs: HashMap<u32, usize> = HashMap::new();
+        let mut filtered_execution_frequencies = std::mem::take(&mut system_records.filtered_exec_frequencies);
 
-        let mut ctx_without_empties: Vec<(usize, AirProvingContext<_>)> = iter::empty()
+        let mut ctx: Vec<AirProvingContext<_>> = std::iter::empty()
             .chain(info_span!("system_trace_gen").in_scope(|| {
                 self.system
-                    .generate_proving_ctx(system_records, sys_record_arenas)
+                    .generate_non_program_proving_ctx(system_records, sys_record_arenas)
             }))
             .chain(
                 zip(self.inventory.chips.iter().enumerate().rev(), record_arenas)
@@ -736,17 +737,20 @@ where
                         },
                     ),
             )
-            .enumerate()
+            .collect::<Vec<_>>();
+
+        // Update the frequencies with the rejected pcs
+        for (pc, count) in rejected_pcs {
+            filtered_execution_frequencies.add(pc, count);
+        }
+
+        // collect the non-empty contexts, starting with the program to preserve the original order
+        let ctx_without_empties = std::iter::once(self.system.generate_program_proving_ctx(filtered_execution_frequencies)).chain(ctx).enumerate()
             .filter(|(_air_id, ctx)| {
                 (!ctx.cached_mains.is_empty() || ctx.common_main.is_some())
                     && ctx.main_trace_height() > 0
-            })
-            .collect();
+            }).collect();
 
-        // get the program context, the assumption is that it is the first one
-        let (_, program_ctx) = &mut ctx_without_empties[0];
-        // add the rejected pcs
-        program_ctx.add_frequencies(rejected_pcs);
 
         Ok(ProvingContext {
             per_air: ctx_without_empties,

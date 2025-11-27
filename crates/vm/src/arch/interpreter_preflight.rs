@@ -10,10 +10,9 @@ use openvm_stark_backend::{
 
 use crate::{
     arch::{
-        execution_mode::PreflightCtx, interpreter::get_pc_index, Arena, ExecutionError, ExecutorId,
-        ExecutorInventory, PreflightExecutor, StaticProgramError, VmExecState,
+        Arena, ExecutionError, ExecutorId, ExecutorInventory, PreflightExecutor, StaticProgramError, VmExecState, execution_mode::PreflightCtx, interpreter::get_pc_index
     },
-    system::memory::online::TracingMemory,
+    system::{FilteredFrequencies, memory::online::TracingMemory},
 };
 
 /// VM preflight executor (E3 executor) for use with trace generation.
@@ -112,14 +111,17 @@ impl<F: Field, E> PreflightInterpretedInstance<F, E> {
         &self.inventory.executors
     }
 
-    pub fn filtered_execution_frequencies(&self) -> Vec<u32> {
+    pub fn filtered_execution_frequencies(&self) -> FilteredFrequencies {
         let base_idx = get_pc_index(self.pc_base);
-        self.pc_handler
-            .par_iter()
-            .zip_eq(&self.execution_frequencies)
-            .skip(base_idx)
-            .filter_map(|(entry, freq)| entry.is_some().then_some(*freq))
-            .collect()
+        FilteredFrequencies {
+            base_pc: self.pc_base,
+            frequencies: self.pc_handler
+                .par_iter()
+                .zip_eq(&self.execution_frequencies)
+                .skip(base_idx)
+                .filter_map(|(entry, freq)| entry.is_some().then_some(*freq))
+                .collect()
+        }
     }
 
     pub fn reset_execution_frequencies(&mut self) {

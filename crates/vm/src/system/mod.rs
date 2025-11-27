@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{iter::Filter, sync::Arc};
 
 use derive_more::derive::From;
 use openvm_circuit_derive::{AnyEnum, Executor, MeteredExecutor, PreflightExecutor};
@@ -26,6 +26,7 @@ use rustc_hash::FxHashMap;
 use self::{connector::VmConnectorAir, program::ProgramAir, public_values::PublicValuesAir};
 use crate::{
     arch::{
+        interpreter::get_pc_index,
         vm_poseidon2_config, AirInventory, AirInventoryError, BusIndexManager, ChipInventory,
         ChipInventoryError, DenseRecordArena, ExecutionBridge, ExecutionBus, ExecutionState,
         ExecutorInventory, ExecutorInventoryError, MatrixRecordArena, PhantomSubExecutor,
@@ -46,7 +47,7 @@ use crate::{
             PhantomChip, PhantomExecutor, PhantomFiller,
         },
         poseidon2::{
-            air::Poseidon2PeripheryAir, new_poseidon2_periphery_air, Poseidon2PeripheryChip,
+            Poseidon2PeripheryChip, air::Poseidon2PeripheryAir, new_poseidon2_periphery_air
         },
         program::{ProgramBus, ProgramChip},
         public_values::{
@@ -87,13 +88,15 @@ pub trait SystemChipComplex<RA, PB: ProverBackend> {
     /// begins and start async device processes in parallel to execution.
     fn transport_init_memory_to_device(&mut self, memory: &GuestMemory);
 
-    /// The caller must guarantee that `record_arenas` has length equal to the number of system
+    /// The caller must guarantee that `record_arenas` has length equal to the number of non-program system
     /// AIRs, although some arenas may be empty if they are unused.
-    fn generate_proving_ctx(
+    fn generate_non_program_proving_ctx(
         &mut self,
         system_records: SystemRecords<PB::Val>,
         record_arenas: Vec<RA>,
     ) -> Vec<AirProvingContext<PB>>;
+
+    fn generate_program_proving_ctx(&mut self, filtered_execution_frequencies: FilteredFrequencies) -> AirProvingContext<PB>;
 
     /// This function is only used for metric collection purposes and custom implementations are
     /// free to ignore it.
@@ -115,13 +118,31 @@ pub trait SystemWithFixedTraceHeights {
     fn override_trace_heights(&mut self, heights: &[u32]);
 }
 
+#[derive(Default)]
+pub struct FilteredFrequencies {
+    /// The pc which corresponds to the first frequency
+    pub base_pc: u32,
+    /// `i` -> frequency of instruction in `i`th row of trace matrix. This requires filtering
+    /// `program.instructions_and_debug_infos` to remove gaps.
+    pub frequencies: Vec<u32>
+}
+
+impl FilteredFrequencies {
+    pub fn len(&self) -> usize {
+        self.frequencies.len()
+    }
+
+    pub fn add(&mut self, pc: u32, count: usize) {
+        let index = get_pc_index(pc - self.base_pc);
+        self.frequencies[index] += count as u32;
+    }
+}
+
 pub struct SystemRecords<F> {
     pub from_state: ExecutionState<u32>,
     pub to_state: ExecutionState<u32>,
     pub exit_code: Option<u32>,
-    /// `i` -> frequency of instruction in `i`th row of trace matrix. This requires filtering
-    /// `program.instructions_and_debug_infos` to remove gaps.
-    pub filtered_exec_frequencies: Vec<u32>,
+    pub filtered_exec_frequencies: FilteredFrequencies,
     // We always use a [DenseRecordArena] here, regardless of the generic `RA` used for other
     // execution records.
     pub access_adapter_records: DenseRecordArena,
@@ -432,7 +453,7 @@ where
             .set_initial_memory(memory.memory.clone());
     }
 
-    fn generate_proving_ctx(
+    fn generate_non_program_proving_ctx(
         &mut self,
         system_records: SystemRecords<Val<SC>>,
         mut record_arenas: Vec<RA>,
@@ -450,8 +471,6 @@ where
         if let Some(chip) = &mut self.public_values_chip {
             chip.inner.set_public_values(public_values);
         }
-        self.program_chip.filtered_exec_frequencies = filtered_exec_frequencies;
-        let program_ctx = self.program_chip.generate_proving_ctx(());
         self.connector_chip.begin(from_state);
         self.connector_chip.end(to_state, exit_code);
         let connector_ctx = self.connector_chip.generate_proving_ctx(());
@@ -465,11 +484,16 @@ where
             .memory_controller
             .generate_proving_ctx(access_adapter_records, touched_memory);
 
-        [program_ctx, connector_ctx]
+        [connector_ctx]
             .into_iter()
             .chain(pv_ctx)
             .chain(memory_ctxs)
             .collect()
+    }
+
+    fn generate_program_proving_ctx(&mut self, filtered_exec_frequencies: FilteredFrequencies) -> AirProvingContext<CpuBackend<SC>> {
+        self.program_chip.filtered_exec_frequencies = filtered_exec_frequencies.frequencies;
+        self.program_chip.generate_proving_ctx(())
     }
 
     #[cfg(feature = "metrics")]
