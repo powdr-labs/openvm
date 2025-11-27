@@ -166,7 +166,7 @@ pub fn compute_exe_commit<F: PrimeField32>(
 pub(crate) fn generate_cached_trace<F: Field>(program: &Program<F>) -> RowMajorMatrix<F> {
     let width = ProgramExecutionCols::<F>::width();
     let mut instructions = program
-        .enumerate_by_pc()
+        .enumerate_software_by_pc()
         .into_iter()
         .map(|(pc, instruction, _)| (pc, instruction))
         .collect_vec();
