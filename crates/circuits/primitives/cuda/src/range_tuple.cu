@@ -1,5 +1,8 @@
+#include <cstdio>
+
 #include "fp.h"
 #include "launcher.cuh"
+#include "primitives/row_print_buffer.cuh"
 
 __global__ void range_tuple_checker_tracegen(
     const uint32_t *count,
@@ -8,7 +11,14 @@ __global__ void range_tuple_checker_tracegen(
     size_t num_bins
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+    // RowPrintBuffer buffer;
+    // buffer.reset();
+    // buffer.append_literal("num_bins=");
+    // buffer.append_uint(num_bins);
+    // buffer.append_literal("\n");
+    // buffer.flush();
     if (idx < num_bins) {
+        // printf("idx=%u\n", idx);
         trace[idx] = Fp(count[idx] + (cpu_count ? cpu_count[idx] : 0));
     }
 }

@@ -84,129 +84,129 @@ struct Rv32BaseAluAdapter {
     }
 
     __device__ void fill_trace_row_new(RowSliceNew row, Rv32BaseAluAdapterRecord record, uint32_t *subs, uint32_t idx) {
-        if (idx == 1) {
-            RowPrintBuffer buffer;
-            buffer.reset();
-            buffer.append_literal("subs ");
-            for (uint32_t c = 0; c < 36; ++c) {
-                const uint32_t val = subs[c];
-                buffer.append_literal(" ");
-                buffer.append_uint(static_cast<unsigned long long>(val));
-            }
-            buffer.append_literal("\n");
-            buffer.flush();
-        }
+        // if (idx == 1) {
+        //     RowPrintBuffer buffer;
+        //     buffer.reset();
+        //     buffer.append_literal("subs ");
+        //     for (uint32_t c = 0; c < 36; ++c) {
+        //         const uint32_t val = subs[c];
+        //         buffer.append_literal(" ");
+        //         buffer.append_uint(static_cast<unsigned long long>(val));
+        //     }
+        //     buffer.append_literal("\n");
+        //     buffer.flush();
+        // }
         
         COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, from_state.pc, record.from_pc, subs);
 
         COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, from_state.timestamp, record.from_timestamp, subs);
 
-        if (idx == 1) {
-            RowPrintBuffer buffer;
-            buffer.reset();
-            buffer.append_literal("apc row 0");
-            buffer.append_literal(" | ");
-            buffer.append_literal("dummy row 0");
-            buffer.append_literal(" | timestamp ");
-            buffer.append_uint(static_cast<unsigned long long>(record.from_timestamp));
-            buffer.append_literal(" | ");
-            for (uint32_t c = 0; c < 41; ++c) { // hardcoded APC width for now
-                const Fp val = row.ptr[c * row.stride]; // RowSliceNew::operator[] multiplies by stride for you
-                buffer.append_literal(" ");
-                buffer.append_uint(static_cast<unsigned long long>(val));
-            }
-            buffer.append_literal("\n");
-            buffer.append_literal("timestamp col_index ");
-            buffer.append_uint(COL_INDEX(Rv32BaseAluAdapterCols, from_state.timestamp));
-            buffer.append_literal("\n");
-            buffer.flush();
-        }
+        // if (idx == 1) {
+        //     RowPrintBuffer buffer;
+        //     buffer.reset();
+        //     buffer.append_literal("apc row 0");
+        //     buffer.append_literal(" | ");
+        //     buffer.append_literal("dummy row 0");
+        //     buffer.append_literal(" | timestamp ");
+        //     buffer.append_uint(static_cast<unsigned long long>(record.from_timestamp));
+        //     buffer.append_literal(" | ");
+        //     for (uint32_t c = 0; c < 41; ++c) { // hardcoded APC width for now
+        //         const Fp val = row.ptr[c * row.stride]; // RowSliceNew::operator[] multiplies by stride for you
+        //         buffer.append_literal(" ");
+        //         buffer.append_uint(static_cast<unsigned long long>(val));
+        //     }
+        //     buffer.append_literal("\n");
+        //     buffer.append_literal("timestamp col_index ");
+        //     buffer.append_uint(COL_INDEX(Rv32BaseAluAdapterCols, from_state.timestamp));
+        //     buffer.append_literal("\n");
+        //     buffer.flush();
+        // }
 
         COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, rd_ptr, record.rd_ptr, subs);
 
-        if (idx == 1) {
-            RowPrintBuffer buffer;
-            buffer.reset();
-            buffer.append_literal("apc row 0 after rd_ptr ");
-            buffer.append_literal(" | ");
-            buffer.append_literal("dummy row 0");
-            buffer.append_literal(" | ");
-            for (uint32_t c = 0; c < 41; ++c) { // hardcoded APC width for now
-                const Fp val = row.ptr[c * row.stride]; // RowSliceNew::operator[] multiplies by stride for you
-                buffer.append_literal(" ");
-                buffer.append_uint(static_cast<unsigned long long>(val));
-            }
-            buffer.append_literal("\n");
-            buffer.append_literal("rd_ptr col_index ");
-            buffer.append_uint(COL_INDEX(Rv32BaseAluAdapterCols, rd_ptr));
-            buffer.append_literal("\n");
-            buffer.flush();
-        }
+        // if (idx == 1) {
+        //     RowPrintBuffer buffer;
+        //     buffer.reset();
+        //     buffer.append_literal("apc row 0 after rd_ptr ");
+        //     buffer.append_literal(" | ");
+        //     buffer.append_literal("dummy row 0");
+        //     buffer.append_literal(" | ");
+        //     for (uint32_t c = 0; c < 41; ++c) { // hardcoded APC width for now
+        //         const Fp val = row.ptr[c * row.stride]; // RowSliceNew::operator[] multiplies by stride for you
+        //         buffer.append_literal(" ");
+        //         buffer.append_uint(static_cast<unsigned long long>(val));
+        //     }
+        //     buffer.append_literal("\n");
+        //     buffer.append_literal("rd_ptr col_index ");
+        //     buffer.append_uint(COL_INDEX(Rv32BaseAluAdapterCols, rd_ptr));
+        //     buffer.append_literal("\n");
+        //     buffer.flush();
+        // }
 
         COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, rs1_ptr, record.rs1_ptr, subs);
 
-        if (idx == 1) {
-            RowPrintBuffer buffer;
-            buffer.reset();
-            buffer.append_literal("apc row 0 after rs1_ptr ");
-            buffer.append_literal(" | ");
-            buffer.append_literal("dummy row 0");
-            buffer.append_literal(" | ");
-            for (uint32_t c = 0; c < 41; ++c) { // hardcoded APC width for now
-                const Fp val = row.ptr[c * row.stride]; // RowSliceNew::operator[] multiplies by stride for you
-                buffer.append_literal(" ");
-                buffer.append_uint(static_cast<unsigned long long>(val));
-            }
-            buffer.append_literal("\n");
-            buffer.append_literal("rs1_ptr col_index ");
-            buffer.append_uint(COL_INDEX(Rv32BaseAluAdapterCols, rs1_ptr));
-            buffer.append_literal("\n");
-            buffer.flush();
-        }
+        // if (idx == 1) {
+        //     RowPrintBuffer buffer;
+        //     buffer.reset();
+        //     buffer.append_literal("apc row 0 after rs1_ptr ");
+        //     buffer.append_literal(" | ");
+        //     buffer.append_literal("dummy row 0");
+        //     buffer.append_literal(" | ");
+        //     for (uint32_t c = 0; c < 41; ++c) { // hardcoded APC width for now
+        //         const Fp val = row.ptr[c * row.stride]; // RowSliceNew::operator[] multiplies by stride for you
+        //         buffer.append_literal(" ");
+        //         buffer.append_uint(static_cast<unsigned long long>(val));
+        //     }
+        //     buffer.append_literal("\n");
+        //     buffer.append_literal("rs1_ptr col_index ");
+        //     buffer.append_uint(COL_INDEX(Rv32BaseAluAdapterCols, rs1_ptr));
+        //     buffer.append_literal("\n");
+        //     buffer.flush();
+        // }
 
         COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, rs2, record.rs2, subs);
 
-        if (idx == 1) {
-            RowPrintBuffer buffer;
-            buffer.reset();
-            buffer.append_literal("apc row 0 after rs2 ");
-            buffer.append_literal(" | ");
-            buffer.append_literal("dummy row 0");
-            buffer.append_literal(" | ");
-            for (uint32_t c = 0; c < 41; ++c) { // hardcoded APC width for now
-                const Fp val = row.ptr[c * row.stride]; // RowSliceNew::operator[] multiplies by stride for you
-                buffer.append_literal(" ");
-                buffer.append_uint(static_cast<unsigned long long>(val));
-            }
-            buffer.append_literal("\n");
-            buffer.append_literal("rs2 col_index ");
-            buffer.append_uint(COL_INDEX(Rv32BaseAluAdapterCols, rs2));
-            buffer.append_literal("\n");
-            buffer.append_literal("row dummy offset ");
-            buffer.append_uint(static_cast<unsigned long long>(row.dummy_offset));
-            buffer.append_literal("\n");
+        // if (idx == 1) {
+        //     RowPrintBuffer buffer;
+        //     buffer.reset();
+        //     buffer.append_literal("apc row 0 after rs2 ");
+        //     buffer.append_literal(" | ");
+        //     buffer.append_literal("dummy row 0");
+        //     buffer.append_literal(" | ");
+        //     for (uint32_t c = 0; c < 41; ++c) { // hardcoded APC width for now
+        //         const Fp val = row.ptr[c * row.stride]; // RowSliceNew::operator[] multiplies by stride for you
+        //         buffer.append_literal(" ");
+        //         buffer.append_uint(static_cast<unsigned long long>(val));
+        //     }
+        //     buffer.append_literal("\n");
+        //     buffer.append_literal("rs2 col_index ");
+        //     buffer.append_uint(COL_INDEX(Rv32BaseAluAdapterCols, rs2));
+        //     buffer.append_literal("\n");
+        //     buffer.append_literal("row dummy offset ");
+        //     buffer.append_uint(static_cast<unsigned long long>(row.dummy_offset));
+        //     buffer.append_literal("\n");
             
-            buffer.flush();
-        }
+        //     buffer.flush();
+        // }
 
 
         COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, rs2_as, record.rs2_as, subs);
 
-        if (idx == 1) {
-            RowPrintBuffer buffer;
-            buffer.reset();
-            buffer.append_literal("apc row 0 after rs2_as ");
-            buffer.append_literal(" | ");
-            buffer.append_literal("dummy row 0");
-            buffer.append_literal(" | ");
-            for (uint32_t c = 0; c < 41; ++c) { // hardcoded APC width for now
-                const Fp val = row.ptr[c * row.stride]; // RowSliceNew::operator[] multiplies by stride for you
-                buffer.append_literal(" ");
-                buffer.append_uint(static_cast<unsigned long long>(val));
-            }
-            buffer.append_literal("\n");
-            buffer.flush();
-        }
+        // if (idx == 1) {
+        //     RowPrintBuffer buffer;
+        //     buffer.reset();
+        //     buffer.append_literal("apc row 0 after rs2_as ");
+        //     buffer.append_literal(" | ");
+        //     buffer.append_literal("dummy row 0");
+        //     buffer.append_literal(" | ");
+        //     for (uint32_t c = 0; c < 41; ++c) { // hardcoded APC width for now
+        //         const Fp val = row.ptr[c * row.stride]; // RowSliceNew::operator[] multiplies by stride for you
+        //         buffer.append_literal(" ");
+        //         buffer.append_uint(static_cast<unsigned long long>(val));
+        //     }
+        //     buffer.append_literal("\n");
+        //     buffer.flush();
+        // }
 
         // Read auxiliary for rs1
         mem_helper.fill_new(
@@ -216,21 +216,21 @@ struct Rv32BaseAluAdapter {
             subs
         );
 
-        if (idx == 1) {
-            RowPrintBuffer buffer;
-            buffer.reset();
-            buffer.append_literal("apc row 0 after reads_aux[0]");
-            buffer.append_literal(" | ");
-            buffer.append_literal("dummy row 0");
-            buffer.append_literal(" | ");
-            for (uint32_t c = 0; c < 41; ++c) { // hardcoded APC width for now
-                const Fp val = row.ptr[c * row.stride]; // RowSliceNew::operator[] multiplies by stride for you
-                buffer.append_literal(" ");
-                buffer.append_uint(static_cast<unsigned long long>(val));
-            }
-            buffer.append_literal("\n");
-            buffer.flush();
-        }
+        // if (idx == 1) {
+        //     RowPrintBuffer buffer;
+        //     buffer.reset();
+        //     buffer.append_literal("apc row 0 after reads_aux[0]");
+        //     buffer.append_literal(" | ");
+        //     buffer.append_literal("dummy row 0");
+        //     buffer.append_literal(" | ");
+        //     for (uint32_t c = 0; c < 41; ++c) { // hardcoded APC width for now
+        //         const Fp val = row.ptr[c * row.stride]; // RowSliceNew::operator[] multiplies by stride for you
+        //         buffer.append_literal(" ");
+        //         buffer.append_uint(static_cast<unsigned long long>(val));
+        //     }
+        //     buffer.append_literal("\n");
+        //     buffer.flush();
+        // }
 
         // rs2: register read when rs2_as == RV32_REGISTER_AS (== 1), otherwise immediate.
         if (record.rs2_as != 0) {
@@ -252,21 +252,21 @@ struct Rv32BaseAluAdapter {
             bitwise_lookup.add_range(record.rs2 & mask, (record.rs2 >> RV32_CELL_BITS) & mask);
         }
 
-        if (idx == 1) {
-            RowPrintBuffer buffer;
-            buffer.reset();
-            buffer.append_literal("apc row 0 after reads_aux[1]");
-            buffer.append_literal(" | ");
-            buffer.append_literal("dummy row 0");
-            buffer.append_literal(" | ");
-            for (uint32_t c = 0; c < 41; ++c) { // hardcoded APC width for now
-                const Fp val = row.ptr[c * row.stride]; // RowSliceNew::operator[] multiplies by stride for you
-                buffer.append_literal(" ");
-                buffer.append_uint(static_cast<unsigned long long>(val));
-            }
-            buffer.append_literal("\n");
-            buffer.flush();
-        }
+        // if (idx == 1) {
+        //     RowPrintBuffer buffer;
+        //     buffer.reset();
+        //     buffer.append_literal("apc row 0 after reads_aux[1]");
+        //     buffer.append_literal(" | ");
+        //     buffer.append_literal("dummy row 0");
+        //     buffer.append_literal(" | ");
+        //     for (uint32_t c = 0; c < 41; ++c) { // hardcoded APC width for now
+        //         const Fp val = row.ptr[c * row.stride]; // RowSliceNew::operator[] multiplies by stride for you
+        //         buffer.append_literal(" ");
+        //         buffer.append_uint(static_cast<unsigned long long>(val));
+        //     }
+        //     buffer.append_literal("\n");
+        //     buffer.flush();
+        // }
 
         COL_WRITE_ARRAY_NEW(
             row, Rv32BaseAluAdapterCols, writes_aux.prev_data, record.writes_aux.prev_data, subs
@@ -278,20 +278,20 @@ struct Rv32BaseAluAdapter {
             subs
         );
 
-        if (idx == 1) {
-            RowPrintBuffer buffer;
-            buffer.reset();
-            buffer.append_literal("apc row 0 after writes_aux");
-            buffer.append_literal(" | ");
-            buffer.append_literal("dummy row 0");
-            buffer.append_literal(" | ");
-            for (uint32_t c = 0; c < 41; ++c) { // hardcoded APC width for now
-                const Fp val = row.ptr[c * row.stride]; // RowSliceNew::operator[] multiplies by stride for you
-                buffer.append_literal(" ");
-                buffer.append_uint(static_cast<unsigned long long>(val));
-            }
-            buffer.append_literal("\n");
-            buffer.flush();
-        }
+        // if (idx == 1) {
+        //     RowPrintBuffer buffer;
+        //     buffer.reset();
+        //     buffer.append_literal("apc row 0 after writes_aux");
+        //     buffer.append_literal(" | ");
+        //     buffer.append_literal("dummy row 0");
+        //     buffer.append_literal(" | ");
+        //     for (uint32_t c = 0; c < 41; ++c) { // hardcoded APC width for now
+        //         const Fp val = row.ptr[c * row.stride]; // RowSliceNew::operator[] multiplies by stride for you
+        //         buffer.append_literal(" ");
+        //         buffer.append_uint(static_cast<unsigned long long>(val));
+        //     }
+        //     buffer.append_literal("\n");
+        //     buffer.flush();
+        // }
     }
 };

@@ -76,18 +76,18 @@ struct RowSliceNew {
 
     __device__ __forceinline__ RowSliceNew slice_from(size_t column_index) const {
         uint32_t gap = number_of_gaps_in(subs, dummy_offset, column_index);
-        RowPrintBuffer buffer;
-        buffer.reset();
-        buffer.append_literal("slice_from: optimized_offset before ");
-        buffer.append_uint(optimized_offset);
-        buffer.append_literal(" | dummy_offset before ");
-        buffer.append_uint(dummy_offset);
-        buffer.append_literal(" | column_index ");
-        buffer.append_uint(column_index);
-        buffer.append_literal(" | gap ");
-        buffer.append_uint(gap);
-        buffer.append_literal("\n");
-        buffer.flush();
+        // RowPrintBuffer buffer;
+        // buffer.reset();
+        // buffer.append_literal("slice_from: optimized_offset before ");
+        // buffer.append_uint(optimized_offset);
+        // buffer.append_literal(" | dummy_offset before ");
+        // buffer.append_uint(dummy_offset);
+        // buffer.append_literal(" | column_index ");
+        // buffer.append_uint(column_index);
+        // buffer.append_literal(" | gap ");
+        // buffer.append_uint(gap);
+        // buffer.append_literal("\n");
+        // buffer.flush();
 
         return RowSliceNew(ptr + (column_index - gap) * stride, stride, optimized_offset + column_index - gap, dummy_offset + column_index, subs);
     }
@@ -222,8 +222,8 @@ __device__ __forceinline__ void debug_log_col_write_new(
         if (_apc_idx != UINT32_MAX) {                                                               \
             _row_ref.write(_apc_idx - _row_ref.optimized_offset, _value_tmp);                       \
         }                                                                                           \
-        debug_log_col_write_new(_row_ref, _col_idx, _apc_idx, _value_tmp);                          \
     } while (0)
+/// debug_log_col_write_new(_row_ref, _col_idx, _apc_idx, _value_tmp);                          
 
 /// Write an array of values into the fixed‐length `FIELD` array of `STRUCT<T>` for one row.
 #define COL_WRITE_ARRAY(ROW, STRUCT, FIELD, VALUES)                                                \

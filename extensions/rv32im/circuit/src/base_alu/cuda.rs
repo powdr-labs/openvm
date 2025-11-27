@@ -28,7 +28,7 @@ pub struct Rv32BaseAluChipGpu {
 }
 
 impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
-    fn generate_proving_ctx_new(&self, arena: DenseRecordArena, d_trace: &DeviceBuffer<F>, d_subs: &DeviceBuffer<u32>, d_pre_opt_widths: &DeviceBuffer<u32>, d_post_opt_widths: &DeviceBuffer<u32>, calls_per_apc_row: u32, apc_height: usize) {
+    fn generate_proving_ctx_new(&self, arena: DenseRecordArena, d_trace: &DeviceBuffer<F>, d_subs: &DeviceBuffer<u32>, d_pre_opt_widths: &DeviceBuffer<u32>, d_post_opt_widths: &DeviceBuffer<u32>, calls_per_apc_row: u32, apc_height: usize, apc_width: usize) {
         const RECORD_SIZE: usize = size_of::<(
             Rv32BaseAluAdapterRecord,
             BaseAluCoreRecord<RV32_REGISTER_NUM_LIMBS>,
@@ -47,12 +47,18 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
         let original_trace_height = next_power_of_two_or_zero(records.len() / RECORD_SIZE);
         let trace_height = apc_height;
 
+        println!("before d_records.to_device");
+        println!("records len : {}", records.len());
+
         let d_records = records.to_device().unwrap();
+
+        println!("after d_records.to_device");
 
         unsafe {
             tracegen(
                 d_trace, // replaced with apc trace
                 trace_height,
+                apc_width,
                 original_trace_height,
                 &d_records,
                 &self.range_checker.count,
@@ -112,6 +118,7 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
             tracegen(
                 d_trace.buffer(),
                 trace_height,
+                0, // apc_width: not used in this path so set to 0
                 trace_height,
                 &d_records,
                 &self.range_checker.count,
