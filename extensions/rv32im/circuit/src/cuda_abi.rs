@@ -315,37 +315,55 @@ pub mod alu_cuda {
         fn _alu_tracegen(
             d_trace: *mut F,
             height: usize,
+            original_height: usize,
             width: usize,
+            apc_width: usize,
             d_records: DeviceBufferView,
             d_range_checker: *mut u32,
             range_checker_bins: usize,
             d_bitwise_lookup: *mut u32,
             bitwise_num_bits: usize,
             timestamp_max_bits: u32,
+            d_subs: *mut u32,
+            d_pre_opt_widths: *mut u32,
+            d_post_opt_widths: *mut u32,
+            calls_per_apc_row: u32, // 1 for non-apc
         ) -> i32;
     }
 
     pub unsafe fn tracegen(
         d_trace: &DeviceBuffer<F>,
         height: usize,
+        apc_width: usize,
+        original_height: usize,
         d_records: &DeviceBuffer<u8>,
         d_range_checker: &DeviceBuffer<F>,
         range_bins: usize,
         d_bitwise_lookup: &DeviceBuffer<F>,
         bitwise_num_bits: usize,
         timestamp_max_bits: u32,
+        d_subs: &DeviceBuffer<u32>,
+        d_pre_opt_widths: &DeviceBuffer<u32>,
+        d_post_opt_widths: &DeviceBuffer<u32>,
+        calls_per_apc_row: u32 // 1 for non-apc
     ) -> Result<(), CudaError> {
         let width = d_trace.len() / height;
         CudaError::from_result(_alu_tracegen(
             d_trace.as_mut_ptr(),
             height,
+            original_height,
             width,
+            apc_width,
             d_records.view(),
             d_range_checker.as_mut_ptr() as *mut u32,
             range_bins,
             d_bitwise_lookup.as_mut_ptr() as *mut u32,
             bitwise_num_bits,
             timestamp_max_bits,
+            d_subs.as_mut_ptr() as *mut u32,
+            d_pre_opt_widths.as_mut_ptr() as *mut u32,
+            d_post_opt_widths.as_mut_ptr() as *mut u32,
+            calls_per_apc_row, // 1 for non-apc
         ))
     }
 }

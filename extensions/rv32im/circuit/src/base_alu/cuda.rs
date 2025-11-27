@@ -9,6 +9,7 @@ use openvm_cuda_backend::{
     base::DeviceMatrix, chip::get_empty_air_proving_ctx, prover_backend::GpuBackend, types::F,
 };
 use openvm_cuda_common::copy::MemCopyH2D;
+use openvm_cuda_common::d_buffer::DeviceBuffer;
 use openvm_stark_backend::{prover::types::AirProvingContext, Chip};
 
 use crate::{
@@ -27,6 +28,56 @@ pub struct Rv32BaseAluChipGpu {
 }
 
 impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
+    fn generate_proving_ctx_new(&self, arena: DenseRecordArena, d_trace: &DeviceBuffer<F>, d_subs: &DeviceBuffer<u32>, d_pre_opt_widths: &DeviceBuffer<u32>, d_post_opt_widths: &DeviceBuffer<u32>, calls_per_apc_row: u32, apc_height: usize, apc_width: usize) {
+        const RECORD_SIZE: usize = size_of::<(
+            Rv32BaseAluAdapterRecord,
+            BaseAluCoreRecord<RV32_REGISTER_NUM_LIMBS>,
+        )>();
+        let records = arena.allocated();
+        if records.is_empty() {
+            return;
+            // return get_empty_air_proving_ctx::<GpuBackend>();
+        }
+        debug_assert_eq!(records.len() % RECORD_SIZE, 0);
+
+        // let trace_width = BaseAluCoreCols::<F, RV32_REGISTER_NUM_LIMBS, RV32_CELL_BITS>::width()
+        //     + Rv32BaseAluAdapterCols::<F>::width();
+
+        // TODO: make this conditional in APC vs non APC
+        let original_trace_height = next_power_of_two_or_zero(records.len() / RECORD_SIZE);
+        let trace_height = apc_height;
+
+        println!("before d_records.to_device");
+        println!("records len : {}", records.len());
+
+        let d_records = records.to_device().unwrap();
+
+        println!("after d_records.to_device");
+
+        unsafe {
+            tracegen(
+                d_trace, // replaced with apc trace
+                trace_height,
+                apc_width,
+                original_trace_height,
+                &d_records,
+                &self.range_checker.count,
+                self.range_checker.count.len(),
+                &self.bitwise_lookup.count,
+                RV32_CELL_BITS,
+                self.timestamp_max_bits as u32,
+                // d_apc_trace.buffer(),
+                d_subs, // same length as dummy width
+                d_pre_opt_widths,
+                d_post_opt_widths,
+                calls_per_apc_row,
+            )
+            .unwrap();
+        }
+
+        // AirProvingContext::simple_no_pis(d_trace)
+    }
+
     fn generate_proving_ctx(&self, arena: DenseRecordArena) -> AirProvingContext<GpuBackend> {
         const RECORD_SIZE: usize = size_of::<(
             Rv32BaseAluAdapterRecord,
@@ -45,9 +96,29 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
         let d_records = records.to_device().unwrap();
         let d_trace = DeviceMatrix::<F>::with_capacity(trace_height, trace_width);
 
+        // TODO: use actual sub not hardcoded
+        let d_subs = (0..(d_trace.buffer().len() as u32 / trace_height as u32))
+            .collect::<Vec<u32>>()
+            .to_device()
+            .unwrap();
+
+        let d_pre_opt_widths = (0..(d_trace.buffer().len() as u32 / trace_height as u32))
+            .map(|_| 0u32)
+            .collect::<Vec<u32>>()
+            .to_device()
+            .unwrap();
+
+        let d_post_opt_widths = (0..(d_trace.buffer().len() as u32 / trace_height as u32))
+            .map(|_| 0u32)
+            .collect::<Vec<u32>>()
+            .to_device()
+            .unwrap();
+
         unsafe {
             tracegen(
                 d_trace.buffer(),
+                trace_height,
+                0, // apc_width: not used in this path so set to 0
                 trace_height,
                 &d_records,
                 &self.range_checker.count,
@@ -55,6 +126,11 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
                 &self.bitwise_lookup.count,
                 RV32_CELL_BITS,
                 self.timestamp_max_bits as u32,
+                // d_apc_trace.buffer(),
+                &d_subs, // same length as dummy width
+                &d_pre_opt_widths,
+                &d_post_opt_widths,
+                1, // calls_per_apc_row: 1 for non-apc
             )
             .unwrap();
         }
