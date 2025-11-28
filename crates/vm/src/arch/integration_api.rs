@@ -157,7 +157,7 @@ where
     RA: RowMajorMatrixArena<Val<SC>>,
 {
     fn generate_proving_ctx(&self, arena: RA) -> AirProvingContext<CpuBackend<SC>> {
-        let rows_used = arena.trace_offset() / arena.width();
+        let rows_used = (arena.trace_offset() - arena.reserved_offset()) / arena.width();
         let mut trace = arena.into_matrix();
         let mem_helper = self.mem_helper.as_borrowed();
         self.inner.fill_trace(&mem_helper, &mut trace, rows_used);

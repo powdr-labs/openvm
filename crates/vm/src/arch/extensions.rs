@@ -707,27 +707,32 @@ where
             }))
             .chain(
                 zip(self.inventory.chips.iter().enumerate().rev(), record_arenas)
-                    .map(|((insertion_idx, chip), records)| {
-                        // Only create a span if record is not empty:
-                        let air_name = self.inventory.airs.ext_airs[insertion_idx].name();
-                        let _span = (!records.is_empty())
-                            .then(|| info_span!("single_trace_gen", air = air_name).entered());
-                        (air_name, chip.generate_proving_ctxs(records))
-                    })
                     .scan(
                         HashMap::new(),
                         |rejected_collector: &mut HashMap<String, Vec<(_, Vec<usize>)>>,
-                         (air_name, ctxs): (
-                            String,
-                            openvm_stark_backend::prover::types::AirProvingContexts<PB>,
-                        )| {
+                         ((insertion_idx, chip), mut records)| {
+                                                    // Only create a span if record is not empty:
+                        let air_name = self.inventory.airs.ext_airs[insertion_idx].name();
+                        let _span = (!records.is_empty())
+                            .then(|| info_span!("single_trace_gen", air = air_name).entered());
+
+                            let rejected = rejected_collector.remove(&air_name);
+
+                        let rejected_count: usize = rejected.as_ref().map(|rejected| rejected.iter().map(|(_, rows)| rows.len()).sum()).unwrap_or_default();
+
+                        if rejected_count > 0 {
+                            println!("Preallocate {rejected_count} extra rows in {air_name} for rejected rows coming from other airs");
+                            records.allocate_dummy_rows(rejected_count);
+                        }
+
+                        let ctxs = chip.generate_proving_ctxs(records);
                             // Add this chip's rejected rows to the collector
                             for (name, rejected) in ctxs.rejected.rows_per_air {
                                 rejected_collector.entry(name).or_default().push(rejected)
                             }
                             let mut main = ctxs.main;
                             // Add the rejected rows from other chips to this air. This assumes rejected rows can only point to chips inserted before, which is verified for apcs.
-                            if let Some(rejected) = rejected_collector.remove(&air_name) {
+                            if let Some(rejected) = rejected {
                                 main.append(rejected);
                             }
                             for pc in ctxs.rejected.pcs {

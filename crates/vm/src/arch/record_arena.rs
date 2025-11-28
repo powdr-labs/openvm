@@ -1,10 +1,8 @@
 use std::{
-    borrow::BorrowMut,
-    io::Cursor,
-    marker::PhantomData,
-    ptr::{copy_nonoverlapping, slice_from_raw_parts_mut},
+    borrow::BorrowMut, io::Cursor, marker::PhantomData, ops::{Deref, DerefMut}, ptr::{copy_nonoverlapping, slice_from_raw_parts_mut}
 };
 
+use itertools::Itertools;
 use openvm_circuit_primitives::utils::next_power_of_two_or_zero;
 use openvm_stark_backend::{
     p3_field::{Field, PrimeField32},
@@ -25,6 +23,8 @@ pub trait Arena {
     fn current_trace_height(&self) -> usize {
         0
     }
+
+    fn allocate_dummy_rows(&mut self, count: usize);
 }
 
 /// Given some minimum layout of type `Layout`, the `RecordArena` should allocate a buffer, of
@@ -43,6 +43,7 @@ pub trait RowMajorMatrixArena<F>: Arena {
     fn set_capacity(&mut self, trace_height: usize);
     fn width(&self) -> usize;
     fn trace_offset(&self) -> usize;
+    fn reserved_offset(&self) -> usize;
     fn into_matrix(self) -> RowMajorMatrix<F>;
 }
 
@@ -77,6 +78,7 @@ pub struct MatrixRecordArena<F> {
     pub trace_buffer: Vec<F>,
     pub width: usize,
     pub trace_offset: usize,
+    pub reserved_offset: usize,
     /// The arena is created with a specified capacity, but may be truncated before being converted
     /// into a [RowMajorMatrix] if `allow_truncate == true`. If `allow_truncate == false`, then the
     /// matrix will never be truncated. The latter is used if the trace matrix must have fixed
@@ -114,6 +116,7 @@ impl<F: Field> Arena for MatrixRecordArena<F> {
         Self {
             trace_buffer,
             width,
+            reserved_offset: 0,
             trace_offset: 0,
             allow_truncate: true,
         }
@@ -126,6 +129,12 @@ impl<F: Field> Arena for MatrixRecordArena<F> {
     #[cfg(feature = "metrics")]
     fn current_trace_height(&self) -> usize {
         self.trace_offset / self.width
+    }
+
+    fn allocate_dummy_rows(&mut self, count: usize) {
+        self.trace_buffer.resize(self.trace_buffer.len() + count, F::ZERO);
+        self.trace_offset += count * self.width;
+        self.reserved_offset += count * self.width;
     }
 }
 
@@ -144,10 +153,14 @@ impl<F: Field> RowMajorMatrixArena<F> for MatrixRecordArena<F> {
         self.trace_offset
     }
 
+    fn reserved_offset(&self) -> usize {
+        self.reserved_offset   
+    }
+
     fn into_matrix(mut self) -> RowMajorMatrix<F> {
         let width = self.width();
-        assert_eq!(self.trace_offset() % width, 0);
-        let rows_used = self.trace_offset() / width;
+        assert_eq!(self.trace_offset % width, 0);
+        let rows_used = self.trace_offset / width;
         let height = next_power_of_two_or_zero(rows_used);
         // This should be automatic since trace_buffer's height is a power of two:
         assert!(height.checked_mul(width).unwrap() <= self.trace_buffer.len());
@@ -164,9 +177,41 @@ impl<F: Field> RowMajorMatrixArena<F> for MatrixRecordArena<F> {
 
 pub struct DenseRecordArena {
     pub records_buffer: Cursor<Vec<u8>>,
+    pub extra_rows: usize,
 }
 
 const MAX_ALIGNMENT: usize = 32;
+
+pub struct Allocated<'a> {
+    pub inner: &'a [u8],
+    extra_rows: usize,
+}
+
+impl<'a> Allocated<'a> {
+    pub fn len(&self) -> usize {
+        self.inner.len() + self.extra_rows
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+pub struct AllocatedMut<'a> {
+    pub inner: &'a mut [u8],
+    extra_rows: usize,
+}
+
+impl<'a> AllocatedMut<'a> {
+    pub fn len(&self) -> usize {
+        self.inner.len() + self.extra_rows
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
 
 impl DenseRecordArena {
     /// Creates a new [DenseRecordArena] with the given capacity in bytes.
@@ -177,6 +222,7 @@ impl DenseRecordArena {
         cursor.set_position(offset as u64);
         Self {
             records_buffer: cursor,
+            extra_rows: 0
         }
     }
 
@@ -218,20 +264,26 @@ impl DenseRecordArena {
         }
     }
 
-    pub fn allocated(&self) -> &[u8] {
+    pub fn allocated(&self) -> Allocated {
         let size = self.records_buffer.position() as usize;
         let offset = (MAX_ALIGNMENT
             - (self.records_buffer.get_ref().as_ptr() as usize % MAX_ALIGNMENT))
             % MAX_ALIGNMENT;
-        &self.records_buffer.get_ref()[offset..size]
+        Allocated {
+            inner: &self.records_buffer.get_ref()[offset..size],
+            extra_rows: self.extra_rows,
+        }
     }
 
-    pub fn allocated_mut(&mut self) -> &mut [u8] {
+    pub fn allocated_mut(&mut self) -> AllocatedMut {
         let size = self.records_buffer.position() as usize;
         let offset = (MAX_ALIGNMENT
             - (self.records_buffer.get_ref().as_ptr() as usize % MAX_ALIGNMENT))
             % MAX_ALIGNMENT;
-        &mut self.records_buffer.get_mut()[offset..size]
+        AllocatedMut {
+            inner: &mut self.records_buffer.get_mut()[offset..size],
+            extra_rows: self.extra_rows,
+        }
     }
 
     pub fn align_to(&mut self, alignment: usize) {
@@ -256,6 +308,10 @@ impl Arena for DenseRecordArena {
 
     fn is_empty(&self) -> bool {
         self.allocated().is_empty()
+    }
+
+    fn allocate_dummy_rows(&mut self, count: usize) {
+        unimplemented!()
     }
 }
 
@@ -295,12 +351,12 @@ pub trait CustomBorrow<'a, T, L> {
 
 // This is a helper struct that implements a few utility methods
 pub struct RecordSeeker<'a, RA, RecordMut, Layout> {
-    pub buffer: &'a mut [u8], // The buffer that the records are written to
+    pub buffer: AllocatedMut<'a>, // The buffer that the records are written to
     _phantom: PhantomData<(RA, RecordMut, Layout)>,
 }
 
 impl<'a, RA, RecordMut, Layout> RecordSeeker<'a, RA, RecordMut, Layout> {
-    pub fn new(record_buffer: &'a mut [u8]) -> Self {
+    pub fn new(record_buffer: AllocatedMut<'a>) -> Self {
         Self {
             buffer: record_buffer,
             _phantom: PhantomData,
@@ -341,7 +397,8 @@ where
     pub fn extract_records(&'a mut self) -> Vec<R> {
         let mut records = Vec::new();
         let len = self.buffer.len();
-        let buff = &mut self.buffer[..];
+        // let buff = &mut self.buffer[..];
+        let buff: &mut [u8] = unimplemented!();
         let mut offset = 0;
         while offset < len {
             let record: R = {
@@ -366,12 +423,13 @@ where
         arena.trace_offset = 0;
         let mut offset = 0;
         while offset < len {
-            let layout = Self::get_layout_at(&mut offset, self.buffer);
+            let layout = Self::get_layout_at(&mut offset, self.buffer.inner);
             let record_size = R::size(&layout);
             let record_alignment = R::alignment(&layout);
             let aligned_record_size = record_size.next_multiple_of(record_alignment);
             // SAFETY: offset < len, pointer within buffer bounds
-            let src_ptr = unsafe { self.buffer.as_ptr().add(offset) };
+            // let src_ptr = unsafe { self.buffer.as_ptr().add(offset) };
+            let src_ptr = unimplemented!();
             let dst_ptr = arena
                 .alloc_buffer(layout.metadata.get_num_rows())
                 .as_mut_ptr();
@@ -436,7 +494,8 @@ where
     pub fn extract_records(&'a mut self, layout: AdapterCoreLayout<M>) -> Vec<(A, C)> {
         let mut records = Vec::new();
         let len = self.buffer.len();
-        let buff = &mut self.buffer[..];
+        // let buff = &mut self.buffer[..];
+        let buff: &mut [u8] = unimplemented!();
         let mut offset = 0;
         while offset < len {
             let record: (A, C) = {
@@ -470,7 +529,8 @@ where
             let (adapter_buf, core_buf) =
                 unsafe { dst_buffer.split_at_mut_unchecked(M::get_adapter_width()) };
             unsafe {
-                let src_ptr = self.buffer.as_ptr().add(offset);
+                // let src_ptr = self.buffer.as_ptr().add(offset);
+                let src_ptr = unimplemented!();
                 copy_nonoverlapping(src_ptr, adapter_buf.as_mut_ptr(), adapter_size);
                 copy_nonoverlapping(src_ptr.add(adapter_size), core_buf.as_mut_ptr(), core_size);
             }

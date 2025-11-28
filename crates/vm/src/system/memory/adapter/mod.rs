@@ -118,7 +118,7 @@ impl<F: Clone + Send + Sync> AccessAdapterInventory<F> {
 
     /// `heights` should have length equal to the number of access adapter chips.
     pub(crate) fn compute_heights_from_arena(arena: &DenseRecordArena, heights: &mut [usize]) {
-        let bytes = arena.allocated();
+        let bytes = arena.allocated().inner;
         tracing::debug!(
             "Computing heights from memory adapters arena: used {} bytes",
             bytes.len()
@@ -190,7 +190,7 @@ impl<F: Clone + Send + Sync> AccessAdapterInventory<F> {
 
         let mut trace_ptrs = vec![0; num_adapters];
 
-        let bytes = self.arena.allocated_mut();
+        let bytes = self.arena.allocated_mut().inner;
         let mut ptr = 0;
         while ptr < bytes.len() {
             let bytes_slice = &mut bytes[ptr..];
