@@ -97,9 +97,9 @@ struct Rv32BaseAluAdapter {
         //     buffer.flush();
         // }
         
-        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, from_state.pc, record.from_pc, subs);
+        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, from_state.pc, record.from_pc);
 
-        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, from_state.timestamp, record.from_timestamp, subs);
+        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, from_state.timestamp, record.from_timestamp);
 
         // if (idx == 1) {
         //     RowPrintBuffer buffer;
@@ -122,7 +122,7 @@ struct Rv32BaseAluAdapter {
         //     buffer.flush();
         // }
 
-        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, rd_ptr, record.rd_ptr, subs);
+        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, rd_ptr, record.rd_ptr);
 
         // if (idx == 1) {
         //     RowPrintBuffer buffer;
@@ -143,7 +143,7 @@ struct Rv32BaseAluAdapter {
         //     buffer.flush();
         // }
 
-        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, rs1_ptr, record.rs1_ptr, subs);
+        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, rs1_ptr, record.rs1_ptr);
 
         // if (idx == 1) {
         //     RowPrintBuffer buffer;
@@ -164,7 +164,7 @@ struct Rv32BaseAluAdapter {
         //     buffer.flush();
         // }
 
-        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, rs2, record.rs2, subs);
+        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, rs2, record.rs2);
 
         // if (idx == 1) {
         //     RowPrintBuffer buffer;
@@ -190,7 +190,7 @@ struct Rv32BaseAluAdapter {
         // }
 
 
-        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, rs2_as, record.rs2_as, subs);
+        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, rs2_as, record.rs2_as);
 
         // if (idx == 1) {
         //     RowPrintBuffer buffer;

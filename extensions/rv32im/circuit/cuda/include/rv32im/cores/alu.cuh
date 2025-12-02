@@ -173,11 +173,11 @@ template <size_t NUM_LIMBS> struct BaseAluCore {
         COL_WRITE_ARRAY_NEW(row, Cols, b, record.b);
         COL_WRITE_ARRAY_NEW(row, Cols, c, record.c);
 
-        COL_WRITE_VALUE_NEW(row, Cols, opcode_add_flag, record.local_opcode == 0, subs);
-        COL_WRITE_VALUE_NEW(row, Cols, opcode_sub_flag, record.local_opcode == 1, subs);
-        COL_WRITE_VALUE_NEW(row, Cols, opcode_xor_flag, record.local_opcode == 2, subs);
-        COL_WRITE_VALUE_NEW(row, Cols, opcode_or_flag, record.local_opcode == 3, subs);
-        COL_WRITE_VALUE_NEW(row, Cols, opcode_and_flag, record.local_opcode == 4, subs);
+        COL_WRITE_VALUE_NEW(row, Cols, opcode_add_flag, record.local_opcode == 0);
+        COL_WRITE_VALUE_NEW(row, Cols, opcode_sub_flag, record.local_opcode == 1);
+        COL_WRITE_VALUE_NEW(row, Cols, opcode_xor_flag, record.local_opcode == 2);
+        COL_WRITE_VALUE_NEW(row, Cols, opcode_or_flag, record.local_opcode == 3);
+        COL_WRITE_VALUE_NEW(row, Cols, opcode_and_flag, record.local_opcode == 4);
 #pragma unroll
         for (size_t i = 0; i < NUM_LIMBS; i++) {
             if (record.local_opcode == 0 || record.local_opcode == 1) {

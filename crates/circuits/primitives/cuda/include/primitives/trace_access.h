@@ -55,13 +55,13 @@ struct RowSliceNew {
 // #define COL_WRITE_VALUE(ROW, STRUCT, FIELD, VALUE) (ROW).write(COL_INDEX(STRUCT, FIELD), VALUE)
 
 
-//     template <typename T>
-//     __device__ __forceinline__ void write_new(size_t column_index, T value) const {
-//         uint32_t gap = number_of_gaps_in(subs, dummy_offset, column_index);
-//         if (subs[dummy_offset + column_index] != UINT32_MAX) {
-//             ptr[(column_index - gap) * stride] = value;
-//         }
-//     }
+    template <typename T>
+    __device__ __forceinline__ void write_new(size_t column_index, T value) const {
+        const uint32_t apc_idx = subs[dummy_offset + column_index];
+        if (apc_idx != UINT32_MAX) {
+            ptr[(apc_idx - optimized_offset) * stride] = value;
+        }
+    }
 
     template <typename T>
     __device__ __forceinline__ void write_array(size_t column_index, size_t length, const T *values)
@@ -77,7 +77,7 @@ struct RowSliceNew {
         const {
 #pragma unroll
         for (size_t i = 0; i < length; i++) {
-            const auto apc_idx = subs[dummy_offset + column_index + i];
+            const uint32_t apc_idx = subs[dummy_offset + column_index + i];
             if (apc_idx != UINT32_MAX) {
                 ptr[(apc_idx - optimized_offset) * stride] = values[i];
             }
@@ -237,18 +237,19 @@ __device__ __forceinline__ void debug_log_col_write_new(
 
 /// Conditionally write a single value into `FIELD` based on APC sub-columns.
 /// TODO: move gating to write                                                           
-#define COL_WRITE_VALUE_NEW(ROW, STRUCT, FIELD, VALUE, SUB)                                         \
-    do {                                                                                            \
-        auto _row_ref = (ROW);                                                                      \
-        const auto *_sub_ptr = (SUB);                                                               \
-        const size_t _col_idx = COL_INDEX(STRUCT, FIELD);                                           \
-        const auto _apc_idx = _sub_ptr[_col_idx + _row_ref.dummy_offset];                           \
-        const auto _value_tmp = (VALUE);                                                            \
-        if (_apc_idx != UINT32_MAX) {                                                               \
-            _row_ref.write(_apc_idx - _row_ref.optimized_offset, _value_tmp);                       \
-        }                                                                                           \
-    } while (0)
+/// #define COL_WRITE_VALUE_NEW(ROW, STRUCT, FIELD, VALUE, SUB)                                         
+///     do {                                                                                            
+///         auto _row_ref = (ROW);                                                                      
+///         const auto *_sub_ptr = (SUB);                                                               
+///         const size_t _col_idx = COL_INDEX(STRUCT, FIELD);                                           
+///         const auto _apc_idx = _sub_ptr[_col_idx + _row_ref.dummy_offset];                           
+///         const auto _value_tmp = (VALUE);                                                            
+///         if (_apc_idx != UINT32_MAX) {                                                               
+///             _row_ref.write(_apc_idx - _row_ref.optimized_offset, _value_tmp);                       
+///         }                                                                                           
+///     } while (0)
 /// debug_log_col_write_new(_row_ref, _col_idx, _apc_idx, _value_tmp);                          
+#define COL_WRITE_VALUE_NEW(ROW, STRUCT, FIELD, VALUE) (ROW).write_new(COL_INDEX(STRUCT, FIELD), VALUE)
 
 /// Write an array of values into the fixed‐length `FIELD` array of `STRUCT<T>` for one row.
 #define COL_WRITE_ARRAY(ROW, STRUCT, FIELD, VALUES)                                                \
