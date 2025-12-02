@@ -99,9 +99,10 @@ struct VariableRangeChecker {
 #pragma unroll
         for (int i = 0; i < limbs_len; i++) {
             uint32_t limb_u32 = x & mask;
-            if (sub[limbs.dummy_offset + i] != UINT32_MAX) { // TODO: use macro/`write` for compile time elimination
-                limbs[i] = limb_u32;
-            }
+            // if (sub[limbs.dummy_offset + i] != UINT32_MAX) { // TODO: use macro/`write` for compile time elimination
+            //     limbs[i] = limb_u32;
+            // }
+            limbs.write_new(i, limb_u32);
             // potentially do a is_apc flag here and not even add for dummy, make the flag compile time
             // maybe make this a RowSliceNew API? or a periphery chip API?
             add_count(limb_u32, min(bits_remaining, range_max_bits)); 
