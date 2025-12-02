@@ -314,8 +314,8 @@ pub mod alu_cuda {
     extern "C" {
         fn _alu_tracegen(
             d_trace: *mut F,
+            apc_height: usize,
             height: usize,
-            original_height: usize,
             width: usize,
             apc_width: usize,
             d_records: DeviceBufferView,
@@ -333,9 +333,9 @@ pub mod alu_cuda {
 
     pub unsafe fn tracegen(
         d_trace: &DeviceBuffer<F>,
-        height: usize,
+        apc_height: usize,
         apc_width: usize,
-        original_height: usize,
+        height: usize,
         d_records: &DeviceBuffer<u8>,
         d_range_checker: &DeviceBuffer<F>,
         range_bins: usize,
@@ -345,13 +345,15 @@ pub mod alu_cuda {
         d_subs: &DeviceBuffer<u32>,
         d_pre_opt_widths: &DeviceBuffer<u32>,
         d_post_opt_widths: &DeviceBuffer<u32>,
-        calls_per_apc_row: u32 // 1 for non-apc
+        calls_per_apc_row: u32
     ) -> Result<(), CudaError> {
-        let width = d_trace.len() / height;
+        // This value is non sensical for APC, as we would have APC trace divided by dummy height
+        // It's used in an assertion for non-APC
+        let width = d_trace.len() / height; 
         CudaError::from_result(_alu_tracegen(
             d_trace.as_mut_ptr(),
+            apc_height,
             height,
-            original_height,
             width,
             apc_width,
             d_records.view(),
@@ -363,7 +365,7 @@ pub mod alu_cuda {
             d_subs.as_mut_ptr() as *mut u32,
             d_pre_opt_widths.as_mut_ptr() as *mut u32,
             d_post_opt_widths.as_mut_ptr() as *mut u32,
-            calls_per_apc_row, // 1 for non-apc
+            calls_per_apc_row,
         ))
     }
 }

@@ -117,7 +117,7 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
         unsafe {
             tracegen(
                 d_trace.buffer(),
-                trace_height,
+                0, // apc_height: not used in this path so set to 0
                 0, // apc_width: not used in this path so set to 0
                 trace_height,
                 &d_records,

@@ -42,7 +42,14 @@ __global__ void alu_tracegen(
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     // d_post_opt_widths is always 0 for non APC case
     bool is_apc = apc_width != 0;
-    RowSliceNew row(d_trace + idx / calls_per_apc_row + d_post_opt_widths[idx % calls_per_apc_row] * height, height, d_post_opt_widths[idx % calls_per_apc_row], d_pre_opt_widths[idx % calls_per_apc_row], subs, is_apc); // we need to slice to the correct APC row, but if non-APC it's dividing by 1 and therefore the same idx
+    RowSliceNew row(
+        d_trace + idx / calls_per_apc_row + d_post_opt_widths[idx % calls_per_apc_row] * height, 
+        height, 
+        d_post_opt_widths[idx % calls_per_apc_row], 
+        d_pre_opt_widths[idx % calls_per_apc_row], 
+        subs, 
+        is_apc
+    ); // we need to slice to the correct APC row, but if non-APC it's dividing by 1 and therefore the same idx
 
     // Print a single APC row via a buffer to avoid noisy, interleaved output.
     // if (calls_per_apc_row > 1) {
@@ -79,7 +86,7 @@ __global__ void alu_tracegen(
             timestamp_max_bits
         );
         // if (idx == 1) {
-            adapter.fill_trace_row_new(row, rec.adapter, subs, idx);
+        adapter.fill_trace_row_new(row, rec.adapter);
         // }
 
         // Print a single APC row via a buffer to avoid noisy, interleaved output.
@@ -179,8 +186,8 @@ __global__ void alu_tracegen(
 
 extern "C" int _alu_tracegen(
     Fp *d_trace,
+    size_t apc_height,
     size_t height,
-    size_t original_height,
     size_t width,
     size_t apc_width,
     DeviceBufferConstView<Rv32BaseAluRecord> d_records,
@@ -195,12 +202,15 @@ extern "C" int _alu_tracegen(
     uint32_t calls_per_apc_row // 1 for non-apc
 ) {
     assert((height & (height - 1)) == 0);
-    // assert(height >= d_records.len()); // might be false for apc case
-    // assert(width == sizeof(Rv32BaseAluCols<uint8_t>)); // this is no longer true for APC
-    auto [grid, block] = kernel_launch_params(original_height);
+    assert((apc_height & (apc_height - 1)) == 0);
+    assert(height >= d_records.len()); // might be false for apc case
+    if (apc_width == 0) {
+        assert(width == sizeof(Rv32BaseAluCols<uint8_t>)); // this is no longer true for APC
+    }
+    auto [grid, block] = kernel_launch_params(height);
     alu_tracegen<<<grid, block>>>(
         d_trace,
-        height,
+        apc_width == 0 ? height : apc_height,
         d_records,
         d_range_checker_ptr,
         range_checker_bins,

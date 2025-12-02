@@ -83,7 +83,7 @@ struct Rv32BaseAluAdapter {
         );
     }
 
-    __device__ void fill_trace_row_new(RowSliceNew row, Rv32BaseAluAdapterRecord record, uint32_t *subs, uint32_t idx) {
+    __device__ void fill_trace_row_new(RowSliceNew row, Rv32BaseAluAdapterRecord record) {
         // if (idx == 1) {
         //     RowPrintBuffer buffer;
         //     buffer.reset();
