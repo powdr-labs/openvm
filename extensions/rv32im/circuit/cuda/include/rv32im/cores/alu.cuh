@@ -169,9 +169,9 @@ template <size_t NUM_LIMBS> struct BaseAluCore {
         }
 
         // TODO: we just optionally write here but we can also optionally compute things like `run_add` above
-        COL_WRITE_ARRAY_NEW(row, Cols, a, a, subs);
-        COL_WRITE_ARRAY_NEW(row, Cols, b, record.b, subs);
-        COL_WRITE_ARRAY_NEW(row, Cols, c, record.c, subs);
+        COL_WRITE_ARRAY_NEW(row, Cols, a, a);
+        COL_WRITE_ARRAY_NEW(row, Cols, b, record.b);
+        COL_WRITE_ARRAY_NEW(row, Cols, c, record.c);
 
         COL_WRITE_VALUE_NEW(row, Cols, opcode_add_flag, record.local_opcode == 0, subs);
         COL_WRITE_VALUE_NEW(row, Cols, opcode_sub_flag, record.local_opcode == 1, subs);

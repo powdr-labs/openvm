@@ -38,6 +38,31 @@ struct RowSliceNew {
         ptr[column_index * stride] = value;
     }
 
+
+// #define COL_WRITE_VALUE_NEW(ROW, STRUCT, FIELD, VALUE, SUB)                                         \
+//     do {                                                                                            \
+//         auto _row_ref = (ROW);                                                                      \
+//         const auto *_sub_ptr = (SUB);                                                               \
+//         const size_t _col_idx = COL_INDEX(STRUCT, FIELD);                                           \
+//         const auto _apc_idx = _sub_ptr[_col_idx + _row_ref.dummy_offset];                           \
+//         const auto _value_tmp = (VALUE);                                                            \
+//         if (_apc_idx != UINT32_MAX) {                                                               \
+//             _row_ref.write(_apc_idx - _row_ref.optimized_offset, _value_tmp);                   \
+//         }     
+        
+
+// /// Write a single value into `FIELD` of struct `STRUCT<T>` at a given row.
+// #define COL_WRITE_VALUE(ROW, STRUCT, FIELD, VALUE) (ROW).write(COL_INDEX(STRUCT, FIELD), VALUE)
+
+
+//     template <typename T>
+//     __device__ __forceinline__ void write_new(size_t column_index, T value) const {
+//         uint32_t gap = number_of_gaps_in(subs, dummy_offset, column_index);
+//         if (subs[dummy_offset + column_index] != UINT32_MAX) {
+//             ptr[(column_index - gap) * stride] = value;
+//         }
+//     }
+
     template <typename T>
     __device__ __forceinline__ void write_array(size_t column_index, size_t length, const T *values)
         const {
@@ -48,13 +73,13 @@ struct RowSliceNew {
     }
 
     template <typename T>
-    __device__ __forceinline__ void write_array_new(size_t column_index, size_t length, const T *values, const uint32_t *sub)
+    __device__ __forceinline__ void write_array_new(size_t column_index, size_t length, const T *values)
         const {
-            uint32_t gap = number_of_gaps_in(subs, dummy_offset, column_index);
 #pragma unroll
         for (size_t i = 0; i < length; i++) {
-            if (subs[dummy_offset + column_index + i] != UINT32_MAX) {
-                ptr[(column_index - gap + i) * stride] = values[i];
+            const auto apc_idx = subs[dummy_offset + column_index + i];
+            if (apc_idx != UINT32_MAX) {
+                ptr[(apc_idx - optimized_offset) * stride] = values[i];
             }
         }
     }
@@ -230,8 +255,8 @@ __device__ __forceinline__ void debug_log_col_write_new(
     (ROW).write_array(COL_INDEX(STRUCT, FIELD), COL_ARRAY_LEN(STRUCT, FIELD), VALUES)
 
 /// Write an array of values into the fixed‐length `FIELD` array of `STRUCT<T>` for one row.
-#define COL_WRITE_ARRAY_NEW(ROW, STRUCT, FIELD, VALUES, SUB)                                                \
-    (ROW).write_array_new(COL_INDEX(STRUCT, FIELD), COL_ARRAY_LEN(STRUCT, FIELD), VALUES, SUB)
+#define COL_WRITE_ARRAY_NEW(ROW, STRUCT, FIELD, VALUES)                                                \
+    (ROW).write_array_new(COL_INDEX(STRUCT, FIELD), COL_ARRAY_LEN(STRUCT, FIELD), VALUES)
 
 /// Write a single value bits into `FIELD` of struct `STRUCT<T>` at a given row.
 #define COL_WRITE_BITS(ROW, STRUCT, FIELD, VALUE) (ROW).write_bits(COL_INDEX(STRUCT, FIELD), VALUE)

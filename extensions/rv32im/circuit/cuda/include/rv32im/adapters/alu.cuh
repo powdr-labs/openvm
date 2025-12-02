@@ -269,7 +269,7 @@ struct Rv32BaseAluAdapter {
         // }
 
         COL_WRITE_ARRAY_NEW(
-            row, Rv32BaseAluAdapterCols, writes_aux.prev_data, record.writes_aux.prev_data, subs
+            row, Rv32BaseAluAdapterCols, writes_aux.prev_data, record.writes_aux.prev_data
         );
         mem_helper.fill_new(
             row.slice_from(COL_INDEX(Rv32BaseAluAdapterCols, writes_aux)),
