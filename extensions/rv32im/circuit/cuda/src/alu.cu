@@ -108,7 +108,7 @@ __global__ void alu_tracegen(
         Rv32BaseAluCore core(BitwiseOperationLookup(d_bitwise_lookup_ptr, bitwise_num_bits));
         
         // if (idx == 1) {
-            core.fill_trace_row_new(row.slice_from(COL_INDEX(Rv32BaseAluCols, core)), rec.core, subs);
+            core.fill_trace_row_new(row.slice_from(COL_INDEX(Rv32BaseAluCols, core)), rec.core);
         // }
 
         // Print a single APC row via a buffer to avoid noisy, interleaved output.
