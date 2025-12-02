@@ -105,7 +105,9 @@ struct VariableRangeChecker {
             limbs.write_new(i, limb_u32);
             // potentially do a is_apc flag here and not even add for dummy, make the flag compile time
             // maybe make this a RowSliceNew API? or a periphery chip API?
-            add_count(limb_u32, min(bits_remaining, range_max_bits)); 
+            if (!limbs.is_apc) {
+                add_count(limb_u32, min(bits_remaining, range_max_bits)); 
+            }
             x >>= range_max_bits;
             bits_remaining -= min(bits_remaining, range_max_bits);
         }

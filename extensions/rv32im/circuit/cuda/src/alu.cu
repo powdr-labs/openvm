@@ -37,11 +37,12 @@ __global__ void alu_tracegen(
     uint32_t *d_pre_opt_widths,
     uint32_t *d_post_opt_widths,
     uint32_t calls_per_apc_row, // 1 for non-apc
-    size_t width // dummy width or apc width
+    size_t apc_width // apc width, 0 for dummy
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     // d_post_opt_widths is always 0 for non APC case
-    RowSliceNew row(d_trace + idx / calls_per_apc_row + d_post_opt_widths[idx % calls_per_apc_row] * height, height, d_post_opt_widths[idx % calls_per_apc_row], d_pre_opt_widths[idx % calls_per_apc_row], subs); // we need to slice to the correct APC row, but if non-APC it's dividing by 1 and therefore the same idx
+    bool is_apc = apc_width != 0;
+    RowSliceNew row(d_trace + idx / calls_per_apc_row + d_post_opt_widths[idx % calls_per_apc_row] * height, height, d_post_opt_widths[idx % calls_per_apc_row], d_pre_opt_widths[idx % calls_per_apc_row], subs, is_apc); // we need to slice to the correct APC row, but if non-APC it's dividing by 1 and therefore the same idx
 
     // Print a single APC row via a buffer to avoid noisy, interleaved output.
     // if (calls_per_apc_row > 1) {
@@ -149,7 +150,7 @@ __global__ void alu_tracegen(
             // buffer.append_uint(width);
             // buffer.append_literal("\n");
             // buffer.flush();
-            row.fill_zero(0, width); // hardcoded APC width for now
+            row.fill_zero(0, apc_width); // hardcoded APC width for now
         }
     }
 

@@ -16,9 +16,10 @@ struct RowSliceNew {
     size_t optimized_offset;
     size_t dummy_offset;
     uint32_t *subs;
+    bool is_apc;
 
 
-    __device__ RowSliceNew(Fp *ptr, size_t stride, size_t optimized_offset, size_t dummy_offset, uint32_t *subs) : ptr(ptr), stride(stride), optimized_offset(optimized_offset), dummy_offset(dummy_offset), subs(subs) {}
+    __device__ RowSliceNew(Fp *ptr, size_t stride, size_t optimized_offset, size_t dummy_offset, uint32_t *subs, bool is_apc) : ptr(ptr), stride(stride), optimized_offset(optimized_offset), dummy_offset(dummy_offset), subs(subs), is_apc(is_apc) {}
 
     __device__ __forceinline__ Fp &operator[](size_t column_index) const {
         // While implementing tracegen for SHA256, we encountered what we believe to be an nvcc
@@ -29,7 +30,7 @@ struct RowSliceNew {
         return ptr[column_index * stride];
     }
 
-    __device__ static RowSliceNew null() { return RowSliceNew(nullptr, 0, 0, 0, nullptr); }
+    __device__ static RowSliceNew null() { return RowSliceNew(nullptr, 0, 0, 0, nullptr, false); }
 
     __device__ bool is_valid() const { return ptr != nullptr; }
 
@@ -114,11 +115,11 @@ struct RowSliceNew {
         // buffer.append_literal("\n");
         // buffer.flush();
 
-        return RowSliceNew(ptr + (column_index - gap) * stride, stride, optimized_offset + column_index - gap, dummy_offset + column_index, subs);
+        return RowSliceNew(ptr + (column_index - gap) * stride, stride, optimized_offset + column_index - gap, dummy_offset + column_index, subs, is_apc);
     }
 
     __device__ __forceinline__ RowSliceNew shift_row(size_t n) const {
-        return RowSliceNew(ptr + n, stride, optimized_offset, dummy_offset, subs);
+        return RowSliceNew(ptr + n, stride, optimized_offset, dummy_offset, subs, is_apc);
     }
 };
 
