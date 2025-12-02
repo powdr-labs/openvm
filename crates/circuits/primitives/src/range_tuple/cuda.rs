@@ -53,9 +53,6 @@ impl<RA, const N: usize> Chip<RA, GpuBackend> for RangeTupleCheckerChipGPU<N> {
         // ATTENTION: we create a new buffer to copy `count` into because this chip is stateful and
         // `count` will be reused.
         let trace = DeviceMatrix::<F>::with_capacity(self.count.len(), NUM_RANGE_TUPLE_COLS);
-        println!("d_count len: {}", self.count.len());
-        println!("trace len: {}", trace.buffer().len());
-        println!("cpu_count len: {}", cpu_count.as_ref().map_or(0, |b| b.len()));
         unsafe {
             tracegen(&self.count, &cpu_count, trace.buffer()).unwrap();
         }

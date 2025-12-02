@@ -26,7 +26,7 @@ struct Rv32BaseAluRecord {
 
 __global__ void alu_tracegen(
     Fp *d_trace, // can be apc trace
-    size_t height, // can be apc height
+    size_t height,
     DeviceBufferConstView<Rv32BaseAluRecord> d_records,
     uint32_t *d_range_checker_ptr,
     size_t range_checker_bins,
@@ -51,137 +51,28 @@ __global__ void alu_tracegen(
         is_apc
     ); // we need to slice to the correct APC row, but if non-APC it's dividing by 1 and therefore the same idx
 
-    // Print a single APC row via a buffer to avoid noisy, interleaved output.
-    // if (calls_per_apc_row > 1) {
-    //     uint32_t apc_row_idx = idx / calls_per_apc_row;
-    //     uint32_t dummy_row_in_apc = idx % calls_per_apc_row;
-    //     if (apc_row_idx == 0 && dummy_row_in_apc == 1) {
-            // RowPrintBuffer buffer;
-    //         buffer.reset();
-    //         buffer.append_literal("apc row ");
-    //         buffer.append_uint(apc_row_idx);
-    //         buffer.append_literal(" | ");
-    //         buffer.append_literal("dummy row ");
-    //         buffer.append_uint(dummy_row_in_apc);
-    //         buffer.append_literal(" | ");
-    //         for (uint32_t c = 0; c < 41; ++c) { // hardcoded APC width for now
-    //             const Fp val = row.ptr[c * row.stride]; // RowSliceNew::operator[] multiplies by stride for you
-    //             buffer.append_literal(" ");
-    //             buffer.append_uint(static_cast<unsigned long long>(val));
-    //         }
-    //         buffer.append_literal("\n");
-    //         buffer.flush();
-    //     }
-    // }
-
     if (idx < d_records.len()) {
         auto const &rec = d_records[idx];
-        // RowSlice apc_row(d_apc_trace + apc_row_index[idx], height);
-        // auto const sub = subs[idx * width]; // offset the subs to the corresponding dummy row
-        // uint32_t *sub = &subs[(idx % calls_per_apc_row) * width]; // dummy width
 
         Rv32BaseAluAdapter adapter(
             VariableRangeChecker(d_range_checker_ptr, range_checker_bins),
             BitwiseOperationLookup(d_bitwise_lookup_ptr, bitwise_num_bits),
             timestamp_max_bits
         );
-        // if (idx == 1) {
         adapter.fill_trace_row_new(row, rec.adapter);
-        // }
-
-        // Print a single APC row via a buffer to avoid noisy, interleaved output.
-        // if (calls_per_apc_row > 1) {
-        //     uint32_t apc_row_idx = idx / calls_per_apc_row;
-        //     uint32_t dummy_row_in_apc = idx % calls_per_apc_row;
-        //     if (apc_row_idx == 0 && dummy_row_in_apc == 1) {
-        //         RowPrintBuffer buffer;
-        //         buffer.reset();
-        //         buffer.append_literal("apc row ");
-        //         buffer.append_uint(apc_row_idx);
-        //         buffer.append_literal(" | ");
-        //         buffer.append_literal("dummy row ");
-        //         buffer.append_uint(dummy_row_in_apc);
-        //         buffer.append_literal(" | ");
-        //         for (uint32_t c = 0; c < 41; ++c) { // hardcoded APC width for now
-        //             const Fp val = row.ptr[c * row.stride]; // RowSliceNew::operator[] multiplies by stride for you
-        //             buffer.append_literal(" ");
-        //             buffer.append_uint(static_cast<unsigned long long>(val));
-        //         }
-        //         buffer.append_literal("\n");
-        //         buffer.flush();
-        //     }
-        // }
 
         Rv32BaseAluCore core(BitwiseOperationLookup(d_bitwise_lookup_ptr, bitwise_num_bits));
-        
-        // if (idx == 1) {
-            core.fill_trace_row_new(row.slice_from(COL_INDEX(Rv32BaseAluCols, core)), rec.core);
-        // }
-
-        // Print a single APC row via a buffer to avoid noisy, interleaved output.
-        // if (calls_per_apc_row > 1) {
-        //     uint32_t apc_row_idx = idx / calls_per_apc_row;
-        //     uint32_t dummy_row_in_apc = idx % calls_per_apc_row;
-        //     if (apc_row_idx == 0 
-        //         && dummy_row_in_apc == 1
-        //     ) {
-        //         RowPrintBuffer buffer;
-        //         buffer.reset();
-        //         buffer.append_literal("apc row ");
-        //         buffer.append_uint(apc_row_idx);
-        //         buffer.append_literal(" | ");
-        //         buffer.append_literal("dummy row ");
-        //         buffer.append_uint(dummy_row_in_apc);
-        //         buffer.append_literal(" | ");
-        //         for (uint32_t c = 0; c < 41; ++c) { // hardcoded APC width for now
-        //             const Fp val = row.ptr[c * row.stride]; // RowSliceNew::operator[] multiplies by stride for you
-        //             buffer.append_literal(" ");
-        //             buffer.append_uint(static_cast<unsigned long long>(val));
-        //         }
-        //         buffer.append_literal("\n");
-        //         buffer.flush();
-        //     }
-        // }
-    } 
-    else {
-        // Not APC case
+        core.fill_trace_row_new(row.slice_from(COL_INDEX(Rv32BaseAluCols, core)), rec.core);
+    } else {
         if (apc_width == 0) {
+            // non-apc case
             row.fill_zero(0, sizeof(Rv32BaseAluCols<uint8_t>));
         } else if (idx % calls_per_apc_row == 0) {
-            // APC case: only fill if it's the first original instruction
+            // apc case: only fill if it's the first original instruction
             // because otherwise the APC row doesn't start with 0 offset
-            // RowPrintBuffer buffer;
-            // buffer.reset();
-            // buffer.append_literal("apc width ");
-            // buffer.append_uint(width);
-            // buffer.append_literal("\n");
-            // buffer.flush();
-            row.fill_zero(0, apc_width); // hardcoded APC width for now
+            row.fill_zero(0, apc_width);
         }
     }
-
-    // Print a single APC row via a buffer to avoid noisy, interleaved output.
-    // if (calls_per_apc_row > 1) {
-    //     uint32_t apc_row_idx = idx / calls_per_apc_row;
-    //     uint32_t dummy_row_in_apc = idx % calls_per_apc_row;
-    //     if (apc_row_idx == 0 && dummy_row_in_apc == 1) {
-    //         RowPrintBuffer buffer;
-    //         buffer.reset();
-    //         buffer.append_literal("apc row ");
-    //         buffer.append_uint(apc_row_idx);
-    //         buffer.append_literal(" | ");
-    //         buffer.append_literal("dummy row ");
-    //         buffer.append_uint(dummy_row_in_apc);
-    //         buffer.append_literal(" | ");
-    //         for (uint32_t c = 0; c < 41; ++c) { // hardcoded APC width for now
-    //             const Fp val = row.ptr[c * row.stride]; // RowSliceNew::operator[] multiplies by stride for you
-    //             buffer.append_literal(" ");
-    //             buffer.append_uint(static_cast<unsigned long long>(val));
-    //         }
-    //         buffer.append_literal("\n");
-    //         buffer.flush();
-    //     }
-    // }
 }
 
 extern "C" int _alu_tracegen(

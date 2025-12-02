@@ -85,19 +85,6 @@ struct RowSliceNew {
 
     __device__ __forceinline__ RowSliceNew slice_from(size_t column_index) const {
         uint32_t gap = number_of_gaps_in(subs, dummy_offset, column_index);
-        // RowPrintBuffer buffer;
-        // buffer.reset();
-        // buffer.append_literal("slice_from: optimized_offset before ");
-        // buffer.append_uint(optimized_offset);
-        // buffer.append_literal(" | dummy_offset before ");
-        // buffer.append_uint(dummy_offset);
-        // buffer.append_literal(" | column_index ");
-        // buffer.append_uint(column_index);
-        // buffer.append_literal(" | gap ");
-        // buffer.append_uint(gap);
-        // buffer.append_literal("\n");
-        // buffer.flush();
-
         return RowSliceNew(ptr + (column_index - gap) * stride, stride, optimized_offset + column_index - gap, dummy_offset + column_index, subs, is_apc);
     }
 
@@ -174,41 +161,6 @@ __device__ __forceinline__ unsigned long long to_debug_uint(T value) {
     }
 }
 
-template <typename RowT, typename ValueT>
-__device__ __forceinline__ void debug_log_col_write_new(
-    const RowT &row,
-    size_t column_index,
-    uint32_t apc_idx,
-    ValueT value
-) {
-    RowPrintBuffer buffer;
-    buffer.reset();
-    buffer.append_literal("COL_WRITE VALUE ");
-    buffer.append_uint(to_debug_uint(value));
-    buffer.append_literal(" from col_idx ");
-    buffer.append_uint(static_cast<unsigned long long>(column_index));
-    buffer.append_literal(" which is absolute col_idx ");
-    buffer.append_uint(
-        static_cast<unsigned long long>(column_index + row.dummy_offset)
-    );
-    if (apc_idx != UINT32_MAX) {
-        buffer.append_literal(" to apc_idx ");
-        buffer.append_uint(apc_idx);
-        buffer.append_literal(" which is relative apc_idx ");
-        long long relative = static_cast<long long>(apc_idx)
-            - static_cast<long long>(row.optimized_offset);
-        if (relative >= 0) {
-            buffer.append_uint(static_cast<unsigned long long>(relative));
-        } else {
-            buffer.append_literal("(negative)");
-        }
-    } else {
-        buffer.append_literal(" (skipped; apc_idx == UINT32_MAX)");
-    }
-    buffer.append_literal("\n");
-    buffer.flush();
-}
-
 /// Compute the 0-based column index of member `FIELD` within struct template `STRUCT<T>`,
 /// by instantiating it as `STRUCT<uint8_t>` so that offsetof yields the element index.
 #define COL_INDEX(STRUCT, FIELD) (offsetof(STRUCT<uint8_t>, FIELD))
@@ -219,20 +171,7 @@ __device__ __forceinline__ void debug_log_col_write_new(
 /// Write a single value into `FIELD` of struct `STRUCT<T>` at a given row.
 #define COL_WRITE_VALUE(ROW, STRUCT, FIELD, VALUE) (ROW).write(COL_INDEX(STRUCT, FIELD), VALUE)
 
-/// Conditionally write a single value into `FIELD` based on APC sub-columns.
-/// TODO: move gating to write                                                           
-/// #define COL_WRITE_VALUE_NEW(ROW, STRUCT, FIELD, VALUE, SUB)                                         
-///     do {                                                                                            
-///         auto _row_ref = (ROW);                                                                      
-///         const auto *_sub_ptr = (SUB);                                                               
-///         const size_t _col_idx = COL_INDEX(STRUCT, FIELD);                                           
-///         const auto _apc_idx = _sub_ptr[_col_idx + _row_ref.dummy_offset];                           
-///         const auto _value_tmp = (VALUE);                                                            
-///         if (_apc_idx != UINT32_MAX) {                                                               
-///             _row_ref.write(_apc_idx - _row_ref.optimized_offset, _value_tmp);                       
-///         }                                                                                           
-///     } while (0)
-/// debug_log_col_write_new(_row_ref, _col_idx, _apc_idx, _value_tmp);                          
+/// Write a single value into `FIELD` of struct `STRUCT<T>` at a given row.                    
 #define COL_WRITE_VALUE_NEW(ROW, STRUCT, FIELD, VALUE) (ROW).write_new(COL_INDEX(STRUCT, FIELD), VALUE)
 
 /// Write an array of values into the fixed‐length `FIELD` array of `STRUCT<T>` for one row.

@@ -41,12 +41,7 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
 
         let trace_height = next_power_of_two_or_zero(records.len() / RECORD_SIZE);
 
-        println!("before d_records.to_device");
-        println!("records len : {}", records.len());
-
         let d_records = records.to_device().unwrap();
-
-        println!("after d_records.to_device");
 
         unsafe {
             tracegen(
@@ -67,8 +62,6 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
             )
             .unwrap();
         }
-
-        // AirProvingContext::simple_no_pis(d_trace)
     }
 
     fn generate_proving_ctx(&self, arena: DenseRecordArena) -> AirProvingContext<GpuBackend> {
