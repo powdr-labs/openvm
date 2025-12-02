@@ -87,8 +87,7 @@ struct VariableRangeChecker {
         uint32_t x,
         size_t bits,
         RowSliceNew limbs,
-        const size_t limbs_len,
-        uint32_t *sub
+        const size_t limbs_len
     ) {
         size_t range_max_bits = max_bits();
 #ifdef CUDA_DEBUG

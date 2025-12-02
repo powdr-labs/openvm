@@ -137,9 +137,8 @@ __global__ void alu_tracegen(
         // }
     } 
     else {
-        // TODO: use APC width if APC
-        // this is now a hack because calls_per_apc_row can still be 1 even if we are in an APC
-        if (calls_per_apc_row == 1) {
+        // Not APC case
+        if (apc_width == 0) {
             row.fill_zero(0, sizeof(Rv32BaseAluCols<uint8_t>));
         } else if (idx % calls_per_apc_row == 0) {
             // APC case: only fill if it's the first original instruction

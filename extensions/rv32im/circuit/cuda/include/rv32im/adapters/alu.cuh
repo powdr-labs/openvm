@@ -212,8 +212,7 @@ struct Rv32BaseAluAdapter {
         mem_helper.fill_new(
             row.slice_from(COL_INDEX(Rv32BaseAluAdapterCols, reads_aux[0])),
             record.reads_aux[0].prev_timestamp,
-            record.from_timestamp,
-            subs
+            record.from_timestamp
         );
 
         // if (idx == 1) {
@@ -237,8 +236,7 @@ struct Rv32BaseAluAdapter {
             mem_helper.fill_new(
                 row.slice_from(COL_INDEX(Rv32BaseAluAdapterCols, reads_aux[1])),
                 record.reads_aux[1].prev_timestamp,
-                record.from_timestamp + 1,
-                subs
+                record.from_timestamp + 1
             );
         } else {
             RowSliceNew rs2_aux = row.slice_from(COL_INDEX(Rv32BaseAluAdapterCols, reads_aux[1]));
@@ -274,8 +272,7 @@ struct Rv32BaseAluAdapter {
         mem_helper.fill_new(
             row.slice_from(COL_INDEX(Rv32BaseAluAdapterCols, writes_aux)),
             record.writes_aux.prev_timestamp,
-            record.from_timestamp + 2,
-            subs
+            record.from_timestamp + 2
         );
 
         // if (idx == 1) {

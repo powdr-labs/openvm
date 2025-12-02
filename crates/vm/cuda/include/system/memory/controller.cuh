@@ -23,15 +23,14 @@ struct MemoryAuxColsFactory {
         COL_WRITE_VALUE(row, MemoryBaseAuxCols, prev_timestamp, prev_timestamp);
     }
 
-    __device__ void fill_new(RowSliceNew row, uint32_t prev_timestamp, uint32_t timestamp, uint32_t *sub) {
+    __device__ void fill_new(RowSliceNew row, uint32_t prev_timestamp, uint32_t timestamp) {
         AssertLessThan::generate_subrow_new(
             range_checker,
             timestamp_max_bits,
             prev_timestamp,
             timestamp,
             AUX_LEN,
-            row.slice_from(COL_INDEX(MemoryBaseAuxCols, timestamp_lt_aux)),
-            sub
+            row.slice_from(COL_INDEX(MemoryBaseAuxCols, timestamp_lt_aux))
         );
         COL_WRITE_VALUE_NEW(row, MemoryBaseAuxCols, prev_timestamp, prev_timestamp);
     }
