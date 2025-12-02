@@ -33,11 +33,11 @@ __global__ void alu_tracegen(
     uint32_t *d_bitwise_lookup_ptr,
     size_t bitwise_num_bits,
     uint32_t timestamp_max_bits,
-    uint32_t *subs, // same length as dummy width
+    uint32_t *subs,
     uint32_t *d_pre_opt_widths,
     uint32_t *d_post_opt_widths,
-    uint32_t calls_per_apc_row, // 1 for non-apc
-    size_t apc_width // apc width, 0 for dummy
+    size_t apc_width, // 0 for non-apc
+    uint32_t calls_per_apc_row // 1 for non-apc
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     // d_post_opt_widths is always 0 for non APC case
@@ -186,26 +186,26 @@ __global__ void alu_tracegen(
 
 extern "C" int _alu_tracegen(
     Fp *d_trace,
-    size_t apc_height,
     size_t height,
     size_t width,
-    size_t apc_width,
     DeviceBufferConstView<Rv32BaseAluRecord> d_records,
     uint32_t *d_range_checker_ptr,
     size_t range_checker_bins,
     uint32_t *d_bitwise_lookup_ptr,
     size_t bitwise_num_bits,
     uint32_t timestamp_max_bits,
-    uint32_t *subs, // same length as dummy width
+    uint32_t *subs,
     uint32_t *d_pre_opt_widths,
     uint32_t *d_post_opt_widths,
+    size_t apc_height, // 0 for non-apc
+    size_t apc_width, // 0 for non-apc
     uint32_t calls_per_apc_row // 1 for non-apc
 ) {
     assert((height & (height - 1)) == 0);
     assert((apc_height & (apc_height - 1)) == 0);
-    assert(height >= d_records.len()); // might be false for apc case
-    if (apc_width == 0) {
-        assert(width == sizeof(Rv32BaseAluCols<uint8_t>)); // this is no longer true for APC
+    assert(height >= d_records.len());
+    if (apc_width == 0) { // only check for non-apc
+        assert(width == sizeof(Rv32BaseAluCols<uint8_t>));
     }
     auto [grid, block] = kernel_launch_params(height);
     alu_tracegen<<<grid, block>>>(
@@ -217,11 +217,11 @@ extern "C" int _alu_tracegen(
         d_bitwise_lookup_ptr,
         bitwise_num_bits,
         timestamp_max_bits,
-        subs, // same length as dummy width
+        subs,
         d_pre_opt_widths,
         d_post_opt_widths,
-        calls_per_apc_row, // 1 for non-apc
-        apc_width // was originally `width`
+        apc_width, // 0 for non-apc
+        calls_per_apc_row // 1 for non-apc
     );
 
     return CHECK_KERNEL();
