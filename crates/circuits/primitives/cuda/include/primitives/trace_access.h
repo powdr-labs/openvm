@@ -39,23 +39,6 @@ struct RowSliceNew {
         ptr[column_index * stride] = value;
     }
 
-
-// #define COL_WRITE_VALUE_NEW(ROW, STRUCT, FIELD, VALUE, SUB)                                         \
-//     do {                                                                                            \
-//         auto _row_ref = (ROW);                                                                      \
-//         const auto *_sub_ptr = (SUB);                                                               \
-//         const size_t _col_idx = COL_INDEX(STRUCT, FIELD);                                           \
-//         const auto _apc_idx = _sub_ptr[_col_idx + _row_ref.dummy_offset];                           \
-//         const auto _value_tmp = (VALUE);                                                            \
-//         if (_apc_idx != UINT32_MAX) {                                                               \
-//             _row_ref.write(_apc_idx - _row_ref.optimized_offset, _value_tmp);                   \
-//         }     
-        
-
-// /// Write a single value into `FIELD` of struct `STRUCT<T>` at a given row.
-// #define COL_WRITE_VALUE(ROW, STRUCT, FIELD, VALUE) (ROW).write(COL_INDEX(STRUCT, FIELD), VALUE)
-
-
     template <typename T>
     __device__ __forceinline__ void write_new(size_t column_index, T value) const {
         const uint32_t apc_idx = subs[dummy_offset + column_index];

@@ -242,12 +242,12 @@ struct Rv32BaseAluAdapter {
             RowSliceNew rs2_aux = row.slice_from(COL_INDEX(Rv32BaseAluAdapterCols, reads_aux[1]));
 #pragma unroll
             for (size_t i = 0; i < sizeof(MemoryReadAuxCols<uint8_t>); i++) {
-                if (subs[rs2_aux.dummy_offset + i] != UINT32_MAX) {
-                    rs2_aux.write(i, 0);
-                }
+                rs2_aux.write_new(i, 0);
             }
             uint32_t mask = (1u << RV32_CELL_BITS) - 1u;
-            bitwise_lookup.add_range(record.rs2 & mask, (record.rs2 >> RV32_CELL_BITS) & mask);
+            if (!rs2_aux.is_apc) {
+                bitwise_lookup.add_range(record.rs2 & mask, (record.rs2 >> RV32_CELL_BITS) & mask);
+            }
         }
 
         // if (idx == 1) {
