@@ -69,8 +69,9 @@ __global__ void alu_tracegen(
             row.fill_zero(0, sizeof(Rv32BaseAluCols<uint8_t>));
         } else if (idx % calls_per_apc_row == 0) {
             // apc case: only fill if it's the first original instruction
-            // because otherwise the APC row doesn't start with 0 offset
-            row.fill_zero(0, apc_width);
+            // TODO: here we fill starting from the optimized_offset of the first original instruction till the end of the APC
+            // We are filling too much because non-ALU original instructions fill zero in `apc_tracegen` and `apc_apply_derived_expr`
+            row.fill_zero(0, apc_width - row.optimized_offset);
         }
     }
 }
