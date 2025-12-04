@@ -82,11 +82,6 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
         let d_records = records.to_device().unwrap();
         let d_trace = DeviceMatrix::<F>::with_capacity(trace_height, trace_width);
 
-        let d_subs = (0..(d_trace.buffer().len() as u32 / trace_height as u32))
-            .collect::<Vec<u32>>()
-            .to_device()
-            .unwrap();
-
         unsafe {
             tracegen(
                 d_trace.buffer(),
@@ -97,7 +92,7 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
                 &self.bitwise_lookup.count,
                 RV32_CELL_BITS,
                 self.timestamp_max_bits as u32,
-                &d_subs,
+                &DeviceBuffer::new(), // nullptr
                 &DeviceBuffer::new(), // nullptr
                 &DeviceBuffer::new(), // nullptr
                 0, // apc_height: not used in this path so set to 0

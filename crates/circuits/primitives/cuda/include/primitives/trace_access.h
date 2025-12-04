@@ -41,9 +41,13 @@ struct RowSliceNew {
 
     template <typename T>
     __device__ __forceinline__ void write_new(size_t column_index, T value) const {
-        const uint32_t apc_idx = subs[dummy_offset + column_index];
-        if (apc_idx != UINT32_MAX) {
-            ptr[(apc_idx - optimized_offset) * stride] = value;
+        if (is_apc) {
+            const uint32_t apc_idx = subs[dummy_offset + column_index];
+            if (apc_idx != UINT32_MAX) {
+                ptr[(apc_idx - optimized_offset) * stride] = value;
+            }
+        } else {
+            ptr[column_index * stride] = value;
         }
     }
 
@@ -59,13 +63,20 @@ struct RowSliceNew {
     template <typename T>
     __device__ __forceinline__ void write_array_new(size_t column_index, size_t length, const T *values)
         const {
-#pragma unroll
-        for (size_t i = 0; i < length; i++) {
-            const uint32_t apc_idx = subs[dummy_offset + column_index + i];
-            if (apc_idx != UINT32_MAX) {
-                ptr[(apc_idx - optimized_offset) * stride] = values[i];
+            if (is_apc) {
+                #pragma unroll
+                    for (size_t i = 0; i < length; i++) {
+                        const uint32_t apc_idx = subs[dummy_offset + column_index + i];
+                        if (apc_idx != UINT32_MAX) {
+                            ptr[(apc_idx - optimized_offset) * stride] = values[i];
+                        }
+                    }
+            } else {
+                #pragma unroll
+                    for (size_t i = 0; i < length; i++) {
+                        ptr[(column_index + i) * stride] = values[i];
+                    }
             }
-        }
     }
 
     template <typename T>
@@ -84,8 +95,12 @@ struct RowSliceNew {
     }
 
     __device__ __forceinline__ RowSliceNew slice_from(size_t column_index) const {
-        uint32_t gap = number_of_gaps_in(subs, dummy_offset, column_index);
-        return RowSliceNew(ptr + (column_index - gap) * stride, stride, optimized_offset + column_index - gap, dummy_offset + column_index, subs, is_apc);
+        if (is_apc) {
+            uint32_t gap = number_of_gaps_in(subs, dummy_offset, column_index);
+            return RowSliceNew(ptr + (column_index - gap) * stride, stride, optimized_offset + column_index - gap, dummy_offset + column_index, subs, is_apc);
+        } else {
+            return RowSliceNew(ptr + column_index * stride, stride, 0, 0, nullptr, false);
+        }
     }
 
     __device__ __forceinline__ RowSliceNew shift_row(size_t n) const {
