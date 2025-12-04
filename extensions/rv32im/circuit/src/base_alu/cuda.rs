@@ -28,7 +28,7 @@ pub struct Rv32BaseAluChipGpu {
 }
 
 impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
-    fn generate_proving_ctx_new(&self, arena: DenseRecordArena, d_trace: &DeviceBuffer<F>, d_subs: &DeviceBuffer<u32>, d_pre_opt_widths: &DeviceBuffer<u32>, d_post_opt_widths: &DeviceBuffer<u32>, calls_per_apc_row: u32, apc_height: usize, apc_width: usize) {
+    fn generate_proving_ctx_new(&self, arena: DenseRecordArena, d_trace: &DeviceBuffer<F>, d_subs: &DeviceBuffer<u32>, d_opt_widths: &DeviceBuffer<u32>, d_post_opt_offsets: &DeviceBuffer<u32>, calls_per_apc_row: u32, apc_height: usize, apc_width: usize) {
         const RECORD_SIZE: usize = size_of::<(
             Rv32BaseAluAdapterRecord,
             BaseAluCoreRecord<RV32_REGISTER_NUM_LIMBS>,
@@ -54,8 +54,8 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
                 RV32_CELL_BITS,
                 self.timestamp_max_bits as u32,
                 d_subs,
-                d_pre_opt_widths,
-                d_post_opt_widths,
+                d_opt_widths,
+                d_post_opt_offsets,
                 apc_height,
                 apc_width,
                 calls_per_apc_row,
@@ -87,13 +87,15 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
             .to_device()
             .unwrap();
 
-        let d_pre_opt_widths = (0..(d_trace.buffer().len() as u32 / trace_height as u32))
+        // TODO: we don't even need to create this buffer and pass over to device
+        let d_opt_widths = (0..(d_trace.buffer().len() as u32 / trace_height as u32))
             .map(|_| 0u32)
             .collect::<Vec<u32>>()
             .to_device()
             .unwrap();
 
-        let d_post_opt_widths = (0..(d_trace.buffer().len() as u32 / trace_height as u32))
+        // TODO: we don't even need to create this buffer and pass over to device
+        let d_post_opt_offsets = (0..(d_trace.buffer().len() as u32 / trace_height as u32))
             .map(|_| 0u32)
             .collect::<Vec<u32>>()
             .to_device()
@@ -110,8 +112,8 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
                 RV32_CELL_BITS,
                 self.timestamp_max_bits as u32,
                 &d_subs,
-                &d_pre_opt_widths,
-                &d_post_opt_widths,
+                &d_opt_widths,
+                &d_post_opt_offsets,
                 0, // apc_height: not used in this path so set to 0
                 0, // apc_width: not used in this path so set to 0
                 1, // calls_per_apc_row: 1 for non-apc

@@ -34,20 +34,20 @@ __global__ void alu_tracegen(
     size_t bitwise_num_bits,
     uint32_t timestamp_max_bits,
     uint32_t *subs,
-    uint32_t *d_pre_opt_widths,
-    uint32_t *d_post_opt_widths,
+    uint32_t *d_opt_widths,
+    uint32_t *d_post_opt_offsets,
     size_t apc_width, // 0 for non-apc
     uint32_t calls_per_apc_row // 1 for non-apc
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-    // d_post_opt_widths is always 0 for non APC case
+    // d_post_opt_offsets is always 0 for non APC case
     bool is_apc = apc_width != 0;
     RowSliceNew row(
-        d_trace + idx / calls_per_apc_row + d_post_opt_widths[idx % calls_per_apc_row] * height, 
+        d_trace + idx / calls_per_apc_row + d_post_opt_offsets[idx % calls_per_apc_row] * height, 
         height, 
-        d_post_opt_widths[idx % calls_per_apc_row], 
-        d_pre_opt_widths[idx % calls_per_apc_row], 
-        subs, 
+        d_post_opt_offsets[idx % calls_per_apc_row], 
+        is_apc ? sizeof(Rv32BaseAluCols<uint8_t>) * (idx % calls_per_apc_row): 0, // this way we don't need to pass over d_pre_opt_offsets 
+        subs,
         is_apc
     ); // we need to slice to the correct APC row, but if non-APC it's dividing by 1 and therefore the same idx
 
@@ -64,14 +64,11 @@ __global__ void alu_tracegen(
         Rv32BaseAluCore core(BitwiseOperationLookup(d_bitwise_lookup_ptr, bitwise_num_bits));
         core.fill_trace_row_new(row.slice_from(COL_INDEX(Rv32BaseAluCols, core)), rec.core);
     } else {
-        if (apc_width == 0) {
+        if (!is_apc) {
             // non-apc case
             row.fill_zero(0, sizeof(Rv32BaseAluCols<uint8_t>));
-        } else if (idx % calls_per_apc_row == 0) {
-            // apc case: only fill if it's the first original instruction
-            // TODO: here we fill starting from the optimized_offset of the first original instruction till the end of the APC
-            // We are filling too much because non-ALU original instructions fill zero in `apc_tracegen` and `apc_apply_derived_expr`
-            row.fill_zero(0, apc_width - row.optimized_offset);
+        } else {
+            row.fill_zero(0, d_opt_widths[idx % calls_per_apc_row]);
         }
     }
 }
@@ -87,8 +84,8 @@ extern "C" int _alu_tracegen(
     size_t bitwise_num_bits,
     uint32_t timestamp_max_bits,
     uint32_t *subs,
-    uint32_t *d_pre_opt_widths,
-    uint32_t *d_post_opt_widths,
+    uint32_t *d_opt_widths,
+    uint32_t *d_post_opt_offsets,
     size_t apc_height, // 0 for non-apc
     size_t apc_width, // 0 for non-apc
     uint32_t calls_per_apc_row // 1 for non-apc
@@ -96,10 +93,12 @@ extern "C" int _alu_tracegen(
     assert((height & (height - 1)) == 0);
     assert((apc_height & (apc_height - 1)) == 0);
     assert(height >= d_records.len());
-    if (apc_width == 0) { // only check for non-apc
+    bool is_apc = apc_width != 0;
+    if (!is_apc) { // only check for non-apc
         assert(width == sizeof(Rv32BaseAluCols<uint8_t>));
     }
-    auto [grid, block] = kernel_launch_params(height);
+    size_t threads = is_apc ? (apc_height * calls_per_apc_row) : height;
+    auto [grid, block] = kernel_launch_params(threads);
     alu_tracegen<<<grid, block>>>(
         d_trace,
         apc_width == 0 ? height : apc_height,
@@ -110,8 +109,8 @@ extern "C" int _alu_tracegen(
         bitwise_num_bits,
         timestamp_max_bits,
         subs,
-        d_pre_opt_widths,
-        d_post_opt_widths,
+        d_opt_widths,
+        d_post_opt_offsets,
         apc_width, // 0 for non-apc
         calls_per_apc_row // 1 for non-apc
     );
