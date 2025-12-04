@@ -87,20 +87,6 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
             .to_device()
             .unwrap();
 
-        // TODO: we don't even need to create this buffer and pass over to device
-        let d_opt_widths = (0..(d_trace.buffer().len() as u32 / trace_height as u32))
-            .map(|_| 0u32)
-            .collect::<Vec<u32>>()
-            .to_device()
-            .unwrap();
-
-        // TODO: we don't even need to create this buffer and pass over to device
-        let d_post_opt_offsets = (0..(d_trace.buffer().len() as u32 / trace_height as u32))
-            .map(|_| 0u32)
-            .collect::<Vec<u32>>()
-            .to_device()
-            .unwrap();
-
         unsafe {
             tracegen(
                 d_trace.buffer(),
@@ -112,8 +98,8 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
                 RV32_CELL_BITS,
                 self.timestamp_max_bits as u32,
                 &d_subs,
-                &d_opt_widths,
-                &d_post_opt_offsets,
+                &DeviceBuffer::new(), // nullptr
+                &DeviceBuffer::new(), // nullptr
                 0, // apc_height: not used in this path so set to 0
                 0, // apc_width: not used in this path so set to 0
                 1, // calls_per_apc_row: 1 for non-apc

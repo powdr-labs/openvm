@@ -43,9 +43,9 @@ __global__ void alu_tracegen(
     // d_post_opt_offsets is always 0 for non APC case
     bool is_apc = apc_width != 0;
     RowSliceNew row(
-        d_trace + idx / calls_per_apc_row + d_post_opt_offsets[idx % calls_per_apc_row] * height, 
+        is_apc ? d_trace + idx / calls_per_apc_row + d_post_opt_offsets[idx % calls_per_apc_row] * height : d_trace + idx, 
         height, 
-        d_post_opt_offsets[idx % calls_per_apc_row], 
+        is_apc ? d_post_opt_offsets[idx % calls_per_apc_row] : 0, 
         is_apc ? sizeof(Rv32BaseAluCols<uint8_t>) * (idx % calls_per_apc_row): 0, // this way we don't need to pass over d_pre_opt_offsets 
         subs,
         is_apc
