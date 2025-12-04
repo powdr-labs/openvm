@@ -212,7 +212,7 @@ impl<F: FieldAlgebra, V: Copy + Into<F>> MemoryReadOrImmediateOperation<'_, F, V
         self.offline_checker.eval_bulk_access(
             builder,
             self.address,
-            &[self.data.clone()],
+            std::slice::from_ref(&self.data),
             &[self.data],
             self.timestamp,
             self.aux.base.prev_timestamp,
