@@ -1,5 +1,8 @@
+#include <cstdio>
+
 #include "fp.h"
 #include "launcher.cuh"
+#include "primitives/row_print_buffer.cuh"
 
 __global__ void range_tuple_checker_tracegen(
     const uint32_t *count,

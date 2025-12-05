@@ -9,6 +9,7 @@ use openvm_cuda_backend::{
     base::DeviceMatrix, chip::get_empty_air_proving_ctx, prover_backend::GpuBackend, types::F,
 };
 use openvm_cuda_common::copy::MemCopyH2D;
+use openvm_cuda_common::d_buffer::DeviceBuffer;
 use openvm_stark_backend::{prover::types::AirProvingContext, Chip};
 
 use crate::{
@@ -27,6 +28,42 @@ pub struct Rv32BaseAluChipGpu {
 }
 
 impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
+    fn generate_proving_ctx_new(&self, arena: DenseRecordArena, d_trace: &DeviceBuffer<F>, d_subs: &DeviceBuffer<u32>, d_opt_widths: &DeviceBuffer<u32>, d_post_opt_offsets: &DeviceBuffer<u32>, calls_per_apc_row: u32, apc_height: usize, apc_width: usize) {
+        const RECORD_SIZE: usize = size_of::<(
+            Rv32BaseAluAdapterRecord,
+            BaseAluCoreRecord<RV32_REGISTER_NUM_LIMBS>,
+        )>();
+        let records = arena.allocated();
+        if records.is_empty() {
+            return;
+        }
+        debug_assert_eq!(records.len() % RECORD_SIZE, 0);
+
+        let trace_height = next_power_of_two_or_zero(records.len() / RECORD_SIZE);
+
+        let d_records = records.to_device().unwrap();
+
+        unsafe {
+            tracegen(
+                d_trace, // APC trace
+                trace_height,
+                &d_records,
+                &self.range_checker.count,
+                self.range_checker.count.len(),
+                &self.bitwise_lookup.count,
+                RV32_CELL_BITS,
+                self.timestamp_max_bits as u32,
+                d_subs,
+                d_opt_widths,
+                d_post_opt_offsets,
+                apc_height,
+                apc_width,
+                calls_per_apc_row,
+            )
+            .unwrap();
+        }
+    }
+
     fn generate_proving_ctx(&self, arena: DenseRecordArena) -> AirProvingContext<GpuBackend> {
         const RECORD_SIZE: usize = size_of::<(
             Rv32BaseAluAdapterRecord,
@@ -55,6 +92,12 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
                 &self.bitwise_lookup.count,
                 RV32_CELL_BITS,
                 self.timestamp_max_bits as u32,
+                &DeviceBuffer::new(), // nullptr
+                &DeviceBuffer::new(), // nullptr
+                &DeviceBuffer::new(), // nullptr
+                0, // apc_height: not used in this path so set to 0
+                0, // apc_width: not used in this path so set to 0
+                1, // calls_per_apc_row: 1 for non-apc
             )
             .unwrap();
         }

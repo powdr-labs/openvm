@@ -40,6 +40,17 @@ __device__ __forceinline__ void generate_subrow(
 ) {
     rc.decompose(y - x - 1, max_bits, lower_decomp, lower_decomp_len);
 }
+
+__device__ __forceinline__ void generate_subrow_new(
+    VariableRangeChecker &rc,
+    const uint32_t max_bits,
+    uint32_t x,
+    uint32_t y,
+    const size_t lower_decomp_len,
+    RowSliceNew lower_decomp
+) {
+    rc.decompose_new(y - x - 1, max_bits, lower_decomp, lower_decomp_len);
+}
 } // namespace AssertLessThan
 
 namespace IsLessThan {

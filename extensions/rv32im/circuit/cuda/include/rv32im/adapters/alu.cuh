@@ -2,6 +2,7 @@
 
 #include "primitives/execution.h"
 #include "primitives/trace_access.h"
+#include "primitives/row_print_buffer.cuh"
 #include "system/memory/controller.cuh"
 #include "system/memory/offline_checker.cuh"
 
@@ -76,6 +77,51 @@ struct Rv32BaseAluAdapter {
             row, Rv32BaseAluAdapterCols, writes_aux.prev_data, record.writes_aux.prev_data
         );
         mem_helper.fill(
+            row.slice_from(COL_INDEX(Rv32BaseAluAdapterCols, writes_aux)),
+            record.writes_aux.prev_timestamp,
+            record.from_timestamp + 2
+        );
+    }
+
+    __device__ void fill_trace_row_new(RowSliceNew row, Rv32BaseAluAdapterRecord record) {
+        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, from_state.pc, record.from_pc);
+        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, from_state.timestamp, record.from_timestamp);
+
+        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, rd_ptr, record.rd_ptr);
+        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, rs1_ptr, record.rs1_ptr);
+        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, rs2, record.rs2);
+        COL_WRITE_VALUE_NEW(row, Rv32BaseAluAdapterCols, rs2_as, record.rs2_as);
+
+        // Read auxiliary for rs1
+        mem_helper.fill_new(
+            row.slice_from(COL_INDEX(Rv32BaseAluAdapterCols, reads_aux[0])),
+            record.reads_aux[0].prev_timestamp,
+            record.from_timestamp
+        );
+
+        // rs2: register read when rs2_as == RV32_REGISTER_AS (== 1), otherwise immediate.
+        if (record.rs2_as != 0) {
+            mem_helper.fill_new(
+                row.slice_from(COL_INDEX(Rv32BaseAluAdapterCols, reads_aux[1])),
+                record.reads_aux[1].prev_timestamp,
+                record.from_timestamp + 1
+            );
+        } else {
+            RowSliceNew rs2_aux = row.slice_from(COL_INDEX(Rv32BaseAluAdapterCols, reads_aux[1]));
+#pragma unroll
+            for (size_t i = 0; i < sizeof(MemoryReadAuxCols<uint8_t>); i++) {
+                rs2_aux.write_new(i, 0);
+            }
+            uint32_t mask = (1u << RV32_CELL_BITS) - 1u;
+            if (!rs2_aux.is_apc) {
+                bitwise_lookup.add_range(record.rs2 & mask, (record.rs2 >> RV32_CELL_BITS) & mask);
+            }
+        }
+
+        COL_WRITE_ARRAY_NEW(
+            row, Rv32BaseAluAdapterCols, writes_aux.prev_data, record.writes_aux.prev_data
+        );
+        mem_helper.fill_new(
             row.slice_from(COL_INDEX(Rv32BaseAluAdapterCols, writes_aux)),
             record.writes_aux.prev_timestamp,
             record.from_timestamp + 2

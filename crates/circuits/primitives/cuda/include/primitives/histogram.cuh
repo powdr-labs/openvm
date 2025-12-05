@@ -82,6 +82,33 @@ struct VariableRangeChecker {
         assert(bits_remaining == 0 && x == 0);
 #endif
     }
+
+    __device__ __forceinline__ void decompose_new(
+        uint32_t x,
+        size_t bits,
+        RowSliceNew limbs,
+        const size_t limbs_len
+    ) {
+        size_t range_max_bits = max_bits();
+#ifdef CUDA_DEBUG
+        assert(limbs_len >= d_div_ceil(bits, range_max_bits));
+#endif
+        uint32_t mask = (1 << range_max_bits) - 1;
+        size_t bits_remaining = bits;
+#pragma unroll
+        for (int i = 0; i < limbs_len; i++) {
+            uint32_t limb_u32 = x & mask;
+            limbs.write_new(i, limb_u32);
+            if (!limbs.is_apc) {
+                add_count(limb_u32, min(bits_remaining, range_max_bits)); 
+            }
+            x >>= range_max_bits;
+            bits_remaining -= min(bits_remaining, range_max_bits);
+        }
+#ifdef CUDA_DEBUG
+        assert(bits_remaining == 0 && x == 0);
+#endif
+    }
 };
 
 template <uint32_t N> struct RangeTupleChecker {

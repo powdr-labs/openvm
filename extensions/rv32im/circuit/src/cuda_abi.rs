@@ -322,6 +322,12 @@ pub mod alu_cuda {
             d_bitwise_lookup: *mut u32,
             bitwise_num_bits: usize,
             timestamp_max_bits: u32,
+            d_subs: *mut u32,
+            d_opt_widths: *mut u32,
+            d_post_opt_offsets: *mut u32,
+            apc_height: usize,
+            apc_width: usize,
+            calls_per_apc_row: u32, // 1 for non-apc
         ) -> i32;
     }
 
@@ -334,8 +340,16 @@ pub mod alu_cuda {
         d_bitwise_lookup: &DeviceBuffer<F>,
         bitwise_num_bits: usize,
         timestamp_max_bits: u32,
+        d_subs: &DeviceBuffer<u32>,
+        d_opt_widths: &DeviceBuffer<u32>,
+        d_post_opt_offsets: &DeviceBuffer<u32>,
+        apc_height: usize,
+        apc_width: usize,
+        calls_per_apc_row: u32
     ) -> Result<(), CudaError> {
-        let width = d_trace.len() / height;
+        // `width` is non sensical for APC, as we would have APC trace divided by dummy height
+        // It's used in an assertion for non-APC
+        let width = d_trace.len() / height; 
         CudaError::from_result(_alu_tracegen(
             d_trace.as_mut_ptr(),
             height,
@@ -346,6 +360,12 @@ pub mod alu_cuda {
             d_bitwise_lookup.as_mut_ptr() as *mut u32,
             bitwise_num_bits,
             timestamp_max_bits,
+            d_subs.as_mut_ptr() as *mut u32,
+            d_opt_widths.as_mut_ptr() as *mut u32,
+            d_post_opt_offsets.as_mut_ptr() as *mut u32,
+            apc_height,
+            apc_width,
+            calls_per_apc_row,
         ))
     }
 }
