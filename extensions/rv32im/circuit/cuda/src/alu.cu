@@ -67,7 +67,10 @@ __global__ void alu_tracegen(
         if (!is_apc) {
             // non-apc case
             row.fill_zero(0, sizeof(Rv32BaseAluCols<uint8_t>));
-        } else {
+        } else if (idx < height * calls_per_apc_row) {
+            // apc case, but we need to limit idx to smaller than the # of dummy instruction runs
+            // because `kernel_launch_params` rounds to the next MAX_THREADS number of runs
+            // which can write beyond what we desire
             row.fill_zero(0, d_opt_widths[idx % calls_per_apc_row]);
         }
     }
@@ -101,7 +104,7 @@ extern "C" int _alu_tracegen(
     auto [grid, block] = kernel_launch_params(threads);
     alu_tracegen<<<grid, block>>>(
         d_trace,
-        apc_width == 0 ? height : apc_height,
+        is_apc ? apc_height : height,
         d_records,
         d_range_checker_ptr,
         range_checker_bins,
