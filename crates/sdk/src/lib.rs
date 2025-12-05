@@ -408,10 +408,11 @@ where
             .metered_cost_interpreter(&exe)
             .map_err(VirtualMachineError::from)?;
 
-        let (cost, final_state) = interpreter
+        let (ctx, final_state) = interpreter
             .execute_metered_cost(inputs, ctx)
             .map_err(VirtualMachineError::from)?;
-        let instret = final_state.instret();
+        let instret = ctx.instret;
+        let cost = ctx.cost;
 
         let public_values = extract_public_values(
             self.executor.config.as_ref().num_public_values,
@@ -810,7 +811,7 @@ where
 
         use eyre::Context;
         use forge_fmt::{
-            format, parse, FormatterConfig, IntTypes, MultilineFuncHeaderStyle, NumberUnderscore,
+            format, FormatterConfig, IntTypes, MultilineFuncHeaderStyle, NumberUnderscore,
             QuoteStyle, SingleLineBlockStyle,
         };
         use openvm_native_recursion::halo2::wrapper::EvmVerifierByteCode;
@@ -876,44 +877,26 @@ where
             wrap_comments: false,
             ignore: vec![],
             contract_new_lines: false,
+            sort_imports: false,
+            ..Default::default()
         };
 
-        let parsed_interface =
-            parse(EVM_HALO2_VERIFIER_INTERFACE).expect("Failed to parse interface");
-        let parsed_halo2_verifier_code =
-            parse(&halo2_verifier_code).expect("Failed to parse halo2 verifier code");
-        let parsed_openvm_verifier_code =
-            parse(&openvm_verifier_code).expect("Failed to parse openvm verifier code");
-
-        let mut formatted_interface = String::new();
-        let mut formatted_halo2_verifier_code = String::new();
-        let mut formatted_openvm_verifier_code = String::new();
-
-        format(
-            &mut formatted_interface,
-            parsed_interface,
-            formatter_config.clone(),
-        )
-        .expect("Failed to format interface");
-        format(
-            &mut formatted_halo2_verifier_code,
-            parsed_halo2_verifier_code,
-            formatter_config.clone(),
-        )
-        .expect("Failed to format halo2 verifier code");
-        format(
-            &mut formatted_openvm_verifier_code,
-            parsed_openvm_verifier_code,
-            formatter_config,
-        )
-        .expect("Failed to format openvm verifier code");
+        let formatted_interface = format(EVM_HALO2_VERIFIER_INTERFACE, formatter_config.clone())
+            .into_result()
+            .expect("Failed to format interface");
+        let formatted_halo2_verifier_code = format(&halo2_verifier_code, formatter_config.clone())
+            .into_result()
+            .expect("Failed to format halo2 verifier code");
+        let formatted_openvm_verifier_code = format(&openvm_verifier_code, formatter_config)
+            .into_result()
+            .expect("Failed to format openvm verifier code");
 
         // Create temp dir
         let temp_dir = tempdir()
             .wrap_err("Failed to create temp dir")
             .map_err(SdkError::Other)?;
         let temp_path = temp_dir.path();
-        let root_path = Path::new("src").join(format!("v{}", OPENVM_VERSION));
+        let root_path = Path::new("src").join(format!("v{OPENVM_VERSION}"));
 
         // Make interfaces dir
         let interfaces_path = root_path.join("interfaces");
@@ -1004,12 +987,9 @@ where
         let bytecode = parsed
             .get("contracts")
             .expect("No 'contracts' field found")
-            .get(format!("src/v{}/OpenVmHalo2Verifier.sol", OPENVM_VERSION))
+            .get(format!("src/v{OPENVM_VERSION}/OpenVmHalo2Verifier.sol"))
             .unwrap_or_else(|| {
-                panic!(
-                    "No 'src/v{}/OpenVmHalo2Verifier.sol' field found",
-                    OPENVM_VERSION
-                )
+                panic!("No 'src/v{OPENVM_VERSION}/OpenVmHalo2Verifier.sol' field found")
             })
             .get("OpenVmHalo2Verifier")
             .expect("No 'OpenVmHalo2Verifier' field found")
