@@ -567,6 +567,7 @@ unsafe fn execute_trampoline<F: PrimeField32, Ctx: ExecutionCtxTrait>(
         .as_ref()
         .is_ok_and(|exit_code| exit_code.is_none())
     {
+        InterpretedInstance::<F, Ctx>::log_pc(pc);
         if Ctx::should_suspend(exec_state) {
             tracing::debug!("stop because of should_suspend");
             break;
