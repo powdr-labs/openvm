@@ -66,7 +66,7 @@ pub struct InterpretedInstance<'a, F, Ctx> {
 }
 
 #[cfg_attr(feature = "tco", allow(dead_code))]
-struct PreComputeInstruction<'a, F, Ctx> {
+pub struct PreComputeInstruction<'a, F, Ctx> {
     pub handler: ExecuteFunc<F, Ctx>,
     pub pre_compute: &'a [u8],
 }
@@ -554,14 +554,14 @@ where
     }
 }
 
-fn alloc_pre_compute_buf<F>(program: &Program<F>, pre_compute_max_size: usize) -> AlignedBuf {
+pub fn alloc_pre_compute_buf<F>(program: &Program<F>, pre_compute_max_size: usize) -> AlignedBuf {
     let base_idx = get_pc_index(program.pc_base);
     let padded_program_len = base_idx + program.instructions_and_debug_infos.len();
     let buf_len = padded_program_len * pre_compute_max_size;
     AlignedBuf::uninit(buf_len, pre_compute_max_size)
 }
 
-fn split_pre_compute_buf<'a, F>(
+pub fn split_pre_compute_buf<'a, F>(
     program: &Program<F>,
     pre_compute_buf: &'a mut AlignedBuf,
     pre_compute_max_size: usize,
@@ -584,7 +584,7 @@ fn split_pre_compute_buf<'a, F>(
 /// The `fn_ptrs` pointer to pre-computed buffers that outlive this function.
 #[cfg(not(feature = "tco"))]
 #[inline(always)]
-unsafe fn execute_trampoline<F: PrimeField32, Ctx: ExecutionCtxTrait>(
+pub unsafe fn execute_trampoline<F: PrimeField32, Ctx: ExecutionCtxTrait>(
     mut instret: u64,
     mut pc: u32,
     arg: u64,
@@ -695,7 +695,7 @@ unsafe fn unreachable_tco_handler<F: PrimeField32, CTX>(
     exec_state.exit_code = Err(ExecutionError::Unreachable(pc));
 }
 
-fn get_pre_compute_max_size<F, E: Executor<F>>(
+pub fn get_pre_compute_max_size<F, E: Executor<F>>(
     program: &Program<F>,
     inventory: &ExecutorInventory<E>,
 ) -> usize {
@@ -767,7 +767,7 @@ fn system_opcode_pre_compute_size<F>(inst: &Instruction<F>) -> Option<usize> {
 }
 
 #[cfg(not(feature = "tco"))]
-fn get_pre_compute_instructions<'a, F, Ctx, E>(
+pub fn get_pre_compute_instructions<'a, F, Ctx, E>(
     program: &Program<F>,
     inventory: &'a ExecutorInventory<E>,
     pre_compute: &mut [&mut [u8]],
@@ -921,7 +921,7 @@ fn check_exit_code(exit_code: Result<Option<u32>, ExecutionError>) -> Result<(),
 }
 
 /// Same as [check_exit_code] but errors if program did not terminate.
-fn check_termination(exit_code: Result<Option<u32>, ExecutionError>) -> Result<(), ExecutionError> {
+pub fn check_termination(exit_code: Result<Option<u32>, ExecutionError>) -> Result<(), ExecutionError> {
     let did_terminate = matches!(exit_code.as_ref(), Ok(Some(_)));
     check_exit_code(exit_code)?;
     match did_terminate {

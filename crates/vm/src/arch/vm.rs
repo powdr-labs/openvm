@@ -158,7 +158,7 @@ where
     VC: VmExecutionConfig<F>,
 {
     pub config: VC,
-    inventory: Arc<ExecutorInventory<VC::Executor>>,
+    pub inventory: Arc<ExecutorInventory<VC::Executor>>,
     phantom: PhantomData<F>,
 }
 
