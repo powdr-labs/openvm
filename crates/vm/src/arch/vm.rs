@@ -225,6 +225,13 @@ where
     VC: VmExecutionConfig<F>,
     VC::Executor: Executor<F>,
 {
+    pub fn interpreted_instance(
+        &self,
+        exe: &VmExe<F>,
+    ) -> Result<InterpretedInstance<F, ExecutionCtx>, StaticProgramError> {
+        InterpretedInstance::new(&self.inventory, exe)
+    }
+
     /// Creates an instance of the interpreter specialized for pure execution, without metering, of
     /// the given `exe`.
     ///

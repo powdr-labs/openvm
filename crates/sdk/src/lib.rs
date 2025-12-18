@@ -363,6 +363,28 @@ where
         Ok(public_values)
     }
 
+    /// Returns the user public values as field elements.
+    pub fn execute_interpreted(
+        &self,
+        app_exe: impl Into<ExecutableFormat>,
+        inputs: StdIn,
+    ) -> Result<Vec<u8>, SdkError> {
+        let exe = self.convert_to_exe(app_exe)?;
+        let instance = self
+            .executor
+            .interpreted_instance(&exe)
+            .map_err(VirtualMachineError::from)?;
+        let final_memory = instance
+            .execute(inputs, None)
+            .map_err(VirtualMachineError::from)?
+            .memory;
+        let public_values = extract_public_values(
+            self.executor.config.as_ref().num_public_values,
+            &final_memory.memory,
+        );
+        Ok(public_values)
+    }
+
     /// Executes with segmentation for proof generation.
     /// Returns both user public values and segments with instruction counts and trace heights.
     pub fn execute_metered(
