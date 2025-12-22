@@ -94,6 +94,23 @@ struct RowSliceNew {
         }
     }
 
+    __device__ __forceinline__ void fill_zero_new(size_t column_index_from, size_t length) const {
+        if (is_apc) {
+            #pragma unroll
+                for (size_t i = 0, c = column_index_from; i < length; i++, c++) {
+                    const uint32_t apc_idx = subs[dummy_offset + c];
+                    if (apc_idx != UINT32_MAX) {
+                        ptr[(apc_idx - optimized_offset) * stride] = 0;
+                    }
+                }
+        } else {
+            #pragma unroll
+                for (size_t i = 0, c = column_index_from; i < length; i++, c++) {
+                    ptr[c * stride] = 0;
+                }
+        }
+    }
+
     __device__ __forceinline__ RowSliceNew slice_from(size_t column_index) const {
         if (is_apc) {
             uint32_t gap = number_of_gaps_in(subs, dummy_offset, column_index);

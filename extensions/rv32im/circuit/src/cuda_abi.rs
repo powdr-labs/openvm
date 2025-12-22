@@ -283,9 +283,16 @@ pub mod shift_cuda {
             d_bitwise_lookup: *mut u32,
             bitwise_num_bits: u32,
             timestamp_max_bits: u32,
+            d_subs: *mut u32,
+            d_opt_widths: *mut u32,
+            d_post_opt_offsets: *mut u32,
+            apc_height: usize,
+            apc_width: usize,
+            calls_per_apc_row: u32,
         ) -> i32;
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub unsafe fn tracegen(
         d_trace: &DeviceBuffer<F>,
         height: usize,
@@ -294,17 +301,32 @@ pub mod shift_cuda {
         d_bitwise_lookup: &DeviceBuffer<F>,
         bitwise_num_bits: usize,
         timestamp_max_bits: u32,
+        d_subs: &DeviceBuffer<u32>,
+        d_opt_widths: &DeviceBuffer<u32>,
+        d_post_opt_offsets: &DeviceBuffer<u32>,
+        apc_height: usize,
+        apc_width: usize,
+        calls_per_apc_row: u32,
     ) -> Result<(), CudaError> {
+        // `width` is non sensical for APC, as we would have APC trace divided by dummy height
+        // It's used in an assertion for non-APC
+        let width = d_trace.len() / height;
         CudaError::from_result(_rv32_shift_tracegen(
             d_trace.as_mut_ptr(),
             height,
-            d_trace.len() / height,
+            width,
             d_records.view(),
             d_range_checker.as_mut_ptr() as *mut u32,
             d_range_checker.len() as u32,
             d_bitwise_lookup.as_mut_ptr() as *mut u32,
             bitwise_num_bits as u32,
             timestamp_max_bits,
+            d_subs.as_mut_ptr() as *mut u32,
+            d_opt_widths.as_mut_ptr() as *mut u32,
+            d_post_opt_offsets.as_mut_ptr() as *mut u32,
+            apc_height,
+            apc_width,
+            calls_per_apc_row,
         ))
     }
 }
@@ -383,9 +405,16 @@ pub mod loadstore_cuda {
             d_range_checker: *mut u32,
             range_checker_num_bins: u32,
             timestamp_max_bits: u32,
+            d_subs: *mut u32,
+            d_opt_widths: *mut u32,
+            d_post_opt_offsets: *mut u32,
+            apc_height: usize,
+            apc_width: usize,
+            calls_per_apc_row: u32,
         ) -> i32;
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub unsafe fn tracegen(
         d_trace: &DeviceBuffer<F>,
         height: usize,
@@ -394,6 +423,12 @@ pub mod loadstore_cuda {
         pointer_max_bits: usize,
         d_range_checker: &DeviceBuffer<F>,
         timestamp_max_bits: u32,
+        d_subs: &DeviceBuffer<u32>,
+        d_opt_widths: &DeviceBuffer<u32>,
+        d_post_opt_offsets: &DeviceBuffer<u32>,
+        apc_height: usize,
+        apc_width: usize,
+        calls_per_apc_row: u32,
     ) -> Result<(), CudaError> {
         CudaError::from_result(_rv32_load_store_tracegen(
             d_trace.as_mut_ptr(),
@@ -404,6 +439,12 @@ pub mod loadstore_cuda {
             d_range_checker.as_mut_ptr() as *mut u32,
             d_range_checker.len() as u32,
             timestamp_max_bits,
+            d_subs.as_mut_ptr() as *mut u32,
+            d_opt_widths.as_mut_ptr() as *mut u32,
+            d_post_opt_offsets.as_mut_ptr() as *mut u32,
+            apc_height,
+            apc_width,
+            calls_per_apc_row,
         ))
     }
 }
@@ -499,25 +540,44 @@ pub mod beq_cuda {
             d_range_checker: *mut u32,
             rc_bins: u32,
             timestamp_max_bits: u32,
+            d_subs: *const u32,
+            d_opt_widths: *const u32,
+            d_post_opt_offsets: *const u32,
+            apc_height: usize,
+            apc_width: usize,
+            calls_per_apc_row: u32,
         ) -> i32;
     }
 
     pub unsafe fn tracegen(
         d_trace: &DeviceBuffer<F>,
         height: usize,
+        width: usize,
         d_records: &DeviceBuffer<u8>,
         d_range_checker: &DeviceBuffer<F>,
         timestamp_max_bits: u32,
+        d_subs: &DeviceBuffer<u32>,
+        d_opt_widths: &DeviceBuffer<u32>,
+        d_post_opt_offsets: &DeviceBuffer<u32>,
+        apc_height: usize,
+        apc_width: usize,
+        calls_per_apc_row: u32,
     ) -> Result<(), CudaError> {
         assert!(height.is_power_of_two() || height == 0);
         CudaError::from_result(_beq_tracegen(
             d_trace.as_mut_ptr(),
             height,
-            d_trace.len() / height,
+            width,
             d_records.view(),
             d_range_checker.as_mut_ptr() as *mut u32,
             d_range_checker.len() as u32,
             timestamp_max_bits,
+            d_subs.as_ptr(),
+            d_opt_widths.as_ptr(),
+            d_post_opt_offsets.as_ptr(),
+            apc_height,
+            apc_width,
+            calls_per_apc_row,
         ))
     }
 }

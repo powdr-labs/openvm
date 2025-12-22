@@ -38,4 +38,8 @@ struct MemoryAuxColsFactory {
     __device__ void fill_zero(RowSlice row) {
         row.fill_zero(0, sizeof(MemoryBaseAuxCols<uint8_t>));
     }
+
+    __device__ void fill_zero_new(RowSliceNew row) {
+        row.fill_zero_new(0, sizeof(MemoryBaseAuxCols<uint8_t>));
+    }
 };
