@@ -9,7 +9,7 @@ use openvm_cuda_backend::{
 use openvm_cuda_common::copy::MemCopyH2D;
 use openvm_cuda_common::d_buffer::DeviceBuffer;
 use openvm_instructions::riscv::RV32_REGISTER_NUM_LIMBS;
-use openvm_stark_backend::{prover::types::AirProvingContext, Chip};
+use openvm_stark_backend::{prover::types::AirProvingContext, ApcTracingContext, Chip};
 
 use crate::{
     adapters::{Rv32LoadStoreAdapterCols, Rv32LoadStoreAdapterRecord},
@@ -25,7 +25,7 @@ pub struct Rv32LoadSignExtendChipGpu {
 }
 
 impl Chip<DenseRecordArena, GpuBackend> for Rv32LoadSignExtendChipGpu {
-    fn generate_proving_ctx_new(&self, arena: DenseRecordArena, d_trace: &DeviceBuffer<F>, d_subs: &DeviceBuffer<u32>, d_opt_widths: &DeviceBuffer<u32>, d_post_opt_offsets: &DeviceBuffer<u32>, calls_per_apc_row: u32, apc_height: usize, apc_width: usize) {
+    fn generate_proving_ctx_new(&self, arena: DenseRecordArena, ctx: &ApcTracingContext) {
         const RECORD_SIZE: usize = size_of::<(
             Rv32LoadStoreAdapterRecord,
             LoadSignExtendCoreRecord<RV32_REGISTER_NUM_LIMBS>,
@@ -45,19 +45,19 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32LoadSignExtendChipGpu {
 
         unsafe {
             tracegen(
-                d_trace,
+                ctx.d_trace,
                 padded_height,
                 trace_width,
                 &d_records,
                 self.pointer_max_bits,
                 &self.range_checker.count,
                 self.timestamp_max_bits as u32,
-                d_subs,
-                d_opt_widths,
-                d_post_opt_offsets,
-                apc_height,
-                apc_width,
-                calls_per_apc_row,
+                ctx.d_subs,
+                ctx.d_opt_widths,
+                ctx.d_post_opt_offsets,
+                ctx.apc_height,
+                ctx.apc_width,
+                ctx.calls_per_apc_row,
             )
             .unwrap();
         }
