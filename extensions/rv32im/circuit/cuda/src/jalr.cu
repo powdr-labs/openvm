@@ -76,6 +76,33 @@ struct Rv32JalrCore {
         COL_WRITE_ARRAY(row, Rv32JalrCoreCols, rd_data, rd_bytes + 1);
         COL_WRITE_VALUE(row, Rv32JalrCoreCols, imm, record.imm);
     }
+
+    __device__ void fill_trace_row_new(RowSliceNew row, Rv32JalrCoreRecord record) {
+        uint32_t to_pc;
+        uint8_t rd_bytes[RV32_REGISTER_NUM_LIMBS];
+        run_jalr(record.from_pc, record.rs1_val, record.imm, record.imm_sign, to_pc, rd_bytes);
+
+        uint32_t to_pc_limbs[2] = {(to_pc & ((1u << 16) - 1)) >> 1, to_pc >> 16};
+
+        if (!row.is_apc) {
+            rc.add_count(to_pc_limbs[0], 15);
+            rc.add_count(to_pc_limbs[1], PC_BITS - 16);
+            bw.add_range(rd_bytes[0], rd_bytes[1]);
+            rc.add_count(rd_bytes[2], RV32_CELL_BITS);
+            rc.add_count(rd_bytes[3], PC_BITS - RV32_CELL_BITS * 3);
+        }
+
+        COL_WRITE_VALUE_NEW(row, Rv32JalrCoreCols, imm_sign, record.imm_sign);
+        COL_WRITE_ARRAY_NEW(row, Rv32JalrCoreCols, to_pc_limbs, to_pc_limbs);
+        COL_WRITE_VALUE_NEW(row, Rv32JalrCoreCols, to_pc_least_sig_bit, (to_pc & 1) == 1 ? 1 : 0);
+        COL_WRITE_VALUE_NEW(row, Rv32JalrCoreCols, is_valid, 1);
+
+        uint8_t rs1_bytes[RV32_REGISTER_NUM_LIMBS];
+        memcpy(rs1_bytes, &record.rs1_val, sizeof(rs1_bytes));
+        COL_WRITE_ARRAY_NEW(row, Rv32JalrCoreCols, rs1_data, rs1_bytes);
+        COL_WRITE_ARRAY_NEW(row, Rv32JalrCoreCols, rd_data, rd_bytes + 1);
+        COL_WRITE_VALUE_NEW(row, Rv32JalrCoreCols, imm, record.imm);
+    }
 };
 
 template <typename T> struct Rv32JalrCols {
@@ -89,35 +116,52 @@ struct Rv32JalrRecord {
 };
 
 __global__ void jalr_tracegen(
-    Fp *trace,
+    Fp *d_trace,
     size_t height,
-    DeviceBufferConstView<Rv32JalrRecord> records,
-    uint32_t *range_checker_ptr,
+    DeviceBufferConstView<Rv32JalrRecord> d_records,
+    uint32_t *d_range_checker_ptr,
     uint32_t range_checker_num_bins,
-    uint32_t *bitwise_lookup_ptr,
+    uint32_t *d_bitwise_lookup_ptr,
     uint32_t bitwise_num_bits,
-    uint32_t timestamp_max_bits
+    uint32_t timestamp_max_bits,
+    uint32_t *subs,
+    uint32_t *d_opt_widths,
+    uint32_t *d_post_opt_offsets,
+    size_t apc_width,
+    uint32_t calls_per_apc_row
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-    RowSlice row(trace + idx, height);
+    bool is_apc = apc_width != 0;
+    RowSliceNew row(
+        is_apc ? d_trace + idx / calls_per_apc_row + d_post_opt_offsets[idx % calls_per_apc_row] * height : d_trace + idx,
+        height,
+        is_apc ? d_post_opt_offsets[idx % calls_per_apc_row] : 0,
+        is_apc ? sizeof(Rv32JalrCols<uint8_t>) * (idx % calls_per_apc_row) : 0,
+        subs,
+        is_apc
+    );
 
-    if (idx < records.len()) {
-        auto full = records[idx];
+    if (idx < d_records.len()) {
+        auto const &full = d_records[idx];
 
         // adapter pass
         Rv32JalrAdapter adapter(
-            VariableRangeChecker(range_checker_ptr, range_checker_num_bins), timestamp_max_bits
+            VariableRangeChecker(d_range_checker_ptr, range_checker_num_bins), timestamp_max_bits
         );
-        adapter.fill_trace_row(row, full.adapter);
+        adapter.fill_trace_row_new(row, full.adapter);
 
         // core pass
         Rv32JalrCore core(
-            VariableRangeChecker(range_checker_ptr, range_checker_num_bins),
-            BitwiseOperationLookup(bitwise_lookup_ptr, bitwise_num_bits)
+            VariableRangeChecker(d_range_checker_ptr, range_checker_num_bins),
+            BitwiseOperationLookup(d_bitwise_lookup_ptr, bitwise_num_bits)
         );
-        core.fill_trace_row(row.slice_from(COL_INDEX(Rv32JalrCols, core)), full.core);
+        core.fill_trace_row_new(row.slice_from(COL_INDEX(Rv32JalrCols, core)), full.core);
     } else {
-        row.fill_zero(0, sizeof(Rv32JalrCols<uint8_t>));
+        if (!is_apc) {
+            row.fill_zero(0, sizeof(Rv32JalrCols<uint8_t>));
+        } else if (idx < height * calls_per_apc_row) {
+            row.fill_zero(0, d_opt_widths[idx % calls_per_apc_row]);
+        }
     }
 }
 
@@ -130,22 +174,38 @@ extern "C" int _jalr_tracegen(
     uint32_t range_checker_num_bins,
     uint32_t *d_bitwise_lookup,
     uint32_t bitwise_num_bits,
-    uint32_t timestamp_max_bits
+    uint32_t timestamp_max_bits,
+    uint32_t *subs,
+    uint32_t *d_opt_widths,
+    uint32_t *d_post_opt_offsets,
+    size_t apc_height,
+    size_t apc_width,
+    uint32_t calls_per_apc_row
 ) {
+    assert((height & (height - 1)) == 0);
+    assert((apc_height & (apc_height - 1)) == 0);
     assert(height >= d_records.len());
-    assert(width == sizeof(Rv32JalrCols<uint8_t>));
-
-    auto [grid, block] = kernel_launch_params(height);
+    bool is_apc = apc_width != 0;
+    if (!is_apc) {
+        assert(width == sizeof(Rv32JalrCols<uint8_t>));
+    }
+    size_t threads = is_apc ? (apc_height * calls_per_apc_row) : height;
+    auto [grid, block] = kernel_launch_params(threads);
 
     jalr_tracegen<<<grid, block>>>(
         d_trace,
-        height,
+        is_apc ? apc_height : height,
         d_records,
         d_range_checker,
         range_checker_num_bins,
         d_bitwise_lookup,
         bitwise_num_bits,
-        timestamp_max_bits
+        timestamp_max_bits,
+        subs,
+        d_opt_widths,
+        d_post_opt_offsets,
+        apc_width,
+        calls_per_apc_row
     );
     return CHECK_KERNEL();
 }

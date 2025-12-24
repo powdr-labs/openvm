@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{mem::size_of, sync::Arc};
 
 use derive_new::new;
 use openvm_circuit::{arch::DenseRecordArena, utils::next_power_of_two_or_zero};
@@ -13,6 +13,7 @@ use openvm_cuda_backend::{
     types::F,
 };
 use openvm_cuda_common::copy::MemCopyH2D;
+use openvm_cuda_common::d_buffer::DeviceBuffer;
 use openvm_instructions::riscv::{RV32_CELL_BITS, RV32_REGISTER_NUM_LIMBS};
 use openvm_stark_backend::{prover::types::AirProvingContext, Chip};
 
@@ -32,6 +33,50 @@ pub struct Rv32DivRemChipGpu {
 }
 
 impl Chip<DenseRecordArena, GpuBackend> for Rv32DivRemChipGpu {
+    fn generate_proving_ctx_new(&self, arena: DenseRecordArena, d_trace: &DeviceBuffer<F>, d_subs: &DeviceBuffer<u32>, d_opt_widths: &DeviceBuffer<u32>, d_post_opt_offsets: &DeviceBuffer<u32>, calls_per_apc_row: u32, apc_height: usize, apc_width: usize) {
+        const RECORD_SIZE: usize = size_of::<(
+            Rv32MultAdapterRecord,
+            DivRemCoreRecord<RV32_REGISTER_NUM_LIMBS>,
+        )>();
+        let records = arena.allocated();
+        if records.is_empty() {
+            return;
+        }
+        debug_assert_eq!(records.len() % RECORD_SIZE, 0);
+
+        let trace_width = DivRemCoreCols::<F, RV32_REGISTER_NUM_LIMBS, RV32_CELL_BITS>::width()
+            + Rv32MultAdapterCols::<F>::width();
+        let height = records.len() / RECORD_SIZE;
+        let padded_height = next_power_of_two_or_zero(height);
+
+        let tuple_checker_sizes = self.range_tuple_checker.sizes;
+        let tuple_checker_sizes = UInt2::new(tuple_checker_sizes[0], tuple_checker_sizes[1]);
+
+        let d_records = records.to_device().unwrap();
+
+        unsafe {
+            tracegen(
+                d_trace,
+                padded_height,
+                trace_width,
+                &d_records,
+                &self.range_checker.count,
+                &self.bitwise_lookup.count,
+                RV32_CELL_BITS as u32,
+                &self.range_tuple_checker.count,
+                tuple_checker_sizes,
+                self.timestamp_max_bits as u32,
+                d_subs,
+                d_opt_widths,
+                d_post_opt_offsets,
+                apc_height,
+                apc_width,
+                calls_per_apc_row,
+            )
+            .unwrap();
+        }
+    }
+
     fn generate_proving_ctx(&self, arena: DenseRecordArena) -> AirProvingContext<GpuBackend> {
         const RECORD_SIZE: usize = size_of::<(
             Rv32MultAdapterRecord,
@@ -65,6 +110,12 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32DivRemChipGpu {
                 &self.range_tuple_checker.count,
                 tuple_checker_sizes,
                 self.timestamp_max_bits as u32,
+                &DeviceBuffer::new(), // nullptr
+                &DeviceBuffer::new(), // nullptr
+                &DeviceBuffer::new(), // nullptr
+                0, // apc_height: not used in this path
+                0, // apc_width: not used in this path
+                1, // calls_per_apc_row: 1 for non-apc
             )
             .unwrap();
         }

@@ -140,6 +140,60 @@ struct MulHCore {
         COL_WRITE_VALUE(row, MulHCoreCols, opcode_mulhsu_flag, opcode == MULHSU);
         COL_WRITE_VALUE(row, MulHCoreCols, opcode_mulhu_flag, opcode == MULHU);
     }
+
+    __device__ void fill_trace_row_new(RowSliceNew row, MulHCoreRecord record) {
+        MulHOpcode opcode = static_cast<MulHOpcode>(record.local_opcode);
+
+        uint32_t b[NUM_LIMBS];
+        uint32_t c[NUM_LIMBS];
+#pragma unroll
+        for (int i = 0; i < NUM_LIMBS; i++) {
+            b[i] = static_cast<uint32_t>(record.b[i]);
+            c[i] = static_cast<uint32_t>(record.c[i]);
+        }
+
+        uint32_t a[NUM_LIMBS];
+        uint32_t a_mul[NUM_LIMBS];
+        uint32_t carry[2 * NUM_LIMBS];
+        uint32_t b_ext, c_ext;
+
+        run_mulh(opcode, b, c, a, a_mul, carry, b_ext, c_ext);
+
+        if (!row.is_apc) {
+            #pragma unroll
+            for (int i = 0; i < NUM_LIMBS; i++) {
+                uint32_t aux[2] = {a_mul[i], carry[i]};
+                range_tuple.add_count(aux);
+    
+                aux[0] = a[i];
+                aux[1] = carry[NUM_LIMBS + i];
+                range_tuple.add_count(aux);
+            }
+
+            if (opcode != MULHU) {
+                uint32_t b_sign_mask = (b_ext == 0) ? 0 : (1u << (LIMB_BITS - 1));
+                uint32_t c_sign_mask = (c_ext == 0) ? 0 : (1u << (LIMB_BITS - 1));
+    
+                bitwise_lookup.add_range(
+                    (b[NUM_LIMBS - 1] - b_sign_mask) << 1,
+                    (c[NUM_LIMBS - 1] - c_sign_mask) << (opcode == MULH)
+                );
+            }
+        }
+
+        COL_WRITE_ARRAY_NEW(row, MulHCoreCols, a, a);
+        COL_WRITE_ARRAY_NEW(row, MulHCoreCols, b, b);
+        COL_WRITE_ARRAY_NEW(row, MulHCoreCols, c, c);
+        COL_WRITE_ARRAY_NEW(row, MulHCoreCols, a_mul, a_mul);
+        COL_WRITE_VALUE_NEW(row, MulHCoreCols, b_ext, b_ext);
+        COL_WRITE_VALUE_NEW(row, MulHCoreCols, c_ext, c_ext);
+        
+        if (!row.is_apc) {
+            COL_WRITE_VALUE(row, MulHCoreCols, opcode_mulh_flag, opcode == MULH);
+            COL_WRITE_VALUE(row, MulHCoreCols, opcode_mulhsu_flag, opcode == MULHSU);
+            COL_WRITE_VALUE(row, MulHCoreCols, opcode_mulhu_flag, opcode == MULHU);
+        }
+    }
 };
 
 template <typename T> struct MulHCols {
@@ -162,10 +216,23 @@ __global__ void mulh_tracegen(
     uint32_t bitwise_num_bits,
     uint32_t *d_range_tuple_checker_ptr,
     uint2 range_tuple_checker_sizes,
-    uint32_t timestamp_max_bits
+    uint32_t timestamp_max_bits,
+    uint32_t *subs,
+    uint32_t *d_opt_widths,
+    uint32_t *d_post_opt_offsets,
+    size_t apc_width,
+    uint32_t calls_per_apc_row
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-    RowSlice row(d_trace + idx, height);
+    bool is_apc = apc_width != 0;
+    RowSliceNew row(
+        is_apc ? d_trace + idx / calls_per_apc_row + d_post_opt_offsets[idx % calls_per_apc_row] * height : d_trace + idx,
+        height,
+        is_apc ? d_post_opt_offsets[idx % calls_per_apc_row] : 0,
+        is_apc ? sizeof(MulHCols<uint8_t>) * (idx % calls_per_apc_row) : 0,
+        subs,
+        is_apc
+    );
 
     if (idx < d_records.len()) {
         auto const &rec = d_records[idx];
@@ -173,16 +240,20 @@ __global__ void mulh_tracegen(
         Rv32MultAdapter adapter(
             VariableRangeChecker(d_range_checker_ptr, range_checker_bins), timestamp_max_bits
         );
-        adapter.fill_trace_row(row, rec.adapter);
+        adapter.fill_trace_row_new(row, rec.adapter);
 
         MulHCore core(
             d_range_tuple_checker_ptr,
             (uint32_t[2]){range_tuple_checker_sizes.x, range_tuple_checker_sizes.y},
             BitwiseOperationLookup(d_bitwise_lookup_ptr, bitwise_num_bits)
         );
-        core.fill_trace_row(row.slice_from(COL_INDEX(MulHCols, core)), rec.core);
+        core.fill_trace_row_new(row.slice_from(COL_INDEX(MulHCols, core)), rec.core);
     } else {
-        row.fill_zero(0, sizeof(MulHCols<uint8_t>));
+        if (!is_apc) {
+            row.fill_zero(0, sizeof(MulHCols<uint8_t>));
+        } else if (idx < height * calls_per_apc_row) {
+            row.fill_zero(0, d_opt_widths[idx % calls_per_apc_row]);
+        }
     }
 }
 
@@ -197,17 +268,27 @@ extern "C" int _mulh_tracegen(
     uint32_t bitwise_num_bits,
     uint32_t *d_range_tuple_checker_ptr,
     uint2 range_tuple_checker_sizes,
-    uint32_t timestamp_max_bits
+    uint32_t timestamp_max_bits,
+    uint32_t *subs,
+    uint32_t *d_opt_widths,
+    uint32_t *d_post_opt_offsets,
+    size_t apc_height,
+    size_t apc_width,
+    uint32_t calls_per_apc_row
 ) {
     assert((height & (height - 1)) == 0);
+    assert((apc_height & (apc_height - 1)) == 0);
     assert(height >= d_records.len());
-    assert(width == sizeof(MulHCols<uint8_t>));
-
-    auto [grid, block] = kernel_launch_params(height);
+    bool is_apc = apc_width != 0;
+    if (!is_apc) {
+        assert(width == sizeof(MulHCols<uint8_t>));
+    }
+    size_t threads = is_apc ? (apc_height * calls_per_apc_row) : height;
+    auto [grid, block] = kernel_launch_params(threads);
 
     mulh_tracegen<<<grid, block>>>(
         d_trace,
-        height,
+        is_apc ? apc_height : height,
         d_records,
         d_range_checker_ptr,
         range_checker_bins,
@@ -215,7 +296,12 @@ extern "C" int _mulh_tracegen(
         bitwise_num_bits,
         d_range_tuple_checker_ptr,
         range_tuple_checker_sizes,
-        timestamp_max_bits
+        timestamp_max_bits,
+        subs,
+        d_opt_widths,
+        d_post_opt_offsets,
+        apc_width,
+        calls_per_apc_row
     );
 
     return CHECK_KERNEL();

@@ -50,6 +50,29 @@ struct Rv32AuipcCore {
         COL_WRITE_ARRAY(row, Rv32AuipcCoreCols, rd_data, rd_data);
         COL_WRITE_VALUE(row, Rv32AuipcCoreCols, is_valid, 1);
     }
+
+    __device__ void fill_trace_row_new(RowSliceNew row, Rv32AuipcCoreRecord record) {
+        auto pc_limbs = reinterpret_cast<uint8_t *>(&record.from_pc);
+        auto imm_limbs = reinterpret_cast<uint8_t *>(&record.imm);
+        auto auipc = run_auipc(record.from_pc, record.imm);
+        auto rd_data = reinterpret_cast<uint8_t *>(&auipc);
+
+        if (!row.is_apc) {
+            bitwise_lookup.add_range(imm_limbs[0], imm_limbs[1]);
+            bitwise_lookup.add_range(imm_limbs[2], pc_limbs[1]);
+            auto msl_shift = RV32_REGISTER_NUM_LIMBS * RV32_CELL_BITS - PC_BITS;
+            bitwise_lookup.add_range(pc_limbs[2], pc_limbs[3] << msl_shift);
+#pragma unroll
+            for (size_t i = 0; i < RV32_REGISTER_NUM_LIMBS; i += 2) {
+                bitwise_lookup.add_range(rd_data[i], rd_data[i + 1]);
+            }
+        }
+
+        COL_WRITE_ARRAY_NEW(row, Rv32AuipcCoreCols, imm_limbs, imm_limbs);
+        COL_WRITE_ARRAY_NEW(row, Rv32AuipcCoreCols, pc_limbs, pc_limbs + 1);
+        COL_WRITE_ARRAY_NEW(row, Rv32AuipcCoreCols, rd_data, rd_data);
+        COL_WRITE_VALUE_NEW(row, Rv32AuipcCoreCols, is_valid, 1);
+    }
 };
 
 template <typename T> struct Rv32AuipcCols {
@@ -70,22 +93,40 @@ __global__ void auipc_tracegen(
     uint32_t range_checker_num_bins,
     uint32_t *bitwise_lookup_ptr,
     uint32_t bitwise_num_bits,
-    uint32_t timestamp_max_bits
+    uint32_t timestamp_max_bits,
+    uint32_t *subs,
+    uint32_t *d_opt_widths,
+    uint32_t *d_post_opt_offsets,
+    size_t apc_width,
+    uint32_t calls_per_apc_row
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-    RowSlice row(trace + idx, height);
+    bool is_apc = apc_width != 0;
+    RowSliceNew row(
+        is_apc ? trace + idx / calls_per_apc_row + d_post_opt_offsets[idx % calls_per_apc_row] * height : trace + idx,
+        height,
+        is_apc ? d_post_opt_offsets[idx % calls_per_apc_row] : 0,
+        is_apc ? sizeof(Rv32AuipcCols<uint8_t>) * (idx % calls_per_apc_row) : 0,
+        subs,
+        is_apc
+    );
+
     if (idx < records.len()) {
         auto const &record = records[idx];
 
         auto adapter = Rv32RdWriteAdapter(
             VariableRangeChecker(range_checker_ptr, range_checker_num_bins), timestamp_max_bits
         );
-        adapter.fill_trace_row(row, record.adapter);
+        adapter.fill_trace_row_new(row, record.adapter);
 
         auto core = Rv32AuipcCore(BitwiseOperationLookup(bitwise_lookup_ptr, bitwise_num_bits));
-        core.fill_trace_row(row.slice_from(COL_INDEX(Rv32AuipcCols, core)), record.core);
+        core.fill_trace_row_new(row.slice_from(COL_INDEX(Rv32AuipcCols, core)), record.core);
     } else {
-        row.fill_zero(0, sizeof(Rv32AuipcCols<uint8_t>));
+        if (!is_apc) {
+            row.fill_zero(0, sizeof(Rv32AuipcCols<uint8_t>));
+        } else if (idx < height * calls_per_apc_row) {
+            row.fill_zero(0, d_opt_widths[idx % calls_per_apc_row]);
+        }
     }
 }
 
@@ -98,21 +139,38 @@ extern "C" int _auipc_tracegen(
     uint32_t range_checker_num_bins,
     uint32_t *d_bitwise_lookup,
     uint32_t bitwise_num_bits,
-    uint32_t timestamp_max_bits
+    uint32_t timestamp_max_bits,
+    uint32_t *subs,
+    uint32_t *d_opt_widths,
+    uint32_t *d_post_opt_offsets,
+    size_t apc_height,
+    size_t apc_width,
+    uint32_t calls_per_apc_row
 ) {
     assert((height & (height - 1)) == 0);
+    assert((apc_height & (apc_height - 1)) == 0);
     assert(height >= d_records.len());
-    assert(width == sizeof(Rv32AuipcCols<uint8_t>));
-    auto [grid, block] = kernel_launch_params(height);
+    bool is_apc = apc_width != 0;
+    if (!is_apc) {
+        assert(width == sizeof(Rv32AuipcCols<uint8_t>));
+    }
+    size_t threads = is_apc ? (apc_height * calls_per_apc_row) : height;
+    auto [grid, block] = kernel_launch_params(threads);
+
     auipc_tracegen<<<grid, block>>>(
         d_trace,
-        height,
+        is_apc ? apc_height : height,
         d_records,
         d_range_checker,
         range_checker_num_bins,
         d_bitwise_lookup,
         bitwise_num_bits,
-        timestamp_max_bits
+        timestamp_max_bits,
+        subs,
+        d_opt_widths,
+        d_post_opt_offsets,
+        apc_width,
+        calls_per_apc_row
     );
     return CHECK_KERNEL();
 }

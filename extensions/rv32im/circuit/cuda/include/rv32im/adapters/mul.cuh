@@ -33,6 +33,8 @@ struct Rv32MultAdapter {
         : mem_helper(range_checker, timestamp_max_bits) {}
 
     __device__ void fill_trace_row(RowSlice row, Rv32MultAdapterRecord record);
+
+    __device__ void fill_trace_row_new(RowSliceNew row, Rv32MultAdapterRecord record);
 };
 
 __device__ inline void Rv32MultAdapter::fill_trace_row(RowSlice row, Rv32MultAdapterRecord record) {
@@ -58,4 +60,29 @@ __device__ inline void Rv32MultAdapter::fill_trace_row(RowSlice row, Rv32MultAda
     COL_WRITE_VALUE(row, Rv32MultAdapterCols, rd_ptr, record.rd_ptr);
     COL_WRITE_VALUE(row, Rv32MultAdapterCols, from_state.pc, record.from_pc);
     COL_WRITE_VALUE(row, Rv32MultAdapterCols, from_state.timestamp, record.from_timestamp);
+}
+
+__device__ inline void Rv32MultAdapter::fill_trace_row_new(RowSliceNew row, Rv32MultAdapterRecord record) {
+    uint32_t ts = record.from_timestamp;
+
+    COL_WRITE_ARRAY_NEW(row, Rv32MultAdapterCols, writes_aux.prev_data, record.writes_aux.prev_data);
+    mem_helper.fill_new(
+        row.slice_from(COL_INDEX(Rv32MultAdapterCols, writes_aux)),
+        record.writes_aux.prev_timestamp,
+        ts + 2
+    );
+
+    for (int i = 0; i < 2; i++) {
+        mem_helper.fill_new(
+            row.slice_from(COL_INDEX(Rv32MultAdapterCols, reads_aux[i])),
+            record.reads_aux[i].prev_timestamp,
+            ts + i
+        );
+    }
+
+    COL_WRITE_VALUE_NEW(row, Rv32MultAdapterCols, rs2_ptr, record.rs2_ptr);
+    COL_WRITE_VALUE_NEW(row, Rv32MultAdapterCols, rs1_ptr, record.rs1_ptr);
+    COL_WRITE_VALUE_NEW(row, Rv32MultAdapterCols, rd_ptr, record.rd_ptr);
+    COL_WRITE_VALUE_NEW(row, Rv32MultAdapterCols, from_state.pc, record.from_pc);
+    COL_WRITE_VALUE_NEW(row, Rv32MultAdapterCols, from_state.timestamp, record.from_timestamp);
 }

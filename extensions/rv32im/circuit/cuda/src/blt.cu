@@ -25,28 +25,45 @@ struct BranchLessThanRecord {
 };
 
 __global__ void blt_tracegen(
-    Fp *trace,
+    Fp *d_trace,
     size_t height,
-    DeviceBufferConstView<BranchLessThanRecord> records,
-    uint32_t *rc_ptr,
-    uint32_t rc_bins,
-    uint32_t *bw_ptr,
-    uint32_t bw_bits,
-    uint32_t timestamp_max_bits
+    DeviceBufferConstView<BranchLessThanRecord> d_records,
+    uint32_t *d_range_checker_ptr,
+    size_t range_checker_bins,
+    uint32_t *d_bitwise_lookup_ptr,
+    size_t bitwise_num_bits,
+    uint32_t timestamp_max_bits,
+    uint32_t *subs,
+    uint32_t *d_opt_widths,
+    uint32_t *d_post_opt_offsets,
+    size_t apc_width,
+    uint32_t calls_per_apc_row
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-    RowSlice row(trace + idx, height);
+    bool is_apc = apc_width != 0;
+    RowSliceNew row(
+        is_apc ? d_trace + idx / calls_per_apc_row + d_post_opt_offsets[idx % calls_per_apc_row] * height : d_trace + idx,
+        height,
+        is_apc ? d_post_opt_offsets[idx % calls_per_apc_row] : 0,
+        is_apc ? sizeof(BranchLessThanCols<uint8_t>) * (idx % calls_per_apc_row) : 0,
+        subs,
+        is_apc
+    );
 
-    if (idx < records.len()) {
-        auto const &full_record = records[idx];
+    if (idx < d_records.len()) {
+        auto const &full_record = d_records[idx];
 
-        Rv32BranchAdapter adapter(VariableRangeChecker(rc_ptr, rc_bins), timestamp_max_bits);
-        adapter.fill_trace_row(row, full_record.adapter);
+        Rv32BranchAdapter adapter(VariableRangeChecker(d_range_checker_ptr, range_checker_bins), timestamp_max_bits);
+        adapter.fill_trace_row_new(row, full_record.adapter);
 
-        Rv32BranchLessThanCore core(BitwiseOperationLookup(bw_ptr, bw_bits));
-        core.fill_trace_row(row.slice_from(COL_INDEX(BranchLessThanCols, core)), full_record.core);
+        Rv32BranchLessThanCore core(BitwiseOperationLookup(d_bitwise_lookup_ptr, bitwise_num_bits));
+        core.fill_trace_row_new(row.slice_from(COL_INDEX(BranchLessThanCols, core)), full_record.core);
     } else {
-        row.fill_zero(0, sizeof(BranchLessThanCols<uint8_t>));
+        if (!is_apc) {
+            row.fill_zero(0, sizeof(BranchLessThanCols<uint8_t>));
+        } else if (idx < height * calls_per_apc_row) {
+            row.fill_zero(0, d_opt_widths[idx % calls_per_apc_row]);
+        }
     }
 }
 
@@ -55,19 +72,42 @@ extern "C" int _blt_tracegen(
     size_t height,
     size_t width,
     DeviceBufferConstView<BranchLessThanRecord> d_records,
-    uint32_t *d_rc,
-    uint32_t rc_bins,
-    uint32_t *d_bw,
-    uint32_t bw_bits,
-    uint32_t timestamp_max_bits
+    uint32_t *d_range_checker_ptr,
+    size_t range_checker_bins,
+    uint32_t *d_bitwise_lookup_ptr,
+    size_t bitwise_num_bits,
+    uint32_t timestamp_max_bits,
+    uint32_t *subs,
+    uint32_t *d_opt_widths,
+    uint32_t *d_post_opt_offsets,
+    size_t apc_height,
+    size_t apc_width,
+    uint32_t calls_per_apc_row
 ) {
     assert((height & (height - 1)) == 0);
+    assert((apc_height & (apc_height - 1)) == 0);
     assert(height >= d_records.len());
-    assert(width == sizeof(BranchLessThanCols<uint8_t>));
+    bool is_apc = apc_width != 0;
+    if (!is_apc) {
+        assert(width == sizeof(BranchLessThanCols<uint8_t>));
+    }
+    size_t threads = is_apc ? (apc_height * calls_per_apc_row) : height;
+    auto [grid, block] = kernel_launch_params(threads);
 
-    auto [grid, block] = kernel_launch_params(height);
     blt_tracegen<<<grid, block>>>(
-        d_trace, height, d_records, d_rc, rc_bins, d_bw, bw_bits, timestamp_max_bits
+        d_trace,
+        is_apc ? apc_height : height,
+        d_records,
+        d_range_checker_ptr,
+        range_checker_bins,
+        d_bitwise_lookup_ptr,
+        bitwise_num_bits,
+        timestamp_max_bits,
+        subs,
+        d_opt_widths,
+        d_post_opt_offsets,
+        apc_width,
+        calls_per_apc_row
     );
     return CHECK_KERNEL();
 }

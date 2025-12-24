@@ -32,25 +32,43 @@ __global__ void mul_tracegen(
     size_t range_checker_bins,
     uint32_t *d_range_tuple_ptr,
     uint2 range_tuple_sizes,
-    uint32_t timestamp_max_bits
+    uint32_t timestamp_max_bits,
+    uint32_t *subs,
+    uint32_t *d_opt_widths,
+    uint32_t *d_post_opt_offsets,
+    size_t apc_width,
+    uint32_t calls_per_apc_row
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-    RowSlice row(d_trace + idx, height);
+    bool is_apc = apc_width != 0;
+    RowSliceNew row(
+        is_apc ? d_trace + idx / calls_per_apc_row + d_post_opt_offsets[idx % calls_per_apc_row] * height : d_trace + idx,
+        height,
+        is_apc ? d_post_opt_offsets[idx % calls_per_apc_row] : 0,
+        is_apc ? sizeof(Rv32MultiplicationCols<uint8_t>) * (idx % calls_per_apc_row) : 0,
+        subs,
+        is_apc
+    );
+
     if (idx < d_records.len()) {
         auto const &rec = d_records[idx];
 
         Rv32MultAdapter adapter(
             VariableRangeChecker(d_range_checker_ptr, range_checker_bins), timestamp_max_bits
         );
-        adapter.fill_trace_row(row, rec.adapter);
+        adapter.fill_trace_row_new(row, rec.adapter);
 
         RangeTupleChecker<2> range_tuple_checker(
             d_range_tuple_ptr, (uint32_t[2]){range_tuple_sizes.x, range_tuple_sizes.y}
         );
         Rv32MultiplicationCore core(range_tuple_checker);
-        core.fill_trace_row(row.slice_from(COL_INDEX(Rv32MultiplicationCols, core)), rec.core);
+        core.fill_trace_row_new(row.slice_from(COL_INDEX(Rv32MultiplicationCols, core)), rec.core);
     } else {
-        row.fill_zero(0, sizeof(Rv32MultiplicationCols<uint8_t>));
+        if (!is_apc) {
+            row.fill_zero(0, sizeof(Rv32MultiplicationCols<uint8_t>));
+        } else if (idx < height * calls_per_apc_row) {
+            row.fill_zero(0, d_opt_widths[idx % calls_per_apc_row]);
+        }
     }
 }
 
@@ -63,22 +81,37 @@ extern "C" int _mul_tracegen(
     size_t range_checker_bins,
     uint32_t *d_range_tuple_ptr,
     uint2 range_tuple_sizes,
-    uint32_t timestamp_max_bits
+    uint32_t timestamp_max_bits,
+    uint32_t *subs,
+    uint32_t *d_opt_widths,
+    uint32_t *d_post_opt_offsets,
+    size_t apc_height,
+    size_t apc_width,
+    uint32_t calls_per_apc_row
 ) {
     assert((height & (height - 1)) == 0);
-    assert(height >= d_records.len());
-    assert(width == sizeof(Rv32MultiplicationCols<uint8_t>));
-    auto [grid, block] = kernel_launch_params(height);
+    assert((apc_height & (apc_height - 1)) == 0);
+    bool is_apc = apc_width != 0;
+    if (!is_apc) {
+        assert(width == sizeof(Rv32MultiplicationCols<uint8_t>));
+    }
+    size_t threads = is_apc ? (apc_height * calls_per_apc_row) : height;
+    auto [grid, block] = kernel_launch_params(threads, 512);
 
     mul_tracegen<<<grid, block>>>(
         d_trace,
-        height,
+        is_apc ? apc_height : height,
         d_records,
         d_range_checker_ptr,
         range_checker_bins,
         d_range_tuple_ptr,
         range_tuple_sizes,
-        timestamp_max_bits
+        timestamp_max_bits,
+        subs,
+        d_opt_widths,
+        d_post_opt_offsets,
+        apc_width,
+        calls_per_apc_row
     );
     return CHECK_KERNEL();
 }

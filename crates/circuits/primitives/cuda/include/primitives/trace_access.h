@@ -223,6 +223,12 @@ __device__ __forceinline__ unsigned long long to_debug_uint(T value) {
         COL_INDEX(STRUCT, FIELD), sizeof(static_cast<STRUCT<uint8_t> *>(nullptr)->FIELD)           \
     )
 
+/// Fill entire `FIELD` of `STRUCT<T>` with zeros.
+#define COL_FILL_ZERO_NEW(ROW, STRUCT, FIELD)                                                          \
+    (ROW).fill_zero_new(                                                                               \
+        COL_INDEX(STRUCT, FIELD), sizeof(static_cast<STRUCT<uint8_t> *>(nullptr)->FIELD)           \
+    )
+
 __device__ __forceinline__ size_t number_of_gaps_in(const uint32_t *sub, size_t start, size_t len) {
     size_t gaps = 0;
 #pragma unroll
