@@ -55,7 +55,6 @@ template <size_t NUM_CELLS> struct LoadSignExtendCore {
         COL_WRITE_VALUE(row, Cols, opcode_loadh_flag, !record.is_byte);
 
         COL_WRITE_VALUE(row, Cols, data_most_sig_bit, most_sig_bit != 0);
-
         if ((shift & 2) != 0) {
             COL_WRITE_VALUE(row, Cols, shift_most_sig_bit, 1);
             // Shift the read data by 2 places to the left
@@ -71,43 +70,6 @@ template <size_t NUM_CELLS> struct LoadSignExtendCore {
         }
 
         COL_WRITE_ARRAY(row, Cols, prev_data, record.prev_data);
-    }
-
-    __device__ void fill_trace_row_new(RowSliceNew row, LoadSignExtendCoreRecord<NUM_CELLS> record) {
-        uint8_t shift = record.shift_amount;
-
-        uint8_t most_sig_limb;
-        if (record.is_byte) {
-            most_sig_limb = record.read_data[shift];
-        } else {
-            most_sig_limb = record.read_data[NUM_CELLS / 2 - 1 + shift];
-        }
-
-        uint8_t most_sig_bit = most_sig_limb & 0x80;
-
-        if (!row.is_apc) {
-            range_checker.add_count(most_sig_limb - most_sig_bit, 7);
-        }
-        COL_WRITE_VALUE_NEW(row, Cols, opcode_loadb_flag0, record.is_byte && ((shift & 1) == 0));
-        COL_WRITE_VALUE_NEW(row, Cols, opcode_loadb_flag1, record.is_byte && ((shift & 1) == 1));
-        COL_WRITE_VALUE_NEW(row, Cols, opcode_loadh_flag, !record.is_byte);
-
-        COL_WRITE_VALUE_NEW(row, Cols, data_most_sig_bit, most_sig_bit != 0);
-        if ((shift & 2) != 0) {
-            COL_WRITE_VALUE_NEW(row, Cols, shift_most_sig_bit, 1);
-            // Shift the read data by 2 places to the left
-#pragma unroll
-            for (size_t i = 0; i < NUM_CELLS - 2; i++) {
-                COL_WRITE_VALUE_NEW(row, Cols, shifted_read_data[i], record.read_data[i + 2]);
-            }
-            COL_WRITE_VALUE_NEW(row, Cols, shifted_read_data[NUM_CELLS - 2], record.read_data[0]);
-            COL_WRITE_VALUE_NEW(row, Cols, shifted_read_data[NUM_CELLS - 1], record.read_data[1]);
-        } else {
-            COL_WRITE_VALUE_NEW(row, Cols, shift_most_sig_bit, 0);
-            COL_WRITE_ARRAY_NEW(row, Cols, shifted_read_data, record.read_data);
-        }
-
-        COL_WRITE_ARRAY_NEW(row, Cols, prev_data, record.prev_data);
     }
 };
 
@@ -139,7 +101,7 @@ __global__ void rv32_load_sign_extend_tracegen(
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     bool is_apc = apc_width != 0;
-    RowSliceNew row(
+    RowSlice row(
         is_apc ? trace + idx / calls_per_apc_row + d_post_opt_offsets[idx % calls_per_apc_row] * height : trace + idx,
         height,
         is_apc ? d_post_opt_offsets[idx % calls_per_apc_row] : 0,
@@ -156,17 +118,17 @@ __global__ void rv32_load_sign_extend_tracegen(
             VariableRangeChecker(range_checker_ptr, range_checker_num_bins),
             timestamp_max_bits
         );
-        adapter.fill_trace_row_new(row, record.adapter);
+        adapter.fill_trace_row(row, record.adapter);
 
         auto core = LoadSignExtendCore<RV32_REGISTER_NUM_LIMBS>(
             VariableRangeChecker(range_checker_ptr, range_checker_num_bins)
         );
-        core.fill_trace_row_new(row.slice_from(COL_INDEX(Rv32LoadSignExtendCols, core)), record.core);
+        core.fill_trace_row(row.slice_from(COL_INDEX(Rv32LoadSignExtendCols, core)), record.core);
     } else {
         if (!is_apc) {
             row.fill_zero(0, sizeof(Rv32LoadSignExtendCols<uint8_t>));
         } else if (idx < height * calls_per_apc_row) {
-            row.fill_zero(0, d_opt_widths[idx % calls_per_apc_row]);
+            row.fill_zero_no_offset(0, d_opt_widths[idx % calls_per_apc_row]);
         }
     }
 }

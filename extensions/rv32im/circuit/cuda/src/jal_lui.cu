@@ -40,23 +40,6 @@ struct Rv32JalLuiCore {
         COL_WRITE_ARRAY(row, Rv32JalLuiCoreCols, rd_data, record.rd_data);
         COL_WRITE_VALUE(row, Rv32JalLuiCoreCols, imm, record.imm);
     }
-
-    __device__ void fill_trace_row_new(RowSliceNew row, Rv32JalLuiCoreRecord record) {
-        if (!row.is_apc) {
-#pragma unroll
-            for (int i = 0; i < RV32_REGISTER_NUM_LIMBS; i += 2) {
-                bw.add_range(record.rd_data[i], record.rd_data[i + 1]);
-            }
-            if (record.is_jal) {
-                bw.add_xor(record.rd_data[RV32_REGISTER_NUM_LIMBS - 1], ADDITIONAL_BITS);
-            }
-        }
-
-        COL_WRITE_VALUE_NEW(row, Rv32JalLuiCoreCols, is_lui, !record.is_jal);
-        COL_WRITE_VALUE_NEW(row, Rv32JalLuiCoreCols, is_jal, record.is_jal);
-        COL_WRITE_ARRAY_NEW(row, Rv32JalLuiCoreCols, rd_data, record.rd_data);
-        COL_WRITE_VALUE_NEW(row, Rv32JalLuiCoreCols, imm, record.imm);
-    }
 };
 
 template <typename T> struct Rv32JalLuiCols {
@@ -86,7 +69,7 @@ __global__ void jal_lui_tracegen(
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     bool is_apc = apc_width != 0;
-    RowSliceNew row(
+    RowSlice row(
         is_apc ? d_trace + idx / calls_per_apc_row + d_post_opt_offsets[idx % calls_per_apc_row] * height : d_trace + idx,
         height,
         is_apc ? d_post_opt_offsets[idx % calls_per_apc_row] : 0,
@@ -99,14 +82,14 @@ __global__ void jal_lui_tracegen(
         auto const &full = d_records[idx];
 
         Rv32CondRdWriteAdapter adapter(VariableRangeChecker(d_rc_ptr, rc_bins), timestamp_max_bits);
-        adapter.fill_trace_row_new(row, full.adapter);
+        adapter.fill_trace_row(row, full.adapter);
         Rv32JalLuiCore core(d_bw_ptr, bw_bits);
-        core.fill_trace_row_new(row.slice_from(COL_INDEX(Rv32JalLuiCols, core)), full.core);
+        core.fill_trace_row(row.slice_from(COL_INDEX(Rv32JalLuiCols, core)), full.core);
     } else {
         if (!is_apc) {
             row.fill_zero(0, sizeof(Rv32JalLuiCols<uint8_t>));
         } else if (idx < height * calls_per_apc_row) {
-            row.fill_zero(0, d_opt_widths[idx % calls_per_apc_row]);
+            row.fill_zero_no_offset(0, d_opt_widths[idx % calls_per_apc_row]);
         }
     }
 }

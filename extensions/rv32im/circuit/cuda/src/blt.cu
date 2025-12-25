@@ -41,7 +41,7 @@ __global__ void blt_tracegen(
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     bool is_apc = apc_width != 0;
-    RowSliceNew row(
+    RowSlice row(
         is_apc ? d_trace + idx / calls_per_apc_row + d_post_opt_offsets[idx % calls_per_apc_row] * height : d_trace + idx,
         height,
         is_apc ? d_post_opt_offsets[idx % calls_per_apc_row] : 0,
@@ -54,15 +54,15 @@ __global__ void blt_tracegen(
         auto const &full_record = d_records[idx];
 
         Rv32BranchAdapter adapter(VariableRangeChecker(d_range_checker_ptr, range_checker_bins), timestamp_max_bits);
-        adapter.fill_trace_row_new(row, full_record.adapter);
+        adapter.fill_trace_row(row, full_record.adapter);
 
         Rv32BranchLessThanCore core(BitwiseOperationLookup(d_bitwise_lookup_ptr, bitwise_num_bits));
-        core.fill_trace_row_new(row.slice_from(COL_INDEX(BranchLessThanCols, core)), full_record.core);
+        core.fill_trace_row(row.slice_from(COL_INDEX(BranchLessThanCols, core)), full_record.core);
     } else {
         if (!is_apc) {
             row.fill_zero(0, sizeof(BranchLessThanCols<uint8_t>));
         } else if (idx < height * calls_per_apc_row) {
-            row.fill_zero(0, d_opt_widths[idx % calls_per_apc_row]);
+            row.fill_zero_no_offset(0, d_opt_widths[idx % calls_per_apc_row]);
         }
     }
 }

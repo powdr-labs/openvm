@@ -42,7 +42,7 @@ __global__ void alu_tracegen(
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     // d_post_opt_offsets is always 0 for non APC case
     bool is_apc = apc_width != 0;
-    RowSliceNew row(
+    RowSlice row(
         is_apc ? d_trace + idx / calls_per_apc_row + d_post_opt_offsets[idx % calls_per_apc_row] * height : d_trace + idx, 
         height, 
         is_apc ? d_post_opt_offsets[idx % calls_per_apc_row] : 0, 
@@ -59,10 +59,10 @@ __global__ void alu_tracegen(
             BitwiseOperationLookup(d_bitwise_lookup_ptr, bitwise_num_bits),
             timestamp_max_bits
         );
-        adapter.fill_trace_row_new(row, rec.adapter);
+        adapter.fill_trace_row(row, rec.adapter);
 
         Rv32BaseAluCore core(BitwiseOperationLookup(d_bitwise_lookup_ptr, bitwise_num_bits));
-        core.fill_trace_row_new(row.slice_from(COL_INDEX(Rv32BaseAluCols, core)), rec.core);
+        core.fill_trace_row(row.slice_from(COL_INDEX(Rv32BaseAluCols, core)), rec.core);
     } else {
         if (!is_apc) {
             // non-apc case
@@ -71,7 +71,7 @@ __global__ void alu_tracegen(
             // apc case, but we need to limit idx to smaller than the # of dummy instruction runs
             // because `kernel_launch_params` rounds to the next MAX_THREADS number of runs
             // which can write beyond what we desire
-            row.fill_zero(0, d_opt_widths[idx % calls_per_apc_row]);
+            row.fill_zero_no_offset(0, d_opt_widths[idx % calls_per_apc_row]);
         }
     }
 }

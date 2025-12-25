@@ -41,7 +41,7 @@ __global__ void rv32_less_than_tracegen(
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     bool is_apc = apc_width != 0;
-    RowSliceNew row(
+    RowSlice row(
         is_apc ? d_trace + idx / calls_per_apc_row + d_post_opt_offsets[idx % calls_per_apc_row] * height : d_trace + idx,
         height,
         is_apc ? d_post_opt_offsets[idx % calls_per_apc_row] : 0,
@@ -58,15 +58,15 @@ __global__ void rv32_less_than_tracegen(
             BitwiseOperationLookup(d_bitwise_lookup_ptr, bitwise_num_bits),
             timestamp_max_bits
         );
-        adapter.fill_trace_row_new(row, rec.adapter);
+        adapter.fill_trace_row(row, rec.adapter);
 
         Rv32LessThanCore core(BitwiseOperationLookup(d_bitwise_lookup_ptr, bitwise_num_bits));
-        core.fill_trace_row_new(row.slice_from(COL_INDEX(LessThanCols, core)), rec.core);
+        core.fill_trace_row(row.slice_from(COL_INDEX(LessThanCols, core)), rec.core);
     } else {
         if (!is_apc) {
             row.fill_zero(0, sizeof(LessThanCols<uint8_t>));
         } else if (idx < height * calls_per_apc_row) {
-            row.fill_zero(0, d_opt_widths[idx % calls_per_apc_row]);
+            row.fill_zero_no_offset(0, d_opt_widths[idx % calls_per_apc_row]);
         }
     }
 }

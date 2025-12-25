@@ -41,13 +41,18 @@ struct Histogram {
 
 struct VariableRangeChecker {
     lookup::Histogram hist;
+    bool is_apc;
 
     __device__ VariableRangeChecker(uint32_t *global_hist, uint32_t num_bins)
-        : hist(global_hist, num_bins) {}
+        : hist(global_hist, num_bins), is_apc(false) {}
+
+    __device__ VariableRangeChecker(uint32_t *global_hist, uint32_t num_bins, bool is_apc)
+        : hist(global_hist, num_bins), is_apc(is_apc) {}
 
     // Used by VariableRangeChecker to constrain value that can be represented
     // using max_bits bits.
     __device__ void add_count(uint32_t value, size_t max_bits) {
+        if (is_apc) return;
         uint32_t idx = (1 << max_bits) + value;
         hist.add_count(idx);
     }
@@ -73,35 +78,8 @@ struct VariableRangeChecker {
 #pragma unroll
         for (int i = 0; i < limbs_len; i++) {
             uint32_t limb_u32 = x & mask;
-            limbs[i] = limb_u32;
+            limbs.write(i, limb_u32);
             add_count(limb_u32, min(bits_remaining, range_max_bits));
-            x >>= range_max_bits;
-            bits_remaining -= min(bits_remaining, range_max_bits);
-        }
-#ifdef CUDA_DEBUG
-        assert(bits_remaining == 0 && x == 0);
-#endif
-    }
-
-    __device__ __forceinline__ void decompose_new(
-        uint32_t x,
-        size_t bits,
-        RowSliceNew limbs,
-        const size_t limbs_len
-    ) {
-        size_t range_max_bits = max_bits();
-#ifdef CUDA_DEBUG
-        assert(limbs_len >= d_div_ceil(bits, range_max_bits));
-#endif
-        uint32_t mask = (1 << range_max_bits) - 1;
-        size_t bits_remaining = bits;
-#pragma unroll
-        for (int i = 0; i < limbs_len; i++) {
-            uint32_t limb_u32 = x & mask;
-            limbs.write_new(i, limb_u32);
-            if (!limbs.is_apc) {
-                add_count(limb_u32, min(bits_remaining, range_max_bits)); 
-            }
             x >>= range_max_bits;
             bits_remaining -= min(bits_remaining, range_max_bits);
         }
@@ -114,8 +92,20 @@ struct VariableRangeChecker {
 template <uint32_t N> struct RangeTupleChecker {
     uint32_t sizes[N];
     lookup::Histogram hist;
+    bool is_apc;
 
-    __device__ RangeTupleChecker(uint32_t *global_hist, uint32_t sizes[N]) {
+    __device__ RangeTupleChecker(uint32_t *global_hist, uint32_t sizes[N])
+        : is_apc(false) {
+        uint32_t num_bins = 1;
+        for (int i = 0; i < N; i++) {
+            this->sizes[i] = sizes[i];
+            num_bins *= this->sizes[i];
+        }
+        hist = lookup::Histogram(global_hist, num_bins);
+    }
+
+    __device__ RangeTupleChecker(uint32_t *global_hist, uint32_t sizes[N], bool is_apc)
+        : is_apc(is_apc) {
         uint32_t num_bins = 1;
         for (int i = 0; i < N; i++) {
             this->sizes[i] = sizes[i];
@@ -125,6 +115,7 @@ template <uint32_t N> struct RangeTupleChecker {
     }
 
     __device__ void add_count(uint32_t values[N]) {
+        if (is_apc) return;
         uint32_t idx = 0;
         for (int i = 0; i < N; i++) {
             idx = idx * sizes[i] + values[i];
@@ -133,6 +124,7 @@ template <uint32_t N> struct RangeTupleChecker {
     }
 
     __device__ void add_count(RowSlice values) {
+        if (is_apc) return;
         uint32_t idx = 0;
         for (int i = 0; i < N; i++) {
             idx = idx * sizes[i] + values[i].asUInt32();
@@ -153,11 +145,16 @@ struct BitwiseOperationLookup {
     uint32_t num_bits;
     uint32_t num_rows;
     lookup::Histogram hist;
+    bool is_apc;
 
     __device__ BitwiseOperationLookup(uint32_t *global_hist, uint32_t num_bits)
-        : num_bits(num_bits), num_rows(1 << (num_bits << 1)), hist(global_hist, num_rows << 1) {}
+        : num_bits(num_bits), num_rows(1 << (num_bits << 1)), hist(global_hist, num_rows << 1), is_apc(false) {}
+
+    __device__ BitwiseOperationLookup(uint32_t *global_hist, uint32_t num_bits, bool is_apc)
+        : num_bits(num_bits), num_rows(1 << (num_bits << 1)), hist(global_hist, num_rows << 1), is_apc(is_apc) {}
 
     __device__ void add_range(uint32_t x, uint32_t y) {
+        if (is_apc) return;
         uint32_t idx = x * (1 << num_bits) + y;
         if (idx < num_rows) {
             hist.add_count(idx);
@@ -165,6 +162,7 @@ struct BitwiseOperationLookup {
     }
 
     __device__ void add_xor(uint32_t x, uint32_t y) {
+        if (is_apc) return;
         uint32_t idx = x * (1 << num_bits) + y;
         if (idx < num_rows) {
             hist.add_count(idx + num_rows);

@@ -64,35 +64,4 @@ struct Rv32JalrAdapter {
         COL_WRITE_VALUE(row, Rv32JalrAdapterCols, from_state.timestamp, record.from_timestamp);
         COL_WRITE_VALUE(row, Rv32JalrAdapterCols, from_state.pc, record.from_pc);
     }
-
-    __device__ void fill_trace_row_new(RowSliceNew row, Rv32JalrAdapterRecord record) {
-        bool do_write = record.rd_ptr != UINT32_MAX;
-        COL_WRITE_VALUE_NEW(row, Rv32JalrAdapterCols, needs_write, do_write);
-
-        if (do_write) {
-            RowSliceNew aux_row = row.slice_from(COL_INDEX(Rv32JalrAdapterCols, rd_aux_cols));
-            // NOTE: COL_WRITE_ARRAY uses the default NUM_LIMBS = RV32_REGISTER_NUM_LIMBS in MemoryWriteAuxCols template definition for size calculations, which is correct in this case for Rv32JalrAdapterCols
-            COL_WRITE_ARRAY_NEW(aux_row, MemoryWriteAuxCols, prev_data, record.writes_aux.prev_data);
-            mem_helper.fill_new(
-                aux_row.slice_from(COL_INDEX(MemoryWriteAuxCols, base)),
-                record.writes_aux.prev_timestamp,
-                record.from_timestamp + 1
-            );
-            COL_WRITE_VALUE_NEW(row, Rv32JalrAdapterCols, rd_ptr, record.rd_ptr);
-        } else {
-            // NOTE: see note above on size calculation for MemoryWriteAuxCols
-            COL_FILL_ZERO_NEW(row, Rv32JalrAdapterCols, rd_aux_cols);
-            COL_WRITE_VALUE_NEW(row, Rv32JalrAdapterCols, rd_ptr, 0u);
-        }
-
-        mem_helper.fill_new(
-            row.slice_from(COL_INDEX(Rv32JalrAdapterCols, rs1_aux_cols)),
-            record.reads_aux.prev_timestamp,
-            record.from_timestamp
-        );
-
-        COL_WRITE_VALUE_NEW(row, Rv32JalrAdapterCols, rs1_ptr, record.rs1_ptr);
-        COL_WRITE_VALUE_NEW(row, Rv32JalrAdapterCols, from_state.timestamp, record.from_timestamp);
-        COL_WRITE_VALUE_NEW(row, Rv32JalrAdapterCols, from_state.pc, record.from_pc);
-    }
 };

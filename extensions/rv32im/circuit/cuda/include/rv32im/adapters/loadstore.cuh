@@ -69,7 +69,6 @@ struct Rv32LoadStoreAdapter {
 
         auto rs1_data = reinterpret_cast<uint8_t *>(&record.rs1_val);
         COL_WRITE_ARRAY(row, Rv32LoadStoreAdapterCols, rs1_data, rs1_data);
-
         bool needs_write = record.rd_rs2_ptr != UINT32_MAX;
 
         mem_helper.fill(
@@ -110,60 +109,6 @@ struct Rv32LoadStoreAdapter {
             );
         } else {
             mem_helper.fill_zero(
-                row.slice_from(COL_INDEX(Rv32LoadStoreAdapterCols, write_base_aux))
-            );
-        }
-    }
-
-    __device__ void fill_trace_row_new(RowSliceNew row, Rv32LoadStoreAdapterRecord record) {
-        COL_WRITE_VALUE_NEW(row, Rv32LoadStoreAdapterCols, from_state.pc, record.from_pc);
-        COL_WRITE_VALUE_NEW(row, Rv32LoadStoreAdapterCols, from_state.timestamp, record.from_timestamp);
-        COL_WRITE_VALUE_NEW(row, Rv32LoadStoreAdapterCols, rs1_ptr, record.rs1_ptr);
-
-        auto rs1_data = reinterpret_cast<uint8_t *>(&record.rs1_val);
-        COL_WRITE_ARRAY_NEW(row, Rv32LoadStoreAdapterCols, rs1_data, rs1_data);
-        bool needs_write = record.rd_rs2_ptr != UINT32_MAX;
-
-        mem_helper.fill_new(
-            row.slice_from(COL_INDEX(Rv32LoadStoreAdapterCols, rs1_aux_cols)),
-            record.rs1_aux_record.prev_timestamp,
-            record.from_timestamp
-        );
-
-        if (needs_write) {
-            COL_WRITE_VALUE_NEW(row, Rv32LoadStoreAdapterCols, rd_rs2_ptr, record.rd_rs2_ptr);
-        } else {
-            COL_WRITE_VALUE_NEW(row, Rv32LoadStoreAdapterCols, rd_rs2_ptr, 0);
-        }
-
-        mem_helper.fill_new(
-            row.slice_from(COL_INDEX(Rv32LoadStoreAdapterCols, read_data_aux)),
-            record.read_data_aux.prev_timestamp,
-            record.from_timestamp + 1
-        );
-
-        COL_WRITE_VALUE_NEW(row, Rv32LoadStoreAdapterCols, imm, record.imm);
-        COL_WRITE_VALUE_NEW(row, Rv32LoadStoreAdapterCols, imm_sign, record.imm_sign);
-
-        uint32_t ptr = record.rs1_val + ((uint32_t)record.imm + record.imm_sign * 0xffff0000);
-        auto ptr_limbs = reinterpret_cast<uint16_t *>(&ptr);
-        COL_WRITE_ARRAY_NEW(row, Rv32LoadStoreAdapterCols, mem_ptr_limbs, ptr_limbs);
-        COL_WRITE_VALUE_NEW(row, Rv32LoadStoreAdapterCols, mem_as, record.mem_as);
-
-        if (!row.is_apc) {
-            range_checker.add_count((uint32_t)ptr_limbs[0] >> 2, RV32_CELL_BITS * 2 - 2);
-            range_checker.add_count((uint32_t)ptr_limbs[1], pointer_max_bits - 16);
-        }
-
-        COL_WRITE_VALUE_NEW(row, Rv32LoadStoreAdapterCols, needs_write, needs_write);
-        if (needs_write) {
-            mem_helper.fill_new(
-                row.slice_from(COL_INDEX(Rv32LoadStoreAdapterCols, write_base_aux)),
-                record.write_prev_timestamp,
-                record.from_timestamp + 2
-            );
-        } else {
-            mem_helper.fill_zero_new(
                 row.slice_from(COL_INDEX(Rv32LoadStoreAdapterCols, write_base_aux))
             );
         }

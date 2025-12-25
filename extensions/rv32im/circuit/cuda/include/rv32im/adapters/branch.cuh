@@ -30,7 +30,6 @@ struct Rv32BranchAdapter {
         : mem_helper(rc, timestamp_max_bits) {}
 
     __device__ void fill_trace_row(RowSlice row, Rv32BranchAdapterRecord rec) {
-
         mem_helper.fill(
             row.slice_from(COL_INDEX(Rv32BranchAdapterCols, reads_aux_1)),
             rec.reads_aux[1].prev_timestamp,
@@ -47,25 +46,5 @@ struct Rv32BranchAdapter {
         COL_WRITE_VALUE(row, Rv32BranchAdapterCols, from_state.timestamp, rec.from_timestamp);
         COL_WRITE_VALUE(row, Rv32BranchAdapterCols, rs1_ptr, rec.rs1_ptr);
         COL_WRITE_VALUE(row, Rv32BranchAdapterCols, rs2_ptr, rec.rs2_ptr);
-    }
-
-    __device__ void fill_trace_row_new(RowSliceNew row, Rv32BranchAdapterRecord rec) {
-
-        mem_helper.fill_new(
-            row.slice_from(COL_INDEX(Rv32BranchAdapterCols, reads_aux_1)),
-            rec.reads_aux[1].prev_timestamp,
-            rec.from_timestamp + 1
-        );
-
-        mem_helper.fill_new(
-            row.slice_from(COL_INDEX(Rv32BranchAdapterCols, reads_aux_0)),
-            rec.reads_aux[0].prev_timestamp,
-            rec.from_timestamp
-        );
-
-        COL_WRITE_VALUE_NEW(row, Rv32BranchAdapterCols, from_state.pc, rec.from_pc);
-        COL_WRITE_VALUE_NEW(row, Rv32BranchAdapterCols, from_state.timestamp, rec.from_timestamp);
-        COL_WRITE_VALUE_NEW(row, Rv32BranchAdapterCols, rs1_ptr, rec.rs1_ptr);
-        COL_WRITE_VALUE_NEW(row, Rv32BranchAdapterCols, rs2_ptr, rec.rs2_ptr);
     }
 };

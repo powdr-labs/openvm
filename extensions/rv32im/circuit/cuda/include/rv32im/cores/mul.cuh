@@ -50,23 +50,6 @@ template <size_t NUM_LIMBS> struct MultiplicationCore {
         uint32_t carry_buf[NUM_LIMBS];
         run_mul<NUM_LIMBS>(record.b, record.c, a, carry_buf);
 
-#pragma unroll
-        for (size_t i = 0; i < NUM_LIMBS; i++) {
-            uint32_t vals[2] = {static_cast<uint32_t>(a[i]), carry_buf[i]};
-            range_tuple_checker.add_count(vals);
-        }
-
-        COL_WRITE_ARRAY(row, Cols, b, record.b);
-        COL_WRITE_ARRAY(row, Cols, c, record.c);
-        COL_WRITE_ARRAY(row, Cols, a, a);
-        COL_WRITE_VALUE(row, Cols, is_valid, 1);
-    }
-
-    __device__ void fill_trace_row_new(RowSliceNew row, MultiplicationCoreRecord<NUM_LIMBS> record) {
-        uint8_t a[NUM_LIMBS];
-        uint32_t carry_buf[NUM_LIMBS];
-        run_mul<NUM_LIMBS>(record.b, record.c, a, carry_buf);
-
         if (!row.is_apc) {
             #pragma unroll
             for (size_t i = 0; i < NUM_LIMBS; i++) {
@@ -75,9 +58,9 @@ template <size_t NUM_LIMBS> struct MultiplicationCore {
             }
         }
 
-        COL_WRITE_ARRAY_NEW(row, Cols, b, record.b);
-        COL_WRITE_ARRAY_NEW(row, Cols, c, record.c);
-        COL_WRITE_ARRAY_NEW(row, Cols, a, a);
-        COL_WRITE_VALUE_NEW(row, Cols, is_valid, 1);
+        COL_WRITE_ARRAY(row, Cols, b, record.b);
+        COL_WRITE_ARRAY(row, Cols, c, record.c);
+        COL_WRITE_ARRAY(row, Cols, a, a);
+        COL_WRITE_VALUE(row, Cols, is_valid, 1);
     }
 };

@@ -151,112 +151,6 @@ template <size_t NUM_CELLS> struct LoadStoreCore {
         COL_WRITE_ARRAY(row, Cols, flags, flags);
         COL_WRITE_ARRAY(row, Cols, write_data, write_data);
     }
-
-    __device__ void fill_trace_row_new(RowSliceNew row, LoadStoreCoreRecord<NUM_CELLS> record) {
-        Rv32LoadStoreOpcode opcode = static_cast<Rv32LoadStoreOpcode>(record.local_opcode);
-
-        COL_WRITE_VALUE_NEW(row, Cols, is_valid, 1);
-        COL_WRITE_VALUE_NEW(
-            row, Cols, is_load, (opcode == LOADW || opcode == LOADBU || opcode == LOADHU)
-        );
-        COL_WRITE_ARRAY_NEW(row, Cols, read_data, record.read_data);
-        COL_WRITE_ARRAY_NEW(row, Cols, prev_data, record.prev_data);
-
-        uint8_t flags[4] = {0};
-        uint32_t write_data[NUM_CELLS] = {0};
-        uint8_t shift = record.shift_amount;
-
-        switch (opcode) {
-        case LOADW:
-#pragma unroll
-            for (size_t i = 0; i < NUM_CELLS; i++) {
-                write_data[i] = record.read_data[i];
-            }
-            flags[0] = 2;
-            break;
-        case LOADHU:
-#pragma unroll
-            for (size_t i = 0; i < NUM_CELLS / 2; i++) {
-                write_data[i] = record.read_data[i + shift];
-            }
-            switch (shift) {
-            case 0:
-                flags[1] = 2;
-                break;
-            case 2:
-                flags[2] = 2;
-            }
-            break;
-        case LOADBU:
-            write_data[0] = record.read_data[shift];
-            switch (shift) {
-            case 0:
-                flags[3] = 2;
-                break;
-            case 1:
-                flags[0] = 1;
-                break;
-            case 2:
-                flags[1] = 1;
-                break;
-            case 3:
-                flags[2] = 1;
-                break;
-            }
-            break;
-        case STOREW:
-#pragma unroll
-            for (size_t i = 0; i < NUM_CELLS; i++) {
-                write_data[i] = record.read_data[i];
-            }
-            flags[3] = 1;
-            break;
-        case STOREH:
-#pragma unroll
-            for (size_t i = 0; i < NUM_CELLS; i++) {
-                if (i >= shift && i < (NUM_CELLS / 2 + shift)) {
-                    write_data[i] = record.read_data[i - shift];
-                } else {
-                    write_data[i] = record.prev_data[i];
-                }
-            }
-            switch (shift) {
-            case 0:
-                flags[0] = flags[1] = 1;
-                break;
-            case 2:
-                flags[0] = flags[2] = 1;
-                break;
-            }
-            break;
-        case STOREB:
-#pragma unroll
-            for (size_t i = 0; i < NUM_CELLS; i++) {
-                write_data[i] = record.prev_data[i];
-            }
-            write_data[shift] = record.read_data[0];
-            switch (shift) {
-            case 0:
-                flags[0] = flags[3] = 1;
-                break;
-            case 1:
-                flags[1] = flags[2] = 1;
-                break;
-            case 2:
-                flags[1] = flags[3] = 1;
-                break;
-            case 3:
-                flags[2] = flags[3] = 1;
-                break;
-            }
-            break;
-        default:
-            break;
-        }
-
-        COL_WRITE_ARRAY_NEW(row, Cols, flags, flags);
-        COL_WRITE_ARRAY_NEW(row, Cols, write_data, write_data);
-    }
 };
 
 // [Adapter + Core] columns and record
@@ -287,7 +181,7 @@ __global__ void rv32_load_store_tracegen(
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     // d_post_opt_offsets is always 0 for non APC case
     bool is_apc = apc_width != 0;
-    RowSliceNew row(
+    RowSlice row(
         is_apc ? d_trace + idx / calls_per_apc_row + d_post_opt_offsets[idx % calls_per_apc_row] * height : d_trace + idx,
         height,
         is_apc ? d_post_opt_offsets[idx % calls_per_apc_row] : 0,
@@ -304,10 +198,10 @@ __global__ void rv32_load_store_tracegen(
             VariableRangeChecker(d_range_checker_ptr, range_checker_num_bins),
             timestamp_max_bits
         );
-        adapter.fill_trace_row_new(row, record.adapter);
+        adapter.fill_trace_row(row, record.adapter);
 
         auto core = LoadStoreCore<RV32_REGISTER_NUM_LIMBS>();
-        core.fill_trace_row_new(row.slice_from(COL_INDEX(Rv32LoadStoreCols, core)), record.core);
+        core.fill_trace_row(row.slice_from(COL_INDEX(Rv32LoadStoreCols, core)), record.core);
     } else {
         if (!is_apc) {
             // non-apc case
@@ -316,7 +210,7 @@ __global__ void rv32_load_store_tracegen(
             // apc case, but we need to limit idx to smaller than the # of dummy instruction runs
             // because `kernel_launch_params` rounds to the next MAX_THREADS number of runs
             // which can write beyond what we desire
-            row.fill_zero(0, d_opt_widths[idx % calls_per_apc_row]);
+            row.fill_zero_no_offset(0, d_opt_widths[idx % calls_per_apc_row]);
         }
     }
 }

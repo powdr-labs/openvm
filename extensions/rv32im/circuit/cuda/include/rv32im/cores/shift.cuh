@@ -119,22 +119,24 @@ template <size_t NUM_LIMBS> struct ShiftCore {
             run_shift_right<NUM_LIMBS>(record.b, record.c, a, limb_shift, bit_shift, is_srl);
         }
 
-#pragma unroll
-        for (size_t i = 0; i + 1 < NUM_LIMBS; i += 2) {
-            bitwise_lookup.add_range(a[i], a[i + 1]);
-        }
+        if (!row.is_apc) {
+            #pragma unroll
+            for (size_t i = 0; i + 1 < NUM_LIMBS; i += 2) {
+                bitwise_lookup.add_range(a[i], a[i + 1]);
+            }
 
-        size_t combined_bits = NUM_LIMBS * RV32_CELL_BITS;
-        size_t num_bits_log = 0;
-        while ((1u << num_bits_log) < combined_bits) {
-            ++num_bits_log;
+            size_t combined_bits = NUM_LIMBS * RV32_CELL_BITS;
+            size_t num_bits_log = 0;
+            while ((1u << num_bits_log) < combined_bits) {
+                ++num_bits_log;
+            }
+            range_checker.add_count(
+                ((uint32_t)record.c[0] - (uint32_t)bit_shift -
+                    (uint32_t)(limb_shift * RV32_CELL_BITS)) >>
+                    num_bits_log,
+                RV32_CELL_BITS - num_bits_log
+            );
         }
-        range_checker.add_count(
-            ((uint32_t)record.c[0] - (uint32_t)bit_shift -
-             (uint32_t)(limb_shift * RV32_CELL_BITS)) >>
-                num_bits_log,
-            RV32_CELL_BITS - num_bits_log
-        );
 
         uint8_t carry_arr[NUM_LIMBS];
         if (bit_shift == 0) {
@@ -170,93 +172,14 @@ template <size_t NUM_LIMBS> struct ShiftCore {
         COL_WRITE_VALUE(row, Cols, bit_multiplier_left, is_sll ? (1u << bit_shift) : 0u);
         COL_WRITE_VALUE(row, Cols, bit_multiplier_right, is_sll ? 0u : (1u << bit_shift));
 
-        COL_WRITE_VALUE(row, Cols, opcode_sll_flag, is_sll ? 1u : 0u);
-        COL_WRITE_VALUE(row, Cols, opcode_srl_flag, is_srl ? 1u : 0u);
-        COL_WRITE_VALUE(row, Cols, opcode_sra_flag, is_sra ? 1u : 0u);
+        if (!row.is_apc) {
+            COL_WRITE_VALUE(row, Cols, opcode_sll_flag, is_sll ? 1u : 0u);
+            COL_WRITE_VALUE(row, Cols, opcode_srl_flag, is_srl ? 1u : 0u);
+            COL_WRITE_VALUE(row, Cols, opcode_sra_flag, is_sra ? 1u : 0u);
+        }
 
         COL_WRITE_ARRAY(row, Cols, b, record.b);
         COL_WRITE_ARRAY(row, Cols, c, record.c);
         COL_WRITE_ARRAY(row, Cols, a, a);
-    }
-
-    __device__ void fill_trace_row_new(RowSliceNew row, ShiftCoreRecord<NUM_LIMBS> record) {
-        bool is_sll = record.local_opcode == 0;
-        bool is_srl = record.local_opcode == 1;
-        bool is_sra = record.local_opcode == 2;
-
-        uint8_t a[NUM_LIMBS];
-        size_t limb_shift = 0, bit_shift = 0;
-        if (is_sll) {
-            run_shift_left<NUM_LIMBS>(record.b, record.c, a, limb_shift, bit_shift);
-        } else {
-            run_shift_right<NUM_LIMBS>(record.b, record.c, a, limb_shift, bit_shift, is_srl);
-        }
-
-        if (!row.is_apc) {
-    #pragma unroll
-            for (size_t i = 0; i + 1 < NUM_LIMBS; i += 2) {
-                bitwise_lookup.add_range(a[i], a[i + 1]);
-            }
-            
-            size_t combined_bits = NUM_LIMBS * RV32_CELL_BITS;
-            size_t num_bits_log = 0;
-            while ((1u << num_bits_log) < combined_bits) {
-                ++num_bits_log;
-            }
-            range_checker.add_count(
-                ((uint32_t)record.c[0] - (uint32_t)bit_shift -
-                 (uint32_t)(limb_shift * RV32_CELL_BITS)) >>
-                    num_bits_log,
-                RV32_CELL_BITS - num_bits_log
-            );
-        }
-
-        uint8_t carry_arr[NUM_LIMBS];
-        if (bit_shift == 0) {
-#pragma unroll
-            for (size_t i = 0; i < NUM_LIMBS; i++) {
-                if (!row.is_apc) {
-                    range_checker.add_count(0u, 0u);
-                }
-                carry_arr[i] = 0u;
-            }
-        } else {
-#pragma unroll
-            for (size_t i = 0; i < NUM_LIMBS; i++) {
-                uint8_t carry = is_sll ? (record.b[i] >> (RV32_CELL_BITS - bit_shift))
-                                       : (record.b[i] & ((1u << bit_shift) - 1u));
-                if (!row.is_apc) {
-                    range_checker.add_count((uint32_t)carry, bit_shift);
-                }
-                carry_arr[i] = carry;
-            }
-        }
-
-        COL_WRITE_ARRAY_NEW(row, Cols, bit_shift_carry, carry_arr);
-
-        uint8_t limb_marker[NUM_LIMBS] = {0};
-        limb_marker[limb_shift] = 1u;
-        COL_WRITE_ARRAY_NEW(row, Cols, limb_shift_marker, limb_marker);
-        uint8_t bit_marker[RV32_CELL_BITS] = {0};
-        bit_marker[bit_shift] = 1u;
-        COL_WRITE_ARRAY_NEW(row, Cols, bit_shift_marker, bit_marker);
-
-        uint8_t b_sign_val = is_sra ? (record.b[NUM_LIMBS - 1] >> (RV32_CELL_BITS - 1)) : 0u;
-        COL_WRITE_VALUE_NEW(row, Cols, b_sign, b_sign_val);
-        if (is_sra && !row.is_apc) {
-            bitwise_lookup.add_xor(record.b[NUM_LIMBS - 1], 1u << (RV32_CELL_BITS - 1));
-        }
-        COL_WRITE_VALUE_NEW(row, Cols, bit_multiplier_left, is_sll ? (1u << bit_shift) : 0u);
-        COL_WRITE_VALUE_NEW(row, Cols, bit_multiplier_right, is_sll ? 0u : (1u << bit_shift));
-
-        if (!row.is_apc) {
-            COL_WRITE_VALUE_NEW(row, Cols, opcode_sll_flag, is_sll ? 1u : 0u);
-            COL_WRITE_VALUE_NEW(row, Cols, opcode_srl_flag, is_srl ? 1u : 0u);
-            COL_WRITE_VALUE_NEW(row, Cols, opcode_sra_flag, is_sra ? 1u : 0u);
-        }
-
-        COL_WRITE_ARRAY_NEW(row, Cols, b, record.b);
-        COL_WRITE_ARRAY_NEW(row, Cols, c, record.c);
-        COL_WRITE_ARRAY_NEW(row, Cols, a, a);
     }
 };

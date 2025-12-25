@@ -39,7 +39,7 @@ __global__ void beq_tracegen(
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     bool is_apc = apc_width != 0;
-    RowSliceNew row(
+    RowSlice row(
         is_apc ? d_trace + idx / calls_per_apc_row + d_post_opt_offsets[idx % calls_per_apc_row] * height : d_trace + idx,
         height,
         is_apc ? d_post_opt_offsets[idx % calls_per_apc_row] : 0,
@@ -52,17 +52,17 @@ __global__ void beq_tracegen(
         auto const &full = d_records[idx];
 
         Rv32BranchAdapter adapter(VariableRangeChecker(rc_ptr, rc_bins), timestamp_max_bits);
-        adapter.fill_trace_row_new(row, full.adapter);
+        adapter.fill_trace_row(row, full.adapter);
 
         Rv32BranchEqualCore core;
-        core.fill_trace_row_new(row.slice_from(COL_INDEX(BranchEqualCols, core)), full.core);
+        core.fill_trace_row(row.slice_from(COL_INDEX(BranchEqualCols, core)), full.core);
     } else {
         if (!is_apc) {
             // non-apc case
             row.fill_zero(0, sizeof(BranchEqualCols<uint8_t>));
         } else if (idx < height * calls_per_apc_row) {
             // apc case, but we need to limit idx to smaller than the # of dummy instruction runs
-            row.fill_zero(0, d_opt_widths[idx % calls_per_apc_row]);
+            row.fill_zero_no_offset(0, d_opt_widths[idx % calls_per_apc_row]);
         }
     }
 }
