@@ -33,47 +33,11 @@ pub struct Rv32MulHChipGpu {
 }
 
 impl Chip<DenseRecordArena, GpuBackend> for Rv32MulHChipGpu {
-    fn generate_proving_ctx_new(&self, arena: DenseRecordArena, ctx: &ApcTracingContext) {
-        const RECORD_SIZE: usize = size_of::<(
-            Rv32MultAdapterRecord,
-            MulHCoreRecord<RV32_REGISTER_NUM_LIMBS, RV32_CELL_BITS>,
-        )>();
-        let records = arena.allocated();
-        if records.is_empty() {
-            return;
-        }
-        debug_assert_eq!(records.len() % RECORD_SIZE, 0);
-
-        let trace_height = next_power_of_two_or_zero(records.len() / RECORD_SIZE);
-
-        let tuple_checker_sizes = self.range_tuple_checker.sizes;
-        let tuple_checker_sizes = UInt2::new(tuple_checker_sizes[0], tuple_checker_sizes[1]);
-
-        let d_records = records.to_device().unwrap();
-
-        unsafe {
-            tracegen(
-                ctx.d_trace,
-                trace_height,
-                &d_records,
-                &self.range_checker.count,
-                &self.bitwise_lookup.count,
-                RV32_CELL_BITS,
-                &self.range_tuple_checker.count,
-                tuple_checker_sizes,
-                self.timestamp_max_bits as u32,
-                ctx.d_subs,
-                ctx.d_opt_widths,
-                ctx.d_post_opt_offsets,
-                ctx.apc_height,
-                ctx.apc_width,
-                ctx.calls_per_apc_row,
-            )
-            .unwrap();
-        }
-    }
-
-    fn generate_proving_ctx(&self, arena: DenseRecordArena) -> AirProvingContext<GpuBackend> {
+    fn generate_proving_ctx_direct(
+        &self,
+        arena: DenseRecordArena,
+        ctx: Option<&ApcTracingContext>,
+    ) -> AirProvingContext<GpuBackend> {
         const RECORD_SIZE: usize = size_of::<(
             Rv32MultAdapterRecord,
             MulHCoreRecord<RV32_REGISTER_NUM_LIMBS, RV32_CELL_BITS>,
@@ -84,19 +48,23 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32MulHChipGpu {
         }
         debug_assert_eq!(records.len() % RECORD_SIZE, 0);
 
-        let trace_width = MulHCoreCols::<F, RV32_REGISTER_NUM_LIMBS, RV32_CELL_BITS>::width()
-            + Rv32MultAdapterCols::<F>::width();
         let trace_height = next_power_of_two_or_zero(records.len() / RECORD_SIZE);
-
-        let tuple_checker_sizes = self.range_tuple_checker.sizes;
-        let tuple_checker_sizes = UInt2::new(tuple_checker_sizes[0], tuple_checker_sizes[1]);
-
+        let tuple_checker_sizes = UInt2::new(
+            self.range_tuple_checker.sizes[0],
+            self.range_tuple_checker.sizes[1],
+        );
         let d_records = records.to_device().unwrap();
-        let d_trace = DeviceMatrix::<F>::with_capacity(trace_height, trace_width);
+        let empty = DeviceBuffer::new();
+
+        let owned_trace = ctx.is_none().then(|| {
+            let w = MulHCoreCols::<F, RV32_REGISTER_NUM_LIMBS, RV32_CELL_BITS>::width()
+                + Rv32MultAdapterCols::<F>::width();
+            DeviceMatrix::<F>::with_capacity(trace_height, w)
+        });
 
         unsafe {
             tracegen(
-                d_trace.buffer(),
+                ctx.map_or_else(|| owned_trace.as_ref().unwrap().buffer(), |c| c.d_trace),
                 trace_height,
                 &d_records,
                 &self.range_checker.count,
@@ -105,16 +73,16 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32MulHChipGpu {
                 &self.range_tuple_checker.count,
                 tuple_checker_sizes,
                 self.timestamp_max_bits as u32,
-                &DeviceBuffer::new(), // nullptr
-                &DeviceBuffer::new(), // nullptr
-                &DeviceBuffer::new(), // nullptr
-                0, // apc_height: not used in this path
-                0, // apc_width: not used in this path
-                1, // calls_per_apc_row: 1 for non-apc
+                ctx.map_or(&empty, |c| c.d_subs),
+                ctx.map_or(&empty, |c| c.d_opt_widths),
+                ctx.map_or(&empty, |c| c.d_post_opt_offsets),
+                ctx.map_or(0, |c| c.apc_height),
+                ctx.map_or(0, |c| c.apc_width),
+                ctx.map_or(1, |c| c.calls_per_apc_row),
             )
             .unwrap();
         }
 
-        AirProvingContext::simple_no_pis(d_trace)
+        owned_trace.map_or_else(get_empty_air_proving_ctx::<GpuBackend>, AirProvingContext::simple_no_pis)
     }
 }

@@ -26,39 +26,11 @@ pub struct Rv32AuipcChipGpu {
 }
 
 impl Chip<DenseRecordArena, GpuBackend> for Rv32AuipcChipGpu {
-    fn generate_proving_ctx_new(&self, arena: DenseRecordArena, ctx: &ApcTracingContext) {
-        const RECORD_SIZE: usize = size_of::<(Rv32RdWriteAdapterRecord, Rv32AuipcCoreRecord)>();
-        let records = arena.allocated();
-        if records.is_empty() {
-            return;
-        }
-        debug_assert_eq!(records.len() % RECORD_SIZE, 0);
-
-        let trace_height = next_power_of_two_or_zero(records.len() / RECORD_SIZE);
-
-        let d_records = records.to_device().unwrap();
-
-        unsafe {
-            tracegen(
-                ctx.d_trace,
-                trace_height,
-                &d_records,
-                &self.range_checker.count,
-                &self.bitwise_lookup.count,
-                RV32_CELL_BITS,
-                self.timestamp_max_bits as u32,
-                ctx.d_subs,
-                ctx.d_opt_widths,
-                ctx.d_post_opt_offsets,
-                ctx.apc_height,
-                ctx.apc_width,
-                ctx.calls_per_apc_row,
-            )
-            .unwrap();
-        }
-    }
-
-    fn generate_proving_ctx(&self, arena: DenseRecordArena) -> AirProvingContext<GpuBackend> {
+    fn generate_proving_ctx_direct(
+        &self,
+        arena: DenseRecordArena,
+        ctx: Option<&ApcTracingContext>,
+    ) -> AirProvingContext<GpuBackend> {
         const RECORD_SIZE: usize = size_of::<(Rv32RdWriteAdapterRecord, Rv32AuipcCoreRecord)>();
         let records = arena.allocated();
         if records.is_empty() {
@@ -66,30 +38,34 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32AuipcChipGpu {
         }
         debug_assert_eq!(records.len() % RECORD_SIZE, 0);
 
-        let trace_width = Rv32AuipcCoreCols::<F>::width() + Rv32RdWriteAdapterCols::<F>::width();
         let trace_height = next_power_of_two_or_zero(records.len() / RECORD_SIZE);
-
         let d_records = records.to_device().unwrap();
-        let d_trace = DeviceMatrix::<F>::with_capacity(trace_height, trace_width);
+        let empty = DeviceBuffer::new();
+
+        let owned_trace = ctx.is_none().then(|| {
+            let w = Rv32AuipcCoreCols::<F>::width() + Rv32RdWriteAdapterCols::<F>::width();
+            DeviceMatrix::<F>::with_capacity(trace_height, w)
+        });
 
         unsafe {
             tracegen(
-                d_trace.buffer(),
+                ctx.map_or_else(|| owned_trace.as_ref().unwrap().buffer(), |c| c.d_trace),
                 trace_height,
                 &d_records,
                 &self.range_checker.count,
                 &self.bitwise_lookup.count,
                 RV32_CELL_BITS,
                 self.timestamp_max_bits as u32,
-                &DeviceBuffer::new(), // nullptr
-                &DeviceBuffer::new(), // nullptr
-                &DeviceBuffer::new(), // nullptr
-                0, // apc_height: not used in this path
-                0, // apc_width: not used in this path
-                1, // calls_per_apc_row: 1 for non-apc
+                ctx.map_or(&empty, |c| c.d_subs),
+                ctx.map_or(&empty, |c| c.d_opt_widths),
+                ctx.map_or(&empty, |c| c.d_post_opt_offsets),
+                ctx.map_or(0, |c| c.apc_height),
+                ctx.map_or(0, |c| c.apc_width),
+                ctx.map_or(1, |c| c.calls_per_apc_row),
             )
             .unwrap();
         }
-        AirProvingContext::simple_no_pis(d_trace)
+
+        owned_trace.map_or_else(get_empty_air_proving_ctx::<GpuBackend>, AirProvingContext::simple_no_pis)
     }
 }

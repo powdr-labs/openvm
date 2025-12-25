@@ -70,9 +70,7 @@ struct Rv32BaseAluAdapter {
                 rs2_aux.write(i, 0);
             }
             uint32_t mask = (1u << RV32_CELL_BITS) - 1u;
-            if (!rs2_aux.is_apc) {
-                bitwise_lookup.add_range(record.rs2 & mask, (record.rs2 >> RV32_CELL_BITS) & mask);
-            }
+            bitwise_lookup.add_range(record.rs2 & mask, (record.rs2 >> RV32_CELL_BITS) & mask);
         }
 
         COL_WRITE_ARRAY(

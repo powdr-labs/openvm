@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{mem::size_of, sync::Arc};
 
 use derive_new::new;
 use openvm_circuit::{arch::DenseRecordArena, utils::next_power_of_two_or_zero};
@@ -25,45 +25,11 @@ pub struct Rv32LoadStoreChipGpu {
 }
 
 impl Chip<DenseRecordArena, GpuBackend> for Rv32LoadStoreChipGpu {
-    fn generate_proving_ctx_new(&self, arena: DenseRecordArena, ctx: &ApcTracingContext) {
-        const RECORD_SIZE: usize = size_of::<(
-            Rv32LoadStoreAdapterRecord,
-            LoadStoreCoreRecord<RV32_REGISTER_NUM_LIMBS>,
-        )>();
-        let records = arena.allocated();
-        if records.is_empty() {
-            return;
-        }
-        debug_assert_eq!(records.len() % RECORD_SIZE, 0);
-
-        let trace_width = Rv32LoadStoreAdapterCols::<F>::width()
-            + LoadStoreCoreCols::<F, RV32_REGISTER_NUM_LIMBS>::width();
-        let height = records.len() / RECORD_SIZE;
-        let padded_height = next_power_of_two_or_zero(height);
-
-        let d_records = records.to_device().unwrap();
-
-        unsafe {
-            tracegen(
-                ctx.d_trace,
-                padded_height,
-                trace_width,
-                &d_records,
-                self.pointer_max_bits,
-                &self.range_checker.count,
-                self.timestamp_max_bits as u32,
-                ctx.d_subs,
-                ctx.d_opt_widths,
-                ctx.d_post_opt_offsets,
-                ctx.apc_height,
-                ctx.apc_width,
-                ctx.calls_per_apc_row,
-            )
-            .unwrap();
-        }
-    }
-
-    fn generate_proving_ctx(&self, arena: DenseRecordArena) -> AirProvingContext<GpuBackend> {
+    fn generate_proving_ctx_direct(
+        &self,
+        arena: DenseRecordArena,
+        ctx: Option<&ApcTracingContext>,
+    ) -> AirProvingContext<GpuBackend> {
         const RECORD_SIZE: usize = size_of::<(
             Rv32LoadStoreAdapterRecord,
             LoadStoreCoreRecord<RV32_REGISTER_NUM_LIMBS>,
@@ -76,31 +42,33 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32LoadStoreChipGpu {
 
         let trace_width = Rv32LoadStoreAdapterCols::<F>::width()
             + LoadStoreCoreCols::<F, RV32_REGISTER_NUM_LIMBS>::width();
-        let height = records.len() / RECORD_SIZE;
-        let padded_height = next_power_of_two_or_zero(height);
-
+        let padded_height = next_power_of_two_or_zero(records.len() / RECORD_SIZE);
         let d_records = records.to_device().unwrap();
-        let d_trace = DeviceMatrix::<F>::with_capacity(padded_height, trace_width);
+        let empty = DeviceBuffer::new();
+
+        let owned_trace = ctx
+            .is_none()
+            .then(|| DeviceMatrix::<F>::with_capacity(padded_height, trace_width));
 
         unsafe {
             tracegen(
-                d_trace.buffer(),
+                ctx.map_or_else(|| owned_trace.as_ref().unwrap().buffer(), |c| c.d_trace),
                 padded_height,
                 trace_width,
                 &d_records,
                 self.pointer_max_bits,
                 &self.range_checker.count,
                 self.timestamp_max_bits as u32,
-                &DeviceBuffer::new(), // nullptr
-                &DeviceBuffer::new(), // nullptr
-                &DeviceBuffer::new(), // nullptr
-                0,                    // apc_height: not used in this path so set to 0
-                0,                    // apc_width: not used in this path so set to 0
-                1,                    // calls_per_apc_row: 1 for non-apc
+                ctx.map_or(&empty, |c| c.d_subs),
+                ctx.map_or(&empty, |c| c.d_opt_widths),
+                ctx.map_or(&empty, |c| c.d_post_opt_offsets),
+                ctx.map_or(0, |c| c.apc_height),
+                ctx.map_or(0, |c| c.apc_width),
+                ctx.map_or(1, |c| c.calls_per_apc_row),
             )
             .unwrap();
         }
 
-        AirProvingContext::simple_no_pis(d_trace)
+        owned_trace.map_or_else(get_empty_air_proving_ctx::<GpuBackend>, AirProvingContext::simple_no_pis)
     }
 }
