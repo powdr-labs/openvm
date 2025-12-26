@@ -6,6 +6,26 @@
 #include <cstdint>
 #include <type_traits>
 
+/// APC (Automatic Proof Composition) parameters passed from Rust to CUDA.
+/// Bundles all APC-related data into a single struct for cleaner interfaces.
+struct ApcParams {
+    uint32_t *subs;
+    uint32_t *opt_widths;
+    uint32_t *post_opt_offsets;
+    size_t height;
+    size_t width;           // 0 = non-APC
+    uint32_t calls_per_row; // 1 = non-APC
+
+    __device__ __host__ bool is_apc() const { return width != 0; }
+
+    __host__ size_t thread_count(size_t non_apc_height) const {
+        return is_apc() ? (height * calls_per_row) : non_apc_height;
+    }
+
+    __host__ size_t effective_height(size_t non_apc_height) const {
+        return is_apc() ? height : non_apc_height;
+    }
+};
 
 __device__ __forceinline__ size_t number_of_gaps_in(const uint32_t *sub, size_t start, size_t len);
 
@@ -24,6 +44,58 @@ struct RowSlice {
 
     // Simple constructor for backward compatibility (non-APC mode)
     __device__ RowSlice(Fp *ptr, size_t stride) : ptr(ptr), stride(stride), optimized_offset(0), dummy_offset(0), subs(nullptr), is_apc(false) {}
+
+    /// Create a RowSlice with APC-aware setup.
+    /// When apc_width != 0, computes the correct pointer offset and metadata for APC mode.
+    /// When apc_width == 0, creates a simple non-APC RowSlice.
+    /// @param d_trace Base pointer to the trace buffer
+    /// @param height Trace height (stride between columns)
+    /// @param idx Thread index (blockIdx.x * blockDim.x + threadIdx.x)
+    /// @param d_post_opt_offsets Per-slot optimized column offsets (can be nullptr for non-APC)
+    /// @param cols_size sizeof(ColsType<uint8_t>) for the chip
+    /// @param subs Column substitution table for APC
+    /// @param apc_width APC width (0 for non-APC)
+    /// @param calls_per_apc_row Number of chip calls packed per APC row (1 for non-APC)
+    __device__ static RowSlice create_apc_aware(
+        Fp *d_trace,
+        size_t height,
+        uint32_t idx,
+        uint32_t *d_post_opt_offsets,
+        size_t cols_size,
+        uint32_t *subs,
+        size_t apc_width,
+        uint32_t calls_per_apc_row
+    ) {
+        bool is_apc = apc_width != 0;
+        if (is_apc) {
+            uint32_t slot = idx % calls_per_apc_row;
+            size_t opt_offset = d_post_opt_offsets[slot];
+            return RowSlice(
+                d_trace + idx / calls_per_apc_row + opt_offset * height,
+                height,
+                opt_offset,
+                cols_size * slot,
+                subs,
+                true
+            );
+        } else {
+            return RowSlice(d_trace + idx, height);
+        }
+    }
+
+    /// Overload that accepts ApcParams struct directly.
+    __device__ static RowSlice create_apc_aware(
+        Fp *d_trace,
+        size_t height,
+        uint32_t idx,
+        size_t cols_size,
+        const ApcParams &apc
+    ) {
+        return create_apc_aware(
+            d_trace, height, idx, apc.post_opt_offsets,
+            cols_size, apc.subs, apc.width, apc.calls_per_row
+        );
+    }
 
     __device__ __forceinline__ Fp &operator[](size_t column_index) const {
         // While implementing tracegen for SHA256, we encountered what we believe to be an nvcc
@@ -149,6 +221,21 @@ __device__ __forceinline__ unsigned long long to_debug_uint(T value) {
     (ROW).fill_zero(                                                                               \
         COL_INDEX(STRUCT, FIELD), sizeof(static_cast<STRUCT<uint8_t> *>(nullptr)->FIELD)           \
     )
+
+/// Fill dummy rows with zeros, handling both APC and non-APC cases.
+/// For non-APC: fills cols_size bytes starting from column 0.
+/// For APC: fills opt_widths[slot] bytes, but only if idx < height * calls_per_row
+/// to avoid writing beyond the allocated buffer.
+/// This version accepts ApcParams struct.
+#define FILL_DUMMY_ROW_APC(row, cols_size, idx, height, apc)                                       \
+    do {                                                                                           \
+        if (!(apc).is_apc()) {                                                                     \
+            (row).fill_zero(0, (cols_size));                                                       \
+        } else if ((idx) < (height) * (apc).calls_per_row) {                                       \
+            (row).fill_zero_no_offset(0, (apc).opt_widths[(idx) % (apc).calls_per_row]);           \
+        }                                                                                          \
+    } while(0)
+
 
 __device__ __forceinline__ size_t number_of_gaps_in(const uint32_t *sub, size_t start, size_t len) {
     size_t gaps = 0;

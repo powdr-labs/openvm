@@ -93,21 +93,11 @@ __global__ void rv32_load_sign_extend_tracegen(
     uint32_t *range_checker_ptr,
     uint32_t range_checker_num_bins,
     uint32_t timestamp_max_bits,
-    uint32_t *subs,
-    uint32_t *d_opt_widths,
-    uint32_t *d_post_opt_offsets,
-    size_t apc_width,
-    uint32_t calls_per_apc_row
+    ApcParams apc
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-    bool is_apc = apc_width != 0;
-    RowSlice row(
-        is_apc ? trace + idx / calls_per_apc_row + d_post_opt_offsets[idx % calls_per_apc_row] * height : trace + idx,
-        height,
-        is_apc ? d_post_opt_offsets[idx % calls_per_apc_row] : 0,
-        is_apc ? sizeof(Rv32LoadSignExtendCols<uint8_t>) * (idx % calls_per_apc_row) : 0,
-        subs,
-        is_apc
+    RowSlice row = RowSlice::create_apc_aware(
+        trace, height, idx, sizeof(Rv32LoadSignExtendCols<uint8_t>), apc
     );
 
     if (idx < records.len()) {
@@ -125,11 +115,7 @@ __global__ void rv32_load_sign_extend_tracegen(
         );
         core.fill_trace_row(row.slice_from(COL_INDEX(Rv32LoadSignExtendCols, core)), record.core);
     } else {
-        if (!is_apc) {
-            row.fill_zero(0, sizeof(Rv32LoadSignExtendCols<uint8_t>));
-        } else if (idx < height * calls_per_apc_row) {
-            row.fill_zero_no_offset(0, d_opt_widths[idx % calls_per_apc_row]);
-        }
+        FILL_DUMMY_ROW_APC(row, sizeof(Rv32LoadSignExtendCols<uint8_t>), idx, height, apc);
     }
 }
 
@@ -142,36 +128,23 @@ extern "C" int _rv32_load_sign_extend_tracegen(
     uint32_t *__restrict__ d_range_checker,
     uint32_t range_checker_num_bins,
     uint32_t timestamp_max_bits,
-    uint32_t *subs,
-    uint32_t *d_opt_widths,
-    uint32_t *d_post_opt_offsets,
-    size_t apc_height,
-    size_t apc_width,
-    uint32_t calls_per_apc_row
+    ApcParams apc
 ) {
     assert((height & (height - 1)) == 0);
-    assert((apc_height & (apc_height - 1)) == 0);
-    bool is_apc = apc_width != 0;
-    if (!is_apc) {
-        assert(width == sizeof(Rv32LoadSignExtendCols<uint8_t>));
-    }
-    size_t threads = is_apc ? (apc_height * calls_per_apc_row) : height;
-    auto [grid, block] = kernel_launch_params(threads, 512);
+    assert((apc.height & (apc.height - 1)) == 0);
+    if (!apc.is_apc()) assert(width == sizeof(Rv32LoadSignExtendCols<uint8_t>));
 
+    auto [grid, block] = kernel_launch_params(apc.thread_count(height), 512);
     rv32_load_sign_extend_tracegen<<<grid, block>>>(
         d_trace,
-        is_apc ? apc_height : height,
+        apc.effective_height(height),
         width,
         d_records,
         pointer_max_bits,
         d_range_checker,
         range_checker_num_bins,
         timestamp_max_bits,
-        subs,
-        d_opt_widths,
-        d_post_opt_offsets,
-        apc_width,
-        calls_per_apc_row
+        apc
     );
     return CHECK_KERNEL();
 }

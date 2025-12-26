@@ -25,31 +25,21 @@ struct BranchEqualRecord {
 };
 
 __global__ void beq_tracegen(
-    Fp *d_trace, // can be apc trace
+    Fp *trace,
     size_t height,
-    DeviceBufferConstView<BranchEqualRecord> d_records,
+    DeviceBufferConstView<BranchEqualRecord> records,
     uint32_t *rc_ptr,
     uint32_t rc_bins,
     uint32_t timestamp_max_bits,
-    uint32_t *subs,
-    uint32_t *d_opt_widths,
-    uint32_t *d_post_opt_offsets,
-    size_t apc_width, // 0 for non-apc
-    uint32_t calls_per_apc_row // 1 for non-apc
+    ApcParams apc
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-    bool is_apc = apc_width != 0;
-    RowSlice row(
-        is_apc ? d_trace + idx / calls_per_apc_row + d_post_opt_offsets[idx % calls_per_apc_row] * height : d_trace + idx,
-        height,
-        is_apc ? d_post_opt_offsets[idx % calls_per_apc_row] : 0,
-        is_apc ? sizeof(BranchEqualCols<uint8_t>) * (idx % calls_per_apc_row) : 0,
-        subs,
-        is_apc
+    RowSlice row = RowSlice::create_apc_aware(
+        trace, height, idx, sizeof(BranchEqualCols<uint8_t>), apc
     );
 
-    if (idx < d_records.len()) {
-        auto const &full = d_records[idx];
+    if (idx < records.len()) {
+        auto const &full = records[idx];
 
         Rv32BranchAdapter adapter(VariableRangeChecker(rc_ptr, rc_bins), timestamp_max_bits);
         adapter.fill_trace_row(row, full.adapter);
@@ -57,13 +47,7 @@ __global__ void beq_tracegen(
         Rv32BranchEqualCore core;
         core.fill_trace_row(row.slice_from(COL_INDEX(BranchEqualCols, core)), full.core);
     } else {
-        if (!is_apc) {
-            // non-apc case
-            row.fill_zero(0, sizeof(BranchEqualCols<uint8_t>));
-        } else if (idx < height * calls_per_apc_row) {
-            // apc case, but we need to limit idx to smaller than the # of dummy instruction runs
-            row.fill_zero_no_offset(0, d_opt_widths[idx % calls_per_apc_row]);
-        }
+        FILL_DUMMY_ROW_APC(row, sizeof(BranchEqualCols<uint8_t>), idx, height, apc);
     }
 }
 
@@ -75,34 +59,22 @@ extern "C" int _beq_tracegen(
     uint32_t *d_rc,
     uint32_t rc_bins,
     uint32_t timestamp_max_bits,
-    uint32_t *subs,
-    uint32_t *d_opt_widths,
-    uint32_t *d_post_opt_offsets,
-    size_t apc_height, // 0 for non-apc
-    size_t apc_width, // 0 for non-apc
-    uint32_t calls_per_apc_row // 1 for non-apc
+    ApcParams apc
 ) {
     assert((height & (height - 1)) == 0);
-    assert((apc_height & (apc_height - 1)) == 0);
-    bool is_apc = apc_width != 0;
-    if (!is_apc) { // only check for non-apc
-        assert(width == sizeof(BranchEqualCols<uint8_t>));
-    }
-    size_t threads = is_apc ? (apc_height * calls_per_apc_row) : height;
-    auto [grid, block] = kernel_launch_params(threads);
+    assert((apc.height & (apc.height - 1)) == 0);
+    assert(height >= d_records.len());
+    if (!apc.is_apc()) assert(width == sizeof(BranchEqualCols<uint8_t>));
 
+    auto [grid, block] = kernel_launch_params(apc.thread_count(height));
     beq_tracegen<<<grid, block>>>(
         d_trace,
-        is_apc ? apc_height : height,
+        apc.effective_height(height),
         d_records,
         d_rc,
         rc_bins,
         timestamp_max_bits,
-        subs,
-        d_opt_widths,
-        d_post_opt_offsets,
-        apc_width, // 0 for non-apc
-        calls_per_apc_row // 1 for non-apc
+        apc
     );
     return CHECK_KERNEL();
 }

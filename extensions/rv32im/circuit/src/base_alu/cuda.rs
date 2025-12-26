@@ -9,14 +9,13 @@ use openvm_cuda_backend::{
     base::DeviceMatrix, chip::get_empty_air_proving_ctx, prover_backend::GpuBackend, types::F,
 };
 use openvm_cuda_common::copy::MemCopyH2D;
-use openvm_cuda_common::d_buffer::DeviceBuffer;
 use openvm_stark_backend::{prover::types::AirProvingContext, ApcTracingContext, Chip};
 
 use crate::{
     adapters::{
         Rv32BaseAluAdapterCols, Rv32BaseAluAdapterRecord, RV32_CELL_BITS, RV32_REGISTER_NUM_LIMBS,
     },
-    cuda_abi::alu_cuda::tracegen,
+    cuda_abi::{alu_cuda::tracegen, ApcParams},
     BaseAluCoreCols, BaseAluCoreRecord,
 };
 
@@ -45,7 +44,6 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
 
         let trace_height = next_power_of_two_or_zero(records.len() / RECORD_SIZE);
         let d_records = records.to_device().unwrap();
-        let empty = DeviceBuffer::new();
 
         // Create owned trace only for non-APC path
         let owned_trace = ctx.is_none().then(|| {
@@ -64,12 +62,7 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
                 &self.bitwise_lookup.count,
                 RV32_CELL_BITS,
                 self.timestamp_max_bits as u32,
-                ctx.map_or(&empty, |c| c.d_subs),
-                ctx.map_or(&empty, |c| c.d_opt_widths),
-                ctx.map_or(&empty, |c| c.d_post_opt_offsets),
-                ctx.map_or(0, |c| c.apc_height),
-                ctx.map_or(0, |c| c.apc_width),
-                ctx.map_or(1, |c| c.calls_per_apc_row),
+                ApcParams::from_ctx(ctx),
             )
             .unwrap();
         }

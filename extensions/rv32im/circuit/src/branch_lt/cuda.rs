@@ -9,14 +9,13 @@ use openvm_cuda_backend::{
     base::DeviceMatrix, chip::get_empty_air_proving_ctx, prover_backend::GpuBackend, types::F,
 };
 use openvm_cuda_common::copy::MemCopyH2D;
-use openvm_cuda_common::d_buffer::DeviceBuffer;
 use openvm_stark_backend::{prover::types::AirProvingContext, ApcTracingContext, Chip};
 
 use crate::{
     adapters::{
         Rv32BranchAdapterCols, Rv32BranchAdapterRecord, RV32_CELL_BITS, RV32_REGISTER_NUM_LIMBS,
     },
-    cuda_abi::branch_lt_cuda::tracegen,
+    cuda_abi::{branch_lt_cuda::tracegen, ApcParams},
     BranchLessThanCoreCols, BranchLessThanCoreRecord,
 };
 
@@ -43,15 +42,15 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BranchLessThanChipGpu {
         }
         debug_assert_eq!(records.len() % RECORD_SIZE, 0);
 
-        let trace_height = next_power_of_two_or_zero(records.len() / RECORD_SIZE);
-        let d_records = records.to_device().unwrap();
-        let empty = DeviceBuffer::new();
-
-        let owned_trace = ctx.is_none().then(|| {
-            let w = BranchLessThanCoreCols::<F, RV32_REGISTER_NUM_LIMBS, RV32_CELL_BITS>::width()
+        let trace_width =
+            BranchLessThanCoreCols::<F, RV32_REGISTER_NUM_LIMBS, RV32_CELL_BITS>::width()
                 + Rv32BranchAdapterCols::<F>::width();
-            DeviceMatrix::<F>::with_capacity(trace_height, w)
-        });
+        let trace_height = next_power_of_two_or_zero(records.len() / RECORD_SIZE);
+
+        let d_records = records.to_device().unwrap();
+        let owned_trace = ctx
+            .is_none()
+            .then(|| DeviceMatrix::<F>::with_capacity(trace_height, trace_width));
 
         unsafe {
             tracegen(
@@ -59,16 +58,10 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BranchLessThanChipGpu {
                 trace_height,
                 &d_records,
                 &self.range_checker.count,
-                self.range_checker.count.len(),
                 &self.bitwise_lookup.count,
                 RV32_CELL_BITS,
                 self.timestamp_max_bits as u32,
-                ctx.map_or(&empty, |c| c.d_subs),
-                ctx.map_or(&empty, |c| c.d_opt_widths),
-                ctx.map_or(&empty, |c| c.d_post_opt_offsets),
-                ctx.map_or(0, |c| c.apc_height),
-                ctx.map_or(0, |c| c.apc_width),
-                ctx.map_or(1, |c| c.calls_per_apc_row),
+                ApcParams::from_ctx(ctx),
             )
             .unwrap();
         }

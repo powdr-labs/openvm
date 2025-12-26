@@ -6,8 +6,6 @@
 #include "rv32im/adapters/alu.cuh"
 #include "rv32im/cores/shift.cuh"
 
-#include <cstdio>
-
 using namespace riscv;
 using namespace program;
 
@@ -27,101 +25,69 @@ struct ShiftRecord {
 };
 
 __global__ void rv32_shift_tracegen(
-    Fp *d_trace, // can be apc trace
+    Fp *trace,
     size_t height,
-    DeviceBufferConstView<ShiftRecord> d_records,
-    uint32_t *d_range_checker_ptr,
-    size_t range_checker_bins,
-    uint32_t *d_bitwise_lookup_ptr,
-    size_t bitwise_num_bits,
+    size_t width,
+    DeviceBufferConstView<ShiftRecord> records,
+    uint32_t *range_ptr,
+    uint32_t range_bins,
+    uint32_t *lookup_ptr,
+    uint32_t lookup_bits,
     uint32_t timestamp_max_bits,
-    uint32_t *subs,
-    uint32_t *d_opt_widths,
-    uint32_t *d_post_opt_offsets,
-    size_t apc_width, // 0 for non-apc
-    uint32_t calls_per_apc_row // 1 for non-apc
+    ApcParams apc
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-    // d_post_opt_offsets is always 0 for non APC case
-    bool is_apc = apc_width != 0;
-    RowSlice row(
-        is_apc ? d_trace + idx / calls_per_apc_row + d_post_opt_offsets[idx % calls_per_apc_row] * height : d_trace + idx,
-        height,
-        is_apc ? d_post_opt_offsets[idx % calls_per_apc_row] : 0,
-        is_apc ? sizeof(ShiftCols<uint8_t>) * (idx % calls_per_apc_row): 0, // this way we don't need to pass over d_pre_opt_offsets
-        subs,
-        is_apc
-    ); // we need to slice to the correct APC row, but if non-APC it's dividing by 1 and therefore the same idx
+    RowSlice row = RowSlice::create_apc_aware(
+        trace, height, idx, sizeof(ShiftCols<uint8_t>), apc
+    );
 
-    if (idx < d_records.len()) {
-        auto const &rec = d_records[idx];
-
-        Rv32BaseAluAdapter adapter(
-            VariableRangeChecker(d_range_checker_ptr, range_checker_bins),
-            BitwiseOperationLookup(d_bitwise_lookup_ptr, bitwise_num_bits),
+    if (idx < records.len()) {
+        auto const &rec = records[idx];
+        auto adapter = Rv32BaseAluAdapter(
+            VariableRangeChecker(range_ptr, range_bins),
+            BitwiseOperationLookup(lookup_ptr, lookup_bits),
             timestamp_max_bits
         );
         adapter.fill_trace_row(row, rec.adapter);
-
-        Rv32ShiftCore core(
-            BitwiseOperationLookup(d_bitwise_lookup_ptr, bitwise_num_bits),
-            VariableRangeChecker(d_range_checker_ptr, range_checker_bins)
+        auto core = Rv32ShiftCore(
+            BitwiseOperationLookup(lookup_ptr, lookup_bits),
+            VariableRangeChecker(range_ptr, range_bins)
         );
         core.fill_trace_row(row.slice_from(COL_INDEX(ShiftCols, core)), rec.core);
     } else {
-        if (!is_apc) {
-            // non-apc case
-            row.fill_zero(0, sizeof(ShiftCols<uint8_t>));
-        } else if (idx < height * calls_per_apc_row) {
-            // apc case, but we need to limit idx to smaller than the # of dummy instruction runs
-            // because `kernel_launch_params` rounds to the next MAX_THREADS number of runs
-            // which can write beyond what we desire
-            row.fill_zero_no_offset(0, d_opt_widths[idx % calls_per_apc_row]);
-        }
+        FILL_DUMMY_ROW_APC(row, sizeof(ShiftCols<uint8_t>), idx, height, apc);
     }
 }
 
 extern "C" int _rv32_shift_tracegen(
-    Fp *d_trace,
+    Fp *__restrict__ d_trace,
     size_t height,
     size_t width,
     DeviceBufferConstView<ShiftRecord> d_records,
-    uint32_t *d_range_checker_ptr,
-    size_t range_checker_bins,
-    uint32_t *d_bitwise_lookup_ptr,
-    size_t bitwise_num_bits,
+    uint32_t *__restrict__ d_range_checker,
+    uint32_t range_checker_num_bins,
+    uint32_t *__restrict__ d_bitwise_lookup,
+    uint32_t bitwise_num_bits,
     uint32_t timestamp_max_bits,
-    uint32_t *subs,
-    uint32_t *d_opt_widths,
-    uint32_t *d_post_opt_offsets,
-    size_t apc_height, // 0 for non-apc
-    size_t apc_width, // 0 for non-apc
-    uint32_t calls_per_apc_row // 1 for non-apc
+    ApcParams apc
 ) {
     assert((height & (height - 1)) == 0);
-    assert((apc_height & (apc_height - 1)) == 0);
+    assert((apc.height & (apc.height - 1)) == 0);
     assert(height >= d_records.len());
-    bool is_apc = apc_width != 0;
-    if (!is_apc) { // only check for non-apc
-        assert(width == sizeof(ShiftCols<uint8_t>));
-    }
-    size_t threads = is_apc ? (apc_height * calls_per_apc_row) : height;
-    auto [grid, block] = kernel_launch_params(threads);
+    if (!apc.is_apc()) assert(width == sizeof(ShiftCols<uint8_t>));
+
+    auto [grid, block] = kernel_launch_params(apc.thread_count(height), 512);
     rv32_shift_tracegen<<<grid, block>>>(
         d_trace,
-        is_apc ? apc_height : height,
+        apc.effective_height(height),
+        width,
         d_records,
-        d_range_checker_ptr,
-        range_checker_bins,
-        d_bitwise_lookup_ptr,
+        d_range_checker,
+        range_checker_num_bins,
+        d_bitwise_lookup,
         bitwise_num_bits,
         timestamp_max_bits,
-        subs,
-        d_opt_widths,
-        d_post_opt_offsets,
-        apc_width, // 0 for non-apc
-        calls_per_apc_row // 1 for non-apc
+        apc
     );
-
     return CHECK_KERNEL();
 }

@@ -13,13 +13,12 @@ use openvm_cuda_backend::{
     types::F,
 };
 use openvm_cuda_common::copy::MemCopyH2D;
-use openvm_cuda_common::d_buffer::DeviceBuffer;
 use openvm_instructions::riscv::{RV32_CELL_BITS, RV32_REGISTER_NUM_LIMBS};
 use openvm_stark_backend::{prover::types::AirProvingContext, ApcTracingContext, Chip};
 
 use crate::{
     adapters::{Rv32MultAdapterCols, Rv32MultAdapterRecord},
-    cuda_abi::divrem_cuda::tracegen,
+    cuda_abi::{divrem_cuda::tracegen, ApcParams},
     DivRemCoreCols, DivRemCoreRecord,
 };
 
@@ -56,7 +55,6 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32DivRemChipGpu {
             self.range_tuple_checker.sizes[1],
         );
         let d_records = records.to_device().unwrap();
-        let empty = DeviceBuffer::new();
 
         let owned_trace = ctx
             .is_none()
@@ -74,12 +72,7 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32DivRemChipGpu {
                 &self.range_tuple_checker.count,
                 tuple_checker_sizes,
                 self.timestamp_max_bits as u32,
-                ctx.map_or(&empty, |c| c.d_subs),
-                ctx.map_or(&empty, |c| c.d_opt_widths),
-                ctx.map_or(&empty, |c| c.d_post_opt_offsets),
-                ctx.map_or(0, |c| c.apc_height),
-                ctx.map_or(0, |c| c.apc_width),
-                ctx.map_or(1, |c| c.calls_per_apc_row),
+                ApcParams::from_ctx(ctx),
             )
             .unwrap();
         }
