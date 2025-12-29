@@ -35,8 +35,9 @@ __global__ void alu_tracegen(
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     RowSlice row = RowSlice::create_apc_aware(
-        d_trace, height, idx, sizeof(Rv32BaseAluCols<uint8_t>), apc
+        d_trace, height, idx, sizeof(Rv32BaseAluCols<uint8_t>), apc, d_records.len()
     );
+    if (!row.is_valid()) return;
 
     if (idx < d_records.len()) {
         auto const &rec = d_records[idx];
@@ -51,7 +52,7 @@ __global__ void alu_tracegen(
         Rv32BaseAluCore core(BitwiseOperationLookup(d_bitwise_lookup_ptr, bitwise_num_bits));
         core.fill_trace_row(row.slice_from(COL_INDEX(Rv32BaseAluCols, core)), rec.core);
     } else {
-        FILL_DUMMY_ROW_APC(row, sizeof(Rv32BaseAluCols<uint8_t>), idx, height, apc);
+        row.fill_zero(0, sizeof(Rv32BaseAluCols<uint8_t>));
     }
 }
 
@@ -68,7 +69,6 @@ extern "C" int _alu_tracegen(
     ApcParams apc
 ) {
     assert((height & (height - 1)) == 0);
-    assert((apc.height & (apc.height - 1)) == 0);
     assert(height >= d_records.len());
     if (!apc.is_apc()) assert(width == sizeof(Rv32BaseAluCols<uint8_t>));
 

@@ -54,10 +54,7 @@ template <size_t NUM_LIMBS> struct BranchEqualCore {
 
         COL_WRITE_VALUE(row, Cols, cmp_result, cmp_result);
         COL_WRITE_VALUE(row, Cols, imm, rec.imm);
-
-        if (!row.is_apc) {
-            COL_WRITE_VALUE(row, Cols, opcode_beq_flag, is_beq);
-            COL_WRITE_VALUE(row, Cols, opcode_bne_flag, !is_beq);
-        }
+        COL_WRITE_VALUE(row, Cols, opcode_beq_flag, is_beq);
+        COL_WRITE_VALUE(row, Cols, opcode_bne_flag, !is_beq);
     }
 };

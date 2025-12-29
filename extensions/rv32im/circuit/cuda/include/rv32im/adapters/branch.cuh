@@ -30,6 +30,7 @@ struct Rv32BranchAdapter {
         : mem_helper(rc, timestamp_max_bits) {}
 
     __device__ void fill_trace_row(RowSlice row, Rv32BranchAdapterRecord rec) {
+
         mem_helper.fill(
             row.slice_from(COL_INDEX(Rv32BranchAdapterCols, reads_aux_1)),
             rec.reads_aux[1].prev_timestamp,

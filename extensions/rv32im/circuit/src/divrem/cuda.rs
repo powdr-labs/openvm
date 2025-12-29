@@ -49,13 +49,13 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32DivRemChipGpu {
 
         let trace_width = DivRemCoreCols::<F, RV32_REGISTER_NUM_LIMBS, RV32_CELL_BITS>::width()
             + Rv32MultAdapterCols::<F>::width();
-        let padded_height = next_power_of_two_or_zero(records.len() / RECORD_SIZE);
-        let tuple_checker_sizes = UInt2::new(
-            self.range_tuple_checker.sizes[0],
-            self.range_tuple_checker.sizes[1],
-        );
-        let d_records = records.to_device().unwrap();
+        let height = records.len() / RECORD_SIZE;
+        let padded_height = next_power_of_two_or_zero(height);
 
+        let tuple_checker_sizes = self.range_tuple_checker.sizes;
+        let tuple_checker_sizes = UInt2::new(tuple_checker_sizes[0], tuple_checker_sizes[1]);
+
+        let d_records = records.to_device().unwrap();
         let owned_trace = ctx
             .is_none()
             .then(|| DeviceMatrix::<F>::with_capacity(padded_height, trace_width));

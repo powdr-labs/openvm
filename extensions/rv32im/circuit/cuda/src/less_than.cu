@@ -37,8 +37,9 @@ __global__ void rv32_less_than_tracegen(
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     RowSlice row = RowSlice::create_apc_aware(
-        trace, height, idx, sizeof(LessThanCols<uint8_t>), apc
+        trace, height, idx, sizeof(LessThanCols<uint8_t>), apc, records.len()
     );
+    if (!row.is_valid()) return;
 
     if (idx < records.len()) {
         auto const &record = records[idx];
@@ -53,7 +54,7 @@ __global__ void rv32_less_than_tracegen(
         auto core = Rv32LessThanCore(BitwiseOperationLookup(bitwise_lookup_ptr, bitwise_num_bits));
         core.fill_trace_row(row.slice_from(COL_INDEX(LessThanCols, core)), record.core);
     } else {
-        FILL_DUMMY_ROW_APC(row, sizeof(LessThanCols<uint8_t>), idx, height, apc);
+        row.fill_zero(0, sizeof(LessThanCols<uint8_t>));
     }
 }
 
@@ -71,7 +72,6 @@ extern "C" int _rv32_less_than_tracegen(
 ) {
     // We require the height to be a power of two for the tracegen to work
     assert((height & (height - 1)) == 0);
-    assert((apc.height & (apc.height - 1)) == 0);
     assert(height >= d_records.len());
     if (!apc.is_apc()) assert(width == sizeof(LessThanCols<uint8_t>));
 

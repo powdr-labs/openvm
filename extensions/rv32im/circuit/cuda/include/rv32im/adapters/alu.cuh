@@ -2,7 +2,6 @@
 
 #include "primitives/execution.h"
 #include "primitives/trace_access.h"
-#include "primitives/row_print_buffer.cuh"
 #include "system/memory/controller.cuh"
 #include "system/memory/offline_checker.cuh"
 

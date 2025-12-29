@@ -120,25 +120,22 @@ template <size_t NUM_LIMBS> struct BaseAluCore {
             }
         }
 
-        // TODO: we just optionally write here but we can also optionally compute things like `run_add` above
         COL_WRITE_ARRAY(row, Cols, a, a);
         COL_WRITE_ARRAY(row, Cols, b, record.b);
         COL_WRITE_ARRAY(row, Cols, c, record.c);
 
-        if (!row.is_apc) {
-            COL_WRITE_VALUE(row, Cols, opcode_add_flag, record.local_opcode == 0);
-            COL_WRITE_VALUE(row, Cols, opcode_sub_flag, record.local_opcode == 1);
-            COL_WRITE_VALUE(row, Cols, opcode_xor_flag, record.local_opcode == 2);
-            COL_WRITE_VALUE(row, Cols, opcode_or_flag, record.local_opcode == 3);
-            COL_WRITE_VALUE(row, Cols, opcode_and_flag, record.local_opcode == 4);
-    #pragma unroll
+        COL_WRITE_VALUE(row, Cols, opcode_add_flag, record.local_opcode == 0);
+        COL_WRITE_VALUE(row, Cols, opcode_sub_flag, record.local_opcode == 1);
+        COL_WRITE_VALUE(row, Cols, opcode_xor_flag, record.local_opcode == 2);
+        COL_WRITE_VALUE(row, Cols, opcode_or_flag, record.local_opcode == 3);
+        COL_WRITE_VALUE(row, Cols, opcode_and_flag, record.local_opcode == 4);
 
-            for (size_t i = 0; i < NUM_LIMBS; i++) {
-                if (record.local_opcode == 0 || record.local_opcode == 1) {
-                    bitwise_lookup.add_xor(a[i], a[i]);
-                } else {
-                    bitwise_lookup.add_xor(record.b[i], record.c[i]);
-                }
+#pragma unroll
+        for (size_t i = 0; i < NUM_LIMBS; i++) {
+            if (record.local_opcode == 0 || record.local_opcode == 1) {
+                bitwise_lookup.add_xor(a[i], a[i]);
+            } else {
+                bitwise_lookup.add_xor(record.b[i], record.c[i]);
             }
         }
     }

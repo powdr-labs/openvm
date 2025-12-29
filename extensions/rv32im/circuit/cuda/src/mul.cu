@@ -25,36 +25,37 @@ struct Rv32MultiplicationRecord {
 };
 
 __global__ void mul_tracegen(
-    Fp *trace,
+    Fp *d_trace,
     size_t height,
-    DeviceBufferConstView<Rv32MultiplicationRecord> records,
-    uint32_t *range_checker_ptr,
+    DeviceBufferConstView<Rv32MultiplicationRecord> d_records,
+    uint32_t *d_range_checker_ptr,
     size_t range_checker_bins,
-    uint32_t *range_tuple_ptr,
+    uint32_t *d_range_tuple_ptr,
     uint2 range_tuple_sizes,
     uint32_t timestamp_max_bits,
     ApcParams apc
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     RowSlice row = RowSlice::create_apc_aware(
-        trace, height, idx, sizeof(Rv32MultiplicationCols<uint8_t>), apc
+        d_trace, height, idx, sizeof(Rv32MultiplicationCols<uint8_t>), apc, d_records.len()
     );
+    if (!row.is_valid()) return;
 
-    if (idx < records.len()) {
-        auto const &rec = records[idx];
+    if (idx < d_records.len()) {
+        auto const &rec = d_records[idx];
 
         Rv32MultAdapter adapter(
-            VariableRangeChecker(range_checker_ptr, range_checker_bins), timestamp_max_bits
+            VariableRangeChecker(d_range_checker_ptr, range_checker_bins), timestamp_max_bits
         );
         adapter.fill_trace_row(row, rec.adapter);
 
         RangeTupleChecker<2> range_tuple_checker(
-            range_tuple_ptr, (uint32_t[2]){range_tuple_sizes.x, range_tuple_sizes.y}
+            d_range_tuple_ptr, (uint32_t[2]){range_tuple_sizes.x, range_tuple_sizes.y}
         );
         Rv32MultiplicationCore core(range_tuple_checker);
         core.fill_trace_row(row.slice_from(COL_INDEX(Rv32MultiplicationCols, core)), rec.core);
     } else {
-        FILL_DUMMY_ROW_APC(row, sizeof(Rv32MultiplicationCols<uint8_t>), idx, height, apc);
+        row.fill_zero(0, sizeof(Rv32MultiplicationCols<uint8_t>));
     }
 }
 
@@ -71,7 +72,6 @@ extern "C" int _mul_tracegen(
     ApcParams apc
 ) {
     assert((height & (height - 1)) == 0);
-    assert((apc.height & (apc.height - 1)) == 0);
     assert(height >= d_records.len());
     if (!apc.is_apc()) assert(width == sizeof(Rv32MultiplicationCols<uint8_t>));
 

@@ -119,24 +119,22 @@ template <size_t NUM_LIMBS> struct ShiftCore {
             run_shift_right<NUM_LIMBS>(record.b, record.c, a, limb_shift, bit_shift, is_srl);
         }
 
-        if (!row.is_apc) {
-            #pragma unroll
-            for (size_t i = 0; i + 1 < NUM_LIMBS; i += 2) {
-                bitwise_lookup.add_range(a[i], a[i + 1]);
-            }
-
-            size_t combined_bits = NUM_LIMBS * RV32_CELL_BITS;
-            size_t num_bits_log = 0;
-            while ((1u << num_bits_log) < combined_bits) {
-                ++num_bits_log;
-            }
-            range_checker.add_count(
-                ((uint32_t)record.c[0] - (uint32_t)bit_shift -
-                    (uint32_t)(limb_shift * RV32_CELL_BITS)) >>
-                    num_bits_log,
-                RV32_CELL_BITS - num_bits_log
-            );
+#pragma unroll
+        for (size_t i = 0; i + 1 < NUM_LIMBS; i += 2) {
+            bitwise_lookup.add_range(a[i], a[i + 1]);
         }
+
+        size_t combined_bits = NUM_LIMBS * RV32_CELL_BITS;
+        size_t num_bits_log = 0;
+        while ((1u << num_bits_log) < combined_bits) {
+            ++num_bits_log;
+        }
+        range_checker.add_count(
+            ((uint32_t)record.c[0] - (uint32_t)bit_shift -
+             (uint32_t)(limb_shift * RV32_CELL_BITS)) >>
+                num_bits_log,
+            RV32_CELL_BITS - num_bits_log
+        );
 
         uint8_t carry_arr[NUM_LIMBS];
         if (bit_shift == 0) {
@@ -172,11 +170,9 @@ template <size_t NUM_LIMBS> struct ShiftCore {
         COL_WRITE_VALUE(row, Cols, bit_multiplier_left, is_sll ? (1u << bit_shift) : 0u);
         COL_WRITE_VALUE(row, Cols, bit_multiplier_right, is_sll ? 0u : (1u << bit_shift));
 
-        if (!row.is_apc) {
-            COL_WRITE_VALUE(row, Cols, opcode_sll_flag, is_sll ? 1u : 0u);
-            COL_WRITE_VALUE(row, Cols, opcode_srl_flag, is_srl ? 1u : 0u);
-            COL_WRITE_VALUE(row, Cols, opcode_sra_flag, is_sra ? 1u : 0u);
-        }
+        COL_WRITE_VALUE(row, Cols, opcode_sll_flag, is_sll ? 1u : 0u);
+        COL_WRITE_VALUE(row, Cols, opcode_srl_flag, is_srl ? 1u : 0u);
+        COL_WRITE_VALUE(row, Cols, opcode_sra_flag, is_sra ? 1u : 0u);
 
         COL_WRITE_ARRAY(row, Cols, b, record.b);
         COL_WRITE_ARRAY(row, Cols, c, record.c);

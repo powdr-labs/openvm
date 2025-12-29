@@ -127,12 +127,10 @@ template <size_t NUM_LIMBS> struct BranchLessThanCore {
 
         COL_WRITE_VALUE(row, Cols, cmp_result, cmp_result);
         COL_WRITE_VALUE(row, Cols, imm, record.imm);
-        if (!row.is_apc) {
-            COL_WRITE_VALUE(row, Cols, opcode_blt_flag, record.local_opcode == BLT);
-            COL_WRITE_VALUE(row, Cols, opcode_bltu_flag, record.local_opcode == BLTU);
-            COL_WRITE_VALUE(row, Cols, opcode_bge_flag, record.local_opcode == BGE);
-            COL_WRITE_VALUE(row, Cols, opcode_bgeu_flag, record.local_opcode == BGEU);
-        }
+        COL_WRITE_VALUE(row, Cols, opcode_blt_flag, record.local_opcode == BLT);
+        COL_WRITE_VALUE(row, Cols, opcode_bltu_flag, record.local_opcode == BLTU);
+        COL_WRITE_VALUE(row, Cols, opcode_bge_flag, record.local_opcode == BGE);
+        COL_WRITE_VALUE(row, Cols, opcode_bgeu_flag, record.local_opcode == BGEU);
         COL_WRITE_VALUE(row, Cols, a_msb_f, a_msb_f);
         COL_WRITE_VALUE(row, Cols, b_msb_f, b_msb_f);
         COL_WRITE_VALUE(row, Cols, cmp_lt, cmp_lt);

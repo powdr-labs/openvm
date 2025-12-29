@@ -38,8 +38,9 @@ __global__ void rv32_shift_tracegen(
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     RowSlice row = RowSlice::create_apc_aware(
-        trace, height, idx, sizeof(ShiftCols<uint8_t>), apc
+        trace, height, idx, sizeof(ShiftCols<uint8_t>), apc, records.len()
     );
+    if (!row.is_valid()) return;
 
     if (idx < records.len()) {
         auto const &rec = records[idx];
@@ -55,7 +56,7 @@ __global__ void rv32_shift_tracegen(
         );
         core.fill_trace_row(row.slice_from(COL_INDEX(ShiftCols, core)), rec.core);
     } else {
-        FILL_DUMMY_ROW_APC(row, sizeof(ShiftCols<uint8_t>), idx, height, apc);
+        row.fill_zero(0, sizeof(ShiftCols<uint8_t>));
     }
 }
 
@@ -72,7 +73,6 @@ extern "C" int _rv32_shift_tracegen(
     ApcParams apc
 ) {
     assert((height & (height - 1)) == 0);
-    assert((apc.height & (apc.height - 1)) == 0);
     assert(height >= d_records.len());
     if (!apc.is_apc()) assert(width == sizeof(ShiftCols<uint8_t>));
 

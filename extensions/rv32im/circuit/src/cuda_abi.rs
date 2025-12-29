@@ -8,7 +8,7 @@ use openvm_cuda_common::{
 };
 use openvm_stark_backend::ApcTracingContext;
 
-/// APC (Automatic Proof Composition) parameters passed to CUDA kernels.
+/// APC parameters passed to CUDA kernels.
 /// This struct must match the C struct layout in trace_access.h.
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -171,11 +171,10 @@ pub mod jalr_cuda {
         apc: ApcParams,
     ) -> Result<(), CudaError> {
         assert!(height.is_power_of_two() || height == 0);
-        let width = d_trace.len() / height;
         CudaError::from_result(_jalr_tracegen(
             d_trace.as_mut_ptr(),
             height,
-            width,
+            d_trace.len() / height,
             d_records.view(),
             d_range_checker.as_mut_ptr() as *mut u32,
             d_range_checker.len() as u32,
@@ -357,13 +356,10 @@ pub mod shift_cuda {
         timestamp_max_bits: u32,
         apc: ApcParams,
     ) -> Result<(), CudaError> {
-        // `width` is non sensical for APC, as we would have APC trace divided by dummy height
-        // It's used in an assertion for non-APC
-        let width = d_trace.len() / height;
         CudaError::from_result(_rv32_shift_tracegen(
             d_trace.as_mut_ptr(),
             height,
-            width,
+            d_trace.len() / height,
             d_records.view(),
             d_range_checker.as_mut_ptr() as *mut u32,
             d_range_checker.len() as u32,
@@ -403,13 +399,10 @@ pub mod alu_cuda {
         timestamp_max_bits: u32,
         apc: ApcParams,
     ) -> Result<(), CudaError> {
-        // `width` is non sensical for APC, as we would have APC trace divided by dummy height
-        // It's used in an assertion for non-APC
-        let width = d_trace.len() / height;
         CudaError::from_result(_alu_tracegen(
             d_trace.as_mut_ptr(),
             height,
-            width,
+            d_trace.len() / height,
             d_records.view(),
             d_range_checker.as_mut_ptr() as *mut u32,
             range_bins,
@@ -535,11 +528,10 @@ pub mod jal_lui_cuda {
         apc: ApcParams,
     ) -> Result<(), CudaError> {
         assert!(height.is_power_of_two() || height == 0);
-        let width = d_trace.len() / height;
         CudaError::from_result(_jal_lui_tracegen(
             d_trace.as_mut_ptr(),
             height,
-            width,
+            d_trace.len() / height,
             d_records.view(),
             d_range_checker.as_mut_ptr() as *mut u32,
             d_range_checker.len() as u32,
@@ -580,7 +572,7 @@ pub mod beq_cuda {
         CudaError::from_result(_beq_tracegen(
             d_trace.as_mut_ptr(),
             height,
-            width,
+            d_trace.len() / height,
             d_records.view(),
             d_range_checker.as_mut_ptr() as *mut u32,
             d_range_checker.len() as u32,
@@ -602,7 +594,7 @@ pub mod branch_lt_cuda {
             d_range_checker: *mut u32,
             rc_bins: u32,
             d_bitwise_lookup: *mut u32,
-            bw_bits: u32,
+            bitwise_num_bits: u32,
             timestamp_max_bits: u32,
             apc: ApcParams,
         ) -> i32;
@@ -620,11 +612,10 @@ pub mod branch_lt_cuda {
         apc: ApcParams,
     ) -> Result<(), CudaError> {
         assert!(height.is_power_of_two() || height == 0);
-        let width = d_trace.len() / height;
         CudaError::from_result(_blt_tracegen(
             d_trace.as_mut_ptr(),
             height,
-            width,
+            d_trace.len() / height,
             d_records.view(),
             d_range_checker.as_mut_ptr() as *mut u32,
             d_range_checker.len() as u32,
@@ -670,11 +661,10 @@ pub mod mulh_cuda {
         apc: ApcParams,
     ) -> Result<(), CudaError> {
         assert!(height.is_power_of_two() || height == 0);
-        let width = d_trace.len() / height;
         CudaError::from_result(_mulh_tracegen(
             d_trace.as_mut_ptr(),
             height,
-            width,
+            d_trace.len() / height,
             d_records.view(),
             d_range_checker.as_mut_ptr() as *mut u32,
             d_range_checker.len(),

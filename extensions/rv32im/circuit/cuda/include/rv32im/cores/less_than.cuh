@@ -110,9 +110,7 @@ template <size_t NUM_LIMBS> struct LessThanCore {
         COL_WRITE_VALUE(row, Cols, b_msb_f, b_msb_f);
         COL_WRITE_VALUE(row, Cols, c_msb_f, c_msb_f);
         COL_WRITE_VALUE(row, Cols, diff_val, diff_val);
-        if (!row.is_apc) {
-            COL_WRITE_VALUE(row, Cols, opcode_slt_flag, is_slt);
-            COL_WRITE_VALUE(row, Cols, opcode_sltu_flag, !is_slt);
-        }
+        COL_WRITE_VALUE(row, Cols, opcode_slt_flag, is_slt);
+        COL_WRITE_VALUE(row, Cols, opcode_sltu_flag, !is_slt);
     }
 };

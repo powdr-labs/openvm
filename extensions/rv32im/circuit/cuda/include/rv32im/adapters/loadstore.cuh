@@ -69,6 +69,7 @@ struct Rv32LoadStoreAdapter {
 
         auto rs1_data = reinterpret_cast<uint8_t *>(&record.rs1_val);
         COL_WRITE_ARRAY(row, Rv32LoadStoreAdapterCols, rs1_data, rs1_data);
+
         bool needs_write = record.rd_rs2_ptr != UINT32_MAX;
 
         mem_helper.fill(

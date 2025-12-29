@@ -51,10 +51,9 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32MulHChipGpu {
             + Rv32MultAdapterCols::<F>::width();
         let trace_height = next_power_of_two_or_zero(records.len() / RECORD_SIZE);
 
-        let tuple_checker_sizes = UInt2::new(
-            self.range_tuple_checker.sizes[0],
-            self.range_tuple_checker.sizes[1],
-        );
+        let tuple_checker_sizes = self.range_tuple_checker.sizes;
+        let tuple_checker_sizes = UInt2::new(tuple_checker_sizes[0], tuple_checker_sizes[1]);
+
         let d_records = records.to_device().unwrap();
         let owned_trace = ctx
             .is_none()

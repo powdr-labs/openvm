@@ -50,12 +50,10 @@ template <size_t NUM_LIMBS> struct MultiplicationCore {
         uint32_t carry_buf[NUM_LIMBS];
         run_mul<NUM_LIMBS>(record.b, record.c, a, carry_buf);
 
-        if (!row.is_apc) {
-            #pragma unroll
-            for (size_t i = 0; i < NUM_LIMBS; i++) {
-                uint32_t vals[2] = {static_cast<uint32_t>(a[i]), carry_buf[i]};
-                range_tuple_checker.add_count(vals);
-            }
+#pragma unroll
+        for (size_t i = 0; i < NUM_LIMBS; i++) {
+            uint32_t vals[2] = {static_cast<uint32_t>(a[i]), carry_buf[i]};
+            range_tuple_checker.add_count(vals);
         }
 
         COL_WRITE_ARRAY(row, Cols, b, record.b);

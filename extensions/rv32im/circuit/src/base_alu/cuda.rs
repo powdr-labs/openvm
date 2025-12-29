@@ -42,15 +42,16 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
         }
         debug_assert_eq!(records.len() % RECORD_SIZE, 0);
 
+        let trace_width = BaseAluCoreCols::<F, RV32_REGISTER_NUM_LIMBS, RV32_CELL_BITS>::width()
+            + Rv32BaseAluAdapterCols::<F>::width();
         let trace_height = next_power_of_two_or_zero(records.len() / RECORD_SIZE);
+
         let d_records = records.to_device().unwrap();
 
         // Create owned trace only for non-APC path
-        let owned_trace = ctx.is_none().then(|| {
-            let w = BaseAluCoreCols::<F, RV32_REGISTER_NUM_LIMBS, RV32_CELL_BITS>::width()
-                + Rv32BaseAluAdapterCols::<F>::width();
-            DeviceMatrix::<F>::with_capacity(trace_height, w)
-        });
+        let owned_trace = ctx
+            .is_none()
+            .then(|| DeviceMatrix::<F>::with_capacity(trace_height, trace_width));
 
         unsafe {
             tracegen(

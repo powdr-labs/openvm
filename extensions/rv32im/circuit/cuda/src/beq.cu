@@ -35,8 +35,9 @@ __global__ void beq_tracegen(
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     RowSlice row = RowSlice::create_apc_aware(
-        trace, height, idx, sizeof(BranchEqualCols<uint8_t>), apc
+        trace, height, idx, sizeof(BranchEqualCols<uint8_t>), apc, records.len()
     );
+    if (!row.is_valid()) return;
 
     if (idx < records.len()) {
         auto const &full = records[idx];
@@ -47,7 +48,7 @@ __global__ void beq_tracegen(
         Rv32BranchEqualCore core;
         core.fill_trace_row(row.slice_from(COL_INDEX(BranchEqualCols, core)), full.core);
     } else {
-        FILL_DUMMY_ROW_APC(row, sizeof(BranchEqualCols<uint8_t>), idx, height, apc);
+        row.fill_zero(0, sizeof(BranchEqualCols<uint8_t>));
     }
 }
 
@@ -62,7 +63,6 @@ extern "C" int _beq_tracegen(
     ApcParams apc
 ) {
     assert((height & (height - 1)) == 0);
-    assert((apc.height & (apc.height - 1)) == 0);
     assert(height >= d_records.len());
     if (!apc.is_apc()) assert(width == sizeof(BranchEqualCols<uint8_t>));
 

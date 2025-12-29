@@ -37,8 +37,9 @@ __global__ void blt_tracegen(
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     RowSlice row = RowSlice::create_apc_aware(
-        trace, height, idx, sizeof(BranchLessThanCols<uint8_t>), apc
+        trace, height, idx, sizeof(BranchLessThanCols<uint8_t>), apc, records.len()
     );
+    if (!row.is_valid()) return;
 
     if (idx < records.len()) {
         auto const &full_record = records[idx];
@@ -49,7 +50,7 @@ __global__ void blt_tracegen(
         Rv32BranchLessThanCore core(BitwiseOperationLookup(bw_ptr, bw_bits));
         core.fill_trace_row(row.slice_from(COL_INDEX(BranchLessThanCols, core)), full_record.core);
     } else {
-        FILL_DUMMY_ROW_APC(row, sizeof(BranchLessThanCols<uint8_t>), idx, height, apc);
+        row.fill_zero(0, sizeof(BranchLessThanCols<uint8_t>));
     }
 }
 
@@ -66,7 +67,6 @@ extern "C" int _blt_tracegen(
     ApcParams apc
 ) {
     assert((height & (height - 1)) == 0);
-    assert((apc.height & (apc.height - 1)) == 0);
     assert(height >= d_records.len());
     if (!apc.is_apc()) assert(width == sizeof(BranchLessThanCols<uint8_t>));
 

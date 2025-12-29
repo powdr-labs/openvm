@@ -101,8 +101,9 @@ __global__ void jalr_tracegen(
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     RowSlice row = RowSlice::create_apc_aware(
-        trace, height, idx, sizeof(Rv32JalrCols<uint8_t>), apc
+        trace, height, idx, sizeof(Rv32JalrCols<uint8_t>), apc, records.len()
     );
+    if (!row.is_valid()) return;
 
     if (idx < records.len()) {
         auto full = records[idx];
@@ -120,7 +121,7 @@ __global__ void jalr_tracegen(
         );
         core.fill_trace_row(row.slice_from(COL_INDEX(Rv32JalrCols, core)), full.core);
     } else {
-        FILL_DUMMY_ROW_APC(row, sizeof(Rv32JalrCols<uint8_t>), idx, height, apc);
+        row.fill_zero(0, sizeof(Rv32JalrCols<uint8_t>));
     }
 }
 
@@ -137,7 +138,6 @@ extern "C" int _jalr_tracegen(
     ApcParams apc
 ) {
     assert((height & (height - 1)) == 0);
-    assert((apc.height & (apc.height - 1)) == 0);
     assert(height >= d_records.len());
     if (!apc.is_apc()) assert(width == sizeof(Rv32JalrCols<uint8_t>));
 

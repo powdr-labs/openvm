@@ -36,15 +36,13 @@ struct Rv32AuipcCore {
         auto auipc = run_auipc(record.from_pc, record.imm);
         auto rd_data = reinterpret_cast<uint8_t *>(&auipc);
 
-        if (!row.is_apc) {
-            bitwise_lookup.add_range(imm_limbs[0], imm_limbs[1]);
-            bitwise_lookup.add_range(imm_limbs[2], pc_limbs[1]);
-            auto msl_shift = RV32_REGISTER_NUM_LIMBS * RV32_CELL_BITS - PC_BITS;
-            bitwise_lookup.add_range(pc_limbs[2], pc_limbs[3] << msl_shift);
-    #pragma unroll
-            for (size_t i = 0; i < RV32_REGISTER_NUM_LIMBS; i += 2) {
-                bitwise_lookup.add_range(rd_data[i], rd_data[i + 1]);
-            }
+        bitwise_lookup.add_range(imm_limbs[0], imm_limbs[1]);
+        bitwise_lookup.add_range(imm_limbs[2], pc_limbs[1]);
+        auto msl_shift = RV32_REGISTER_NUM_LIMBS * RV32_CELL_BITS - PC_BITS;
+        bitwise_lookup.add_range(pc_limbs[2], pc_limbs[3] << msl_shift);
+#pragma unroll
+        for (size_t i = 0; i < RV32_REGISTER_NUM_LIMBS; i += 2) {
+            bitwise_lookup.add_range(rd_data[i], rd_data[i + 1]);
         }
 
         COL_WRITE_ARRAY(row, Rv32AuipcCoreCols, imm_limbs, imm_limbs);
@@ -77,8 +75,9 @@ __global__ void auipc_tracegen(
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     RowSlice row = RowSlice::create_apc_aware(
-        trace, height, idx, sizeof(Rv32AuipcCols<uint8_t>), apc
+        trace, height, idx, sizeof(Rv32AuipcCols<uint8_t>), apc, records.len()
     );
+    if (!row.is_valid()) return;
 
     if (idx < records.len()) {
         auto const &record = records[idx];
@@ -91,7 +90,7 @@ __global__ void auipc_tracegen(
         auto core = Rv32AuipcCore(BitwiseOperationLookup(bitwise_lookup_ptr, bitwise_num_bits));
         core.fill_trace_row(row.slice_from(COL_INDEX(Rv32AuipcCols, core)), record.core);
     } else {
-        FILL_DUMMY_ROW_APC(row, sizeof(Rv32AuipcCols<uint8_t>), idx, height, apc);
+        row.fill_zero(0, sizeof(Rv32AuipcCols<uint8_t>));
     }
 }
 
@@ -108,7 +107,6 @@ extern "C" int _auipc_tracegen(
     ApcParams apc
 ) {
     assert((height & (height - 1)) == 0);
-    assert((apc.height & (apc.height - 1)) == 0);
     assert(height >= d_records.len());
     if (!apc.is_apc()) assert(width == sizeof(Rv32AuipcCols<uint8_t>));
 

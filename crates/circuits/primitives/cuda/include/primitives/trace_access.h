@@ -1,12 +1,10 @@
 #pragma once
 
 #include "fp.h"
-#include "primitives/row_print_buffer.cuh"
 #include <cstddef>
 #include <cstdint>
-#include <type_traits>
 
-/// APC (Automatic Proof Composition) parameters passed from Rust to CUDA.
+/// APC parameters passed from Rust to CUDA.
 /// Bundles all APC-related data into a single struct for cleaner interfaces.
 struct ApcParams {
     uint32_t *subs;
@@ -46,55 +44,49 @@ struct RowSlice {
     __device__ RowSlice(Fp *ptr, size_t stride) : ptr(ptr), stride(stride), optimized_offset(0), dummy_offset(0), subs(nullptr), is_apc(false) {}
 
     /// Create a RowSlice with APC-aware setup.
-    /// When apc_width != 0, computes the correct pointer offset and metadata for APC mode.
-    /// When apc_width == 0, creates a simple non-APC RowSlice.
+    /// For APC mode: if idx >= num_records, fills the dummy row and returns null.
+    /// For non-APC mode: returns a valid RowSlice (caller handles dummy rows).
     /// @param d_trace Base pointer to the trace buffer
     /// @param height Trace height (stride between columns)
     /// @param idx Thread index (blockIdx.x * blockDim.x + threadIdx.x)
-    /// @param d_post_opt_offsets Per-slot optimized column offsets (can be nullptr for non-APC)
     /// @param cols_size sizeof(ColsType<uint8_t>) for the chip
-    /// @param subs Column substitution table for APC
-    /// @param apc_width APC width (0 for non-APC)
-    /// @param calls_per_apc_row Number of chip calls packed per APC row (1 for non-APC)
+    /// @param apc APC parameters struct
+    /// @param num_records Number of real records to process
     __device__ static RowSlice create_apc_aware(
         Fp *d_trace,
         size_t height,
         uint32_t idx,
-        uint32_t *d_post_opt_offsets,
         size_t cols_size,
-        uint32_t *subs,
-        size_t apc_width,
-        uint32_t calls_per_apc_row
+        const ApcParams &apc,
+        size_t num_records
     ) {
-        bool is_apc = apc_width != 0;
-        if (is_apc) {
-            uint32_t slot = idx % calls_per_apc_row;
-            size_t opt_offset = d_post_opt_offsets[slot];
-            return RowSlice(
-                d_trace + idx / calls_per_apc_row + opt_offset * height,
+        if (apc.is_apc()) {
+            // Beyond APC buffer - nothing to do
+            if (idx >= height * apc.calls_per_row) {
+                return RowSlice::null();
+            }
+
+            uint32_t slot = idx % apc.calls_per_row;
+            size_t opt_offset = apc.post_opt_offsets[slot];
+            RowSlice row(
+                d_trace + idx / apc.calls_per_row + opt_offset * height,
                 height,
                 opt_offset,
                 cols_size * slot,
-                subs,
+                apc.subs,
                 true
             );
+
+            // Dummy row - fill zeros and return null
+            if (idx >= num_records) {
+                row.fill_zero_no_offset(0, apc.opt_widths[slot]);
+                return RowSlice::null();
+            }
+
+            return row;
         } else {
             return RowSlice(d_trace + idx, height);
         }
-    }
-
-    /// Overload that accepts ApcParams struct directly.
-    __device__ static RowSlice create_apc_aware(
-        Fp *d_trace,
-        size_t height,
-        uint32_t idx,
-        size_t cols_size,
-        const ApcParams &apc
-    ) {
-        return create_apc_aware(
-            d_trace, height, idx, apc.post_opt_offsets,
-            cols_size, apc.subs, apc.width, apc.calls_per_row
-        );
     }
 
     __device__ __forceinline__ Fp &operator[](size_t column_index) const {
@@ -189,16 +181,6 @@ struct RowSlice {
     }
 };
 
-template <typename T>
-__device__ __forceinline__ unsigned long long to_debug_uint(T value) {
-    using Base = std::remove_cv_t<std::remove_reference_t<T>>;
-    if constexpr (std::is_same_v<Base, Fp>) {
-        return static_cast<unsigned long long>(value.asRaw());
-    } else {
-        return static_cast<unsigned long long>(value);
-    }
-}
-
 /// Compute the 0-based column index of member `FIELD` within struct template `STRUCT<T>`,
 /// by instantiating it as `STRUCT<uint8_t>` so that offsetof yields the element index.
 #define COL_INDEX(STRUCT, FIELD) (offsetof(STRUCT<uint8_t>, FIELD))
@@ -221,21 +203,6 @@ __device__ __forceinline__ unsigned long long to_debug_uint(T value) {
     (ROW).fill_zero(                                                                               \
         COL_INDEX(STRUCT, FIELD), sizeof(static_cast<STRUCT<uint8_t> *>(nullptr)->FIELD)           \
     )
-
-/// Fill dummy rows with zeros, handling both APC and non-APC cases.
-/// For non-APC: fills cols_size bytes starting from column 0.
-/// For APC: fills opt_widths[slot] bytes, but only if idx < height * calls_per_row
-/// to avoid writing beyond the allocated buffer.
-/// This version accepts ApcParams struct.
-#define FILL_DUMMY_ROW_APC(row, cols_size, idx, height, apc)                                       \
-    do {                                                                                           \
-        if (!(apc).is_apc()) {                                                                     \
-            (row).fill_zero(0, (cols_size));                                                       \
-        } else if ((idx) < (height) * (apc).calls_per_row) {                                       \
-            (row).fill_zero_no_offset(0, (apc).opt_widths[(idx) % (apc).calls_per_row]);           \
-        }                                                                                          \
-    } while(0)
-
 
 __device__ __forceinline__ size_t number_of_gaps_in(const uint32_t *sub, size_t start, size_t len) {
     size_t gaps = 0;

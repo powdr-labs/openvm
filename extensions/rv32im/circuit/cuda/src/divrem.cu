@@ -175,52 +175,48 @@ template <size_t NUM_LIMBS> struct DivRemCore {
             COL_WRITE_VALUE(row, Cols, lt_diff, 0);
         }
 
-        if (!row.is_apc) {
-            COL_WRITE_VALUE(row, Cols, opcode_div_flag, opcode == DIV);
-            COL_WRITE_VALUE(row, Cols, opcode_divu_flag, opcode == DIVU);
-            COL_WRITE_VALUE(row, Cols, opcode_rem_flag, opcode == REM);
-            COL_WRITE_VALUE(row, Cols, opcode_remu_flag, opcode == REMU);
+        COL_WRITE_VALUE(row, Cols, opcode_div_flag, opcode == DIV);
+        COL_WRITE_VALUE(row, Cols, opcode_divu_flag, opcode == DIVU);
+        COL_WRITE_VALUE(row, Cols, opcode_rem_flag, opcode == REM);
+        COL_WRITE_VALUE(row, Cols, opcode_remu_flag, opcode == REMU);
+
+        if (is_signed) {
+            bitwise_lookup.add_range(
+                (record.b[NUM_LIMBS - 1] & 0x7f) << 1, (record.c[NUM_LIMBS - 1] & 0x7f) << 1
+            );
         }
 
-        if (!row.is_apc) {
-            if (is_signed) {
-                bitwise_lookup.add_range(
-                    (record.b[NUM_LIMBS - 1] & 0x7f) << 1, (record.c[NUM_LIMBS - 1] & 0x7f) << 1
-                );
+        // range tuple check carries
+        uint32_t carry = 0;
+#pragma unroll
+        for (size_t i = 0; i < NUM_LIMBS; i++) {
+            carry += r[i];
+#pragma unroll
+            for (size_t j = 0; j <= i; j++) {
+                carry += (uint32_t)q[j] * (uint32_t)record.c[i - j];
             }
+            carry = carry >> RV32_CELL_BITS;
+            range_tuple_checker.add_count((uint32_t[2]){(uint32_t)q[i], carry});
+        }
+        bool r_sign = is_signed && (r[NUM_LIMBS - 1] >> (RV32_CELL_BITS - 1));
 
-            // range tuple check carries
-            uint32_t carry = 0;
+        uint32_t q_ext = (q_sign && is_signed) * ((1 << RV32_CELL_BITS) - 1);
+        uint32_t c_ext = (c_sign << RV32_CELL_BITS) - c_sign;
+        uint32_t r_ext = (r_sign << RV32_CELL_BITS) - r_sign;
+
+        uint32_t c_pref = 0;
+        uint32_t q_pref = 0;
 #pragma unroll
-            for (size_t i = 0; i < NUM_LIMBS; i++) {
-                carry += r[i];
+        for (size_t i = 0; i < NUM_LIMBS; i++) {
+            c_pref += record.c[i];
+            q_pref += q[i];
+            carry += c_pref * q_ext + q_pref * c_ext + r_ext;
 #pragma unroll
-                for (size_t j = 0; j <= i; j++) {
-                    carry += (uint32_t)q[j] * (uint32_t)record.c[i - j];
-                }
-                carry = carry >> RV32_CELL_BITS;
-                range_tuple_checker.add_count((uint32_t[2]){(uint32_t)q[i], carry});
+            for (size_t j = i + 1; j < NUM_LIMBS; j++) {
+                carry += (uint32_t)record.c[j] * (uint32_t)q[NUM_LIMBS + i - j];
             }
-            bool r_sign = is_signed && (r[NUM_LIMBS - 1] >> (RV32_CELL_BITS - 1));
-
-            uint32_t q_ext = (q_sign && is_signed) * ((1 << RV32_CELL_BITS) - 1);
-            uint32_t c_ext = (c_sign << RV32_CELL_BITS) - c_sign;
-            uint32_t r_ext = (r_sign << RV32_CELL_BITS) - r_sign;
-
-            uint32_t c_pref = 0;
-            uint32_t q_pref = 0;
-#pragma unroll
-            for (size_t i = 0; i < NUM_LIMBS; i++) {
-                c_pref += record.c[i];
-                q_pref += q[i];
-                carry += c_pref * q_ext + q_pref * c_ext + r_ext;
-#pragma unroll
-                for (size_t j = i + 1; j < NUM_LIMBS; j++) {
-                    carry += (uint32_t)record.c[j] * (uint32_t)q[NUM_LIMBS + i - j];
-                }
-                carry = carry >> RV32_CELL_BITS;
-                range_tuple_checker.add_count((uint32_t[2]){(uint32_t)r[i], carry});
-            }
+            carry = carry >> RV32_CELL_BITS;
+            range_tuple_checker.add_count((uint32_t[2]){(uint32_t)r[i], carry});
         }
     }
 };
@@ -251,8 +247,9 @@ __global__ void rv32_div_rem_tracegen(
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     RowSlice row = RowSlice::create_apc_aware(
-        d_trace, height, idx, sizeof(Rv32DivRemCols<uint8_t>), apc
+        d_trace, height, idx, sizeof(Rv32DivRemCols<uint8_t>), apc, d_records.len()
     );
+    if (!row.is_valid()) return;
 
     if (idx < d_records.len()) {
         auto const &record = d_records[idx];
@@ -271,7 +268,7 @@ __global__ void rv32_div_rem_tracegen(
         );
         core.fill_trace_row(row.slice_from(COL_INDEX(Rv32DivRemCols, core)), record.core);
     } else {
-        FILL_DUMMY_ROW_APC(row, sizeof(Rv32DivRemCols<uint8_t>), idx, height, apc);
+        row.fill_zero(0, sizeof(Rv32DivRemCols<uint8_t>));
     }
 }
 
@@ -290,7 +287,6 @@ extern "C" int _rv32_div_rem_tracegen(
     ApcParams apc
 ) {
     assert((height & (height - 1)) == 0);
-    assert((apc.height & (apc.height - 1)) == 0);
     assert(height >= d_records.len());
     if (!apc.is_apc()) assert(width == sizeof(Rv32DivRemCols<uint8_t>));
 
