@@ -8,11 +8,11 @@ use openvm_circuit_primitives::{
 use openvm_cuda_backend::{
     base::DeviceMatrix,
     chip::{get_empty_air_proving_ctx, UInt2},
-    prover_backend::GpuBackend,
+    prover_backend::{GpuApcTracingContext, GpuBackend},
     types::F,
 };
 use openvm_cuda_common::copy::MemCopyH2D;
-use openvm_stark_backend::{prover::types::AirProvingContext, ApcTracingContext, Chip};
+use openvm_stark_backend::{prover::types::AirProvingContext, Chip};
 
 use crate::{
     adapters::{
@@ -33,7 +33,7 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32MultiplicationChipGpu {
     fn generate_proving_ctx_direct(
         &self,
         arena: DenseRecordArena,
-        ctx: Option<&ApcTracingContext>,
+        ctx: Option<&GpuApcTracingContext>,
     ) -> AirProvingContext<GpuBackend> {
         const RECORD_SIZE: usize = size_of::<(
             Rv32MultAdapterRecord,

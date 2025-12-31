@@ -6,10 +6,10 @@ use openvm_circuit_primitives::{
     bitwise_op_lookup::BitwiseOperationLookupChipGPU, var_range::VariableRangeCheckerChipGPU,
 };
 use openvm_cuda_backend::{
-    base::DeviceMatrix, chip::get_empty_air_proving_ctx, prover_backend::GpuBackend, types::F,
+    base::DeviceMatrix, chip::get_empty_air_proving_ctx, prover_backend::{GpuApcTracingContext, GpuBackend}, types::F,
 };
 use openvm_cuda_common::copy::MemCopyH2D;
-use openvm_stark_backend::{prover::types::AirProvingContext, ApcTracingContext, Chip};
+use openvm_stark_backend::{prover::types::AirProvingContext, Chip};
 
 use crate::{
     adapters::{Rv32RdWriteAdapterCols, Rv32RdWriteAdapterRecord, RV32_CELL_BITS},
@@ -28,7 +28,7 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32AuipcChipGpu {
     fn generate_proving_ctx_direct(
         &self,
         arena: DenseRecordArena,
-        ctx: Option<&ApcTracingContext>,
+        ctx: Option<&GpuApcTracingContext>,
     ) -> AirProvingContext<GpuBackend> {
         const RECORD_SIZE: usize = size_of::<(Rv32RdWriteAdapterRecord, Rv32AuipcCoreRecord)>();
         let records = arena.allocated();

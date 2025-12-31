@@ -1,12 +1,11 @@
 #![allow(clippy::missing_safety_doc)]
 #![allow(clippy::too_many_arguments)]
 
-use openvm_cuda_backend::{chip::UInt2, prelude::F};
+use openvm_cuda_backend::{chip::UInt2, prelude::F, prover_backend::GpuApcTracingContext};
 use openvm_cuda_common::{
     d_buffer::{DeviceBuffer, DeviceBufferView},
     error::CudaError,
 };
-use openvm_stark_backend::ApcTracingContext;
 
 /// APC parameters passed to CUDA kernels.
 /// This struct must match the C struct layout in trace_access.h.
@@ -22,10 +21,10 @@ pub struct ApcParams {
 }
 
 impl ApcParams {
-    /// Create ApcParams from an optional ApcTracingContext.
+    /// Create ApcParams from an optional GpuApcTracingContext.
     /// When ctx is None, creates params for non-APC mode (null pointers are safe
     /// since is_apc() returns false and pointers are never dereferenced).
-    pub fn from_ctx(ctx: Option<&ApcTracingContext>) -> Self {
+    pub fn from_ctx(ctx: Option<&GpuApcTracingContext>) -> Self {
         match ctx {
             Some(c) => Self {
                 subs: c.d_subs.as_mut_ptr(),
