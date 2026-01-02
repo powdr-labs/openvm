@@ -78,7 +78,7 @@ extern "C" int _rv32_less_than_tracegen(
     auto [grid, block] = kernel_launch_params(apc.thread_count(height));
     rv32_less_than_tracegen<<<grid, block>>>(
         d_trace,
-        apc.effective_height(height),
+        apc.is_apc() ? apc.height : height,
         d_records,
         d_range_checker,
         range_checker_num_bins,

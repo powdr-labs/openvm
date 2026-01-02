@@ -41,18 +41,13 @@ struct Histogram {
 
 struct VariableRangeChecker {
     lookup::Histogram hist;
-    bool is_apc;
 
     __device__ VariableRangeChecker(uint32_t *global_hist, uint32_t num_bins)
-        : hist(global_hist, num_bins), is_apc(false) {}
-
-    __device__ VariableRangeChecker(uint32_t *global_hist, uint32_t num_bins, bool is_apc)
-        : hist(global_hist, num_bins), is_apc(is_apc) {}
+        : hist(global_hist, num_bins) {}
 
     // Used by VariableRangeChecker to constrain value that can be represented
     // using max_bits bits.
     __device__ void add_count(uint32_t value, size_t max_bits) {
-        if (is_apc) return;
         uint32_t idx = (1 << max_bits) + value;
         hist.add_count(idx);
     }
@@ -92,20 +87,8 @@ struct VariableRangeChecker {
 template <uint32_t N> struct RangeTupleChecker {
     uint32_t sizes[N];
     lookup::Histogram hist;
-    bool is_apc;
 
-    __device__ RangeTupleChecker(uint32_t *global_hist, uint32_t sizes[N])
-        : is_apc(false) {
-        uint32_t num_bins = 1;
-        for (int i = 0; i < N; i++) {
-            this->sizes[i] = sizes[i];
-            num_bins *= this->sizes[i];
-        }
-        hist = lookup::Histogram(global_hist, num_bins);
-    }
-
-    __device__ RangeTupleChecker(uint32_t *global_hist, uint32_t sizes[N], bool is_apc)
-        : is_apc(is_apc) {
+    __device__ RangeTupleChecker(uint32_t *global_hist, uint32_t sizes[N]) {
         uint32_t num_bins = 1;
         for (int i = 0; i < N; i++) {
             this->sizes[i] = sizes[i];
@@ -115,7 +98,6 @@ template <uint32_t N> struct RangeTupleChecker {
     }
 
     __device__ void add_count(uint32_t values[N]) {
-        if (is_apc) return;
         uint32_t idx = 0;
         for (int i = 0; i < N; i++) {
             idx = idx * sizes[i] + values[i];
@@ -124,7 +106,6 @@ template <uint32_t N> struct RangeTupleChecker {
     }
 
     __device__ void add_count(RowSlice values) {
-        if (is_apc) return;
         uint32_t idx = 0;
         for (int i = 0; i < N; i++) {
             idx = idx * sizes[i] + values[i].asUInt32();
@@ -145,16 +126,11 @@ struct BitwiseOperationLookup {
     uint32_t num_bits;
     uint32_t num_rows;
     lookup::Histogram hist;
-    bool is_apc;
 
     __device__ BitwiseOperationLookup(uint32_t *global_hist, uint32_t num_bits)
-        : num_bits(num_bits), num_rows(1 << (num_bits << 1)), hist(global_hist, num_rows << 1), is_apc(false) {}
-
-    __device__ BitwiseOperationLookup(uint32_t *global_hist, uint32_t num_bits, bool is_apc)
-        : num_bits(num_bits), num_rows(1 << (num_bits << 1)), hist(global_hist, num_rows << 1), is_apc(is_apc) {}
+        : num_bits(num_bits), num_rows(1 << (num_bits << 1)), hist(global_hist, num_rows << 1) {}
 
     __device__ void add_range(uint32_t x, uint32_t y) {
-        if (is_apc) return;
         uint32_t idx = x * (1 << num_bits) + y;
         if (idx < num_rows) {
             hist.add_count(idx);
@@ -162,7 +138,6 @@ struct BitwiseOperationLookup {
     }
 
     __device__ void add_xor(uint32_t x, uint32_t y) {
-        if (is_apc) return;
         uint32_t idx = x * (1 << num_bits) + y;
         if (idx < num_rows) {
             hist.add_count(idx + num_rows);

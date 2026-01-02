@@ -215,7 +215,7 @@ extern "C" int _rv32_load_store_tracegen(
     auto [grid, block] = kernel_launch_params(apc.thread_count(height));
     rv32_load_store_tracegen<<<grid, block>>>(
         d_trace,
-        apc.effective_height(height),
+        apc.is_apc() ? apc.height : height,
         width,
         d_records,
         pointer_max_bits,

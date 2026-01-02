@@ -1,6 +1,7 @@
 #pragma once
 
 #include "fp.h"
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 
@@ -20,21 +21,52 @@ struct ApcParams {
         return is_apc() ? (height * calls_per_row) : non_apc_height;
     }
 
-    __host__ size_t effective_height(size_t non_apc_height) const {
-        return is_apc() ? height : non_apc_height;
-    }
 };
 
+/// Count eliminated columns (gaps) in a range of the APC substitution array.
+/// In APC mode, columns marked with UINT32_MAX were eliminated during optimization.
+/// This function counts how many such gaps exist in [start, start+len).
+/// Used by slice_from() to compute the correct pointer offset in the optimized trace.
+/// @param sub  Pointer to the APC substitution array
+/// @param start  Starting index in the substitution array
+/// @param len  Number of entries to scan
+/// @return Number of entries equal to UINT32_MAX in the range
 __device__ __forceinline__ size_t number_of_gaps_in(const uint32_t *sub, size_t start, size_t len);
 
 /// A RowSlice is a contiguous section of a row in col-based trace.
 /// Supports both direct trace access (non-APC) and APC-aware access with column substitution.
+///
+/// ## APC Mode
+/// When `is_apc` is true, the trace has been optimized to remove redundant columns. The `subs`
+/// array maps original column indices to their optimized positions (or UINT32_MAX if eliminated).
+/// Writes to eliminated columns are ignored.
+///
+/// ## Non-APC Mode
+/// When `is_apc` is false, columns map directly to trace positions without substitution.
 struct RowSlice {
+    /// Base pointer into the trace buffer, pointing to the first column of this row slice.
     Fp *ptr;
+
+    /// Distance (in Fp elements) between consecutive columns in the trace.
+    /// Equal to the trace height in column-major layout.
     size_t stride;
+
+    /// Column offset in the optimized (APC) trace where this slice begins.
+    /// Used to convert APC substitution indices back to ptr-relative offsets.
+    /// Always 0 in non-APC mode.
     size_t optimized_offset;
+
+    /// Column offset in the original (non-optimized) column layout.
+    /// Used as base index into the `subs` substitution array.
+    /// Always 0 in non-APC mode.
     size_t dummy_offset;
+
+    /// Pointer to the APC substitution array mapping original column indices to optimized indices.
+    /// Entry value UINT32_MAX indicates the column was eliminated and writes should be skipped.
+    /// nullptr in non-APC mode.
     uint32_t *subs;
+
+    /// Whether this RowSlice operates in APC mode with column substitution.
     bool is_apc;
 
     // Full constructor for APC-aware access
@@ -61,10 +93,8 @@ struct RowSlice {
         size_t num_records
     ) {
         if (apc.is_apc()) {
-            // Beyond APC buffer - nothing to do
-            if (idx >= height * apc.calls_per_row) {
-                return RowSlice::null();
-            }
+            // Beyond APC buffer - this should never happen if kernel launch is correct
+            assert(idx < height * apc.calls_per_row && "idx exceeds APC buffer bounds");
 
             uint32_t slot = idx % apc.calls_per_row;
             size_t opt_offset = apc.post_opt_offsets[slot];
@@ -117,19 +147,9 @@ struct RowSlice {
     template <typename T>
     __device__ __forceinline__ void write_array(size_t column_index, size_t length, const T *values)
         const {
-        if (is_apc) {
 #pragma unroll
-            for (size_t i = 0; i < length; i++) {
-                const uint32_t apc_idx = subs[dummy_offset + column_index + i];
-                if (apc_idx != UINT32_MAX) {
-                    ptr[(apc_idx - optimized_offset) * stride] = values[i];
-                }
-            }
-        } else {
-#pragma unroll
-            for (size_t i = 0; i < length; i++) {
-                ptr[(column_index + i) * stride] = values[i];
-            }
+        for (size_t i = 0; i < length; i++) {
+            write(column_index + i, values[i]);
         }
     }
 
@@ -142,19 +162,9 @@ struct RowSlice {
     }
 
     __device__ __forceinline__ void fill_zero(size_t column_index_from, size_t length) const {
-        if (is_apc) {
 #pragma unroll
-            for (size_t i = 0, c = column_index_from; i < length; i++, c++) {
-                const uint32_t apc_idx = subs[dummy_offset + c];
-                if (apc_idx != UINT32_MAX) {
-                    ptr[(apc_idx - optimized_offset) * stride] = 0;
-                }
-            }
-        } else {
-#pragma unroll
-            for (size_t i = 0, c = column_index_from; i < length; i++, c++) {
-                ptr[c * stride] = 0;
-            }
+        for (size_t i = 0, c = column_index_from; i < length; i++, c++) {
+            write(c, 0);
         }
     }
 
@@ -177,7 +187,8 @@ struct RowSlice {
     }
 
     __device__ __forceinline__ RowSlice shift_row(size_t n) const {
-        return RowSlice(ptr + n, stride, optimized_offset, dummy_offset, subs, is_apc);
+        assert(!is_apc && "shift_row is only valid in non-APC mode");
+        return RowSlice(ptr + n, stride, 0, 0, nullptr, false);
     }
 };
 

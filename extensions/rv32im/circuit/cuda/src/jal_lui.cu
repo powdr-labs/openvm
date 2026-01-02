@@ -100,7 +100,7 @@ extern "C" int _jal_lui_tracegen(
     auto [grid, block] = kernel_launch_params(apc.thread_count(height));
     jal_lui_tracegen<<<grid, block>>>(
         d_trace,
-        apc.effective_height(height),
+        apc.is_apc() ? apc.height : height,
         d_records,
         d_rc,
         rc_bins,

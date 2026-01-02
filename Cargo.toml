@@ -272,7 +272,7 @@ cuda-runtime-sys = "0.3.0-alpha.1"
 [workspace.metadata.cargo-shear]
 ignored = ["cargo-openvm"]
 
-# The local openvm also needs to have stark-backend patched so all types match.
+# # The local openvm also needs to have stark-backend patched so all types match.
 # [patch."https://github.com/powdr-labs/stark-backend.git"]
 # openvm-stark-backend = { path = "../stark-backend/crates/stark-backend", default-features = false }
 # openvm-stark-sdk = { path = "../stark-backend/crates/stark-sdk", default-features = false }

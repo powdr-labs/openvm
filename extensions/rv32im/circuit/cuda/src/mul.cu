@@ -78,7 +78,7 @@ extern "C" int _mul_tracegen(
     auto [grid, block] = kernel_launch_params(apc.thread_count(height), 512);
     mul_tracegen<<<grid, block>>>(
         d_trace,
-        apc.effective_height(height),
+        apc.is_apc() ? apc.height : height,
         d_records,
         d_range_checker_ptr,
         range_checker_bins,
