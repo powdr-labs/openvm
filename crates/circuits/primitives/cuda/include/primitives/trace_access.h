@@ -215,6 +215,14 @@ struct RowSlice {
         COL_INDEX(STRUCT, FIELD), sizeof(static_cast<STRUCT<uint8_t> *>(nullptr)->FIELD)           \
     )
 
+/// Count eliminated columns (gaps) in a range of the APC substitution array.                                                                                                                            
+/// In APC mode, columns marked with UINT32_MAX were eliminated during optimization.                                                                                                                     
+/// This function counts how many such gaps exist in [start, start+len).                                                                                                                                 
+/// Used by slice_from() to compute the correct pointer offset in the optimized trace.                                                                                                                   
+/// @param sub  Pointer to the APC substitution array                                                                                                                                                    
+/// @param start  Starting index in the substitution array                                                                                                                                               
+/// @param len  Number of entries to scan                                                                                                                                                                
+/// @return Number of entries equal to UINT32_MAX in the range   
 __device__ __forceinline__ size_t number_of_gaps_in(const uint32_t *sub, size_t start, size_t len) {
     size_t gaps = 0;
 #pragma unroll
