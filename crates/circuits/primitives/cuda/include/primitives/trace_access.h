@@ -93,8 +93,10 @@ struct RowSlice {
         size_t num_records
     ) {
         if (apc.is_apc()) {
-            // Beyond APC buffer - this should never happen if kernel launch is correct
-            assert(idx < height * apc.calls_per_row && "idx exceeds APC buffer bounds");
+            // Extra threads from block rounding - nothing to do
+            if (idx >= height * apc.calls_per_row) {
+                return RowSlice::null();
+            }
 
             uint32_t slot = idx % apc.calls_per_row;
             size_t opt_offset = apc.post_opt_offsets[slot];
