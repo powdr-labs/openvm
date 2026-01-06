@@ -198,10 +198,6 @@ impl DenseRecordArena {
     /// Allocates `count` bytes and returns as a mutable slice.
     pub fn alloc_bytes<'a>(&mut self, count: usize) -> &'a mut [u8] {
         let begin = self.records_buffer.position();
-        let capacity = self.records_buffer.get_ref().len();
-        if begin as usize + count > capacity {
-            eprintln!("[DEBUG] DenseRecordArena::alloc_bytes OVERFLOW - trying to allocate {} bytes at position {}, capacity is {}", count, begin, capacity);
-        }
         assert!(
             begin as usize + count <= self.records_buffer.get_ref().len(),
             "failed to allocate {count} bytes from {begin} when the capacity is {}",

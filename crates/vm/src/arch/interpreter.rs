@@ -576,13 +576,6 @@ unsafe fn execute_trampoline<F: PrimeField32, Ctx: ExecutionCtxTrait>(
         let pc = exec_state.pc();
         let pc_index = get_pc_index(pc);
 
-        // Debug: track PC indices during metered execution
-        static MAX_PC_INDEX: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-        let max = MAX_PC_INDEX.fetch_max(pc_index, std::sync::atomic::Ordering::SeqCst);
-        if pc_index > max && (pc_index == 135 || pc_index == 761402 || pc_index == 761405 || pc_index % 100000 == 0) {
-            eprintln!("[DEBUG] execute_trampoline: pc_index={} (pc={})", pc_index, pc);
-        }
-
         if let Some(inst) = fn_ptrs.get(pc_index) {
             // SAFETY: pre_compute assumed to live long enough
             unsafe { (inst.handler)(inst.pre_compute, exec_state) };
@@ -818,8 +811,6 @@ where
         exec_state.exit_code = Err(ExecutionError::Unreachable(exec_state.pc()));
     };
 
-    eprintln!("[DEBUG] get_metered_pre_compute_instructions: program has {} APCs in apc_by_pc_index", program.apc_by_pc_index.len());
-
     let base_index = get_pc_index(program.pc_base);
 
     repeat_n(&None, base_index)
@@ -836,11 +827,7 @@ where
                 // Recover the pc_index using the base_index offset. This is guaranteed not to underflow because the first `base_index` entries are `None`, so we would not be in this branch.
                 let pc_index = i - base_index;
                 // If an apc exists at this pc index, override the instruction
-                let is_apc = program.apc_by_pc_index.contains_key(&pc_index);
                 let inst = program.apc_by_pc_index.get(&pc_index).map(|(inst, _)| inst).unwrap_or(inst);
-                if is_apc {
-                    eprintln!("[DEBUG] get_metered_pre_compute_instructions: Found APC at pc_index={}, opcode={:?}", pc_index, inst.opcode);
-                }
                 tracing::trace!("get_metered_pre_compute_instruction {inst:?}");
                 let pc = program.pc_base + i as u32 * DEFAULT_PC_STEP;
                 if let Some(handler) = get_system_opcode_handler(inst, buf) {
