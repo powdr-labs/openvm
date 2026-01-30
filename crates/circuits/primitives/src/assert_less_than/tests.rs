@@ -15,12 +15,9 @@ use openvm_stark_backend::{
     p3_maybe_rayon::prelude::*,
     rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
     utils::disable_debug_builder,
-    verifier::VerificationError,
 };
-use openvm_stark_sdk::{
-    any_rap_arc_vec, config::baby_bear_poseidon2::BabyBearPoseidon2Engine, engine::StarkFriEngine,
-    p3_baby_bear::BabyBear,
-};
+use openvm_stark_sdk::{any_rap_arc_vec, p3_baby_bear::BabyBear};
+use stark_backend_v2::{prover::AirProvingContextV2, test_utils::test_engine_small, StarkEngineV2};
 #[cfg(feature = "cuda")]
 use {
     crate::cuda_abi::less_than::assert_less_than_dummy_tracegen,
@@ -142,7 +139,15 @@ fn test_assert_less_than_chip_lt() {
     let trace = chip.generate_trace();
     let range_trace: DenseMatrix<BabyBear> = range_checker.generate_trace();
 
-    BabyBearPoseidon2Engine::run_simple_test_no_pis_fast(airs, vec![trace, range_trace])
+    let traces = [trace, range_trace]
+        .into_iter()
+        .map(Arc::new)
+        .map(AirProvingContext::simple_no_pis)
+        .map(AirProvingContextV2::from_v1_no_cached)
+        .collect::<Vec<_>>();
+
+    test_engine_small()
+        .run_test(airs, traces)
         .expect("Verification failed");
 }
 
@@ -160,11 +165,20 @@ fn test_lt_chip_decomp_does_not_divide() {
     let trace = chip.generate_trace();
     let range_trace: DenseMatrix<BabyBear> = range_checker.generate_trace();
 
-    BabyBearPoseidon2Engine::run_simple_test_no_pis_fast(airs, vec![trace, range_trace])
+    let traces = [trace, range_trace]
+        .into_iter()
+        .map(Arc::new)
+        .map(AirProvingContext::simple_no_pis)
+        .map(AirProvingContextV2::from_v1_no_cached)
+        .collect::<Vec<_>>();
+
+    test_engine_small()
+        .run_test(airs, traces)
         .expect("Verification failed");
 }
 
 #[test]
+#[should_panic]
 fn test_assert_less_than_negative_1() {
     let max_bits: usize = 16;
     let decomp: usize = 8;
@@ -181,15 +195,19 @@ fn test_assert_less_than_negative_1() {
     // Make the trace invalid
     trace.values.swap(0, 1);
 
+    let traces = [trace, range_trace]
+        .into_iter()
+        .map(Arc::new)
+        .map(AirProvingContext::simple_no_pis)
+        .map(AirProvingContextV2::from_v1_no_cached)
+        .collect::<Vec<_>>();
+
     disable_debug_builder();
-    assert_eq!(
-        BabyBearPoseidon2Engine::run_simple_test_no_pis_fast(airs, vec![trace, range_trace]).err(),
-        Some(VerificationError::OodEvaluationMismatch),
-        "Expected verification to fail, but it passed"
-    );
+    test_engine_small().run_test(airs, traces).unwrap();
 }
 
 #[test]
+#[should_panic]
 fn test_assert_less_than_negative_2() {
     let max_bits: usize = 29;
     let decomp: usize = 8;
@@ -206,12 +224,15 @@ fn test_assert_less_than_negative_2() {
     // Make the trace invalid
     trace.values[3] = FieldAlgebra::from_canonical_u64(1 << decomp as u64);
 
+    let traces = [trace, range_trace]
+        .into_iter()
+        .map(Arc::new)
+        .map(AirProvingContext::simple_no_pis)
+        .map(AirProvingContextV2::from_v1_no_cached)
+        .collect::<Vec<_>>();
+
     disable_debug_builder();
-    assert_eq!(
-        BabyBearPoseidon2Engine::run_simple_test_no_pis_fast(airs, vec![trace, range_trace],).err(),
-        Some(VerificationError::OodEvaluationMismatch),
-        "Expected verification to fail, but it passed"
-    );
+    test_engine_small().run_test(airs, traces).unwrap();
 }
 
 #[test]
@@ -228,7 +249,15 @@ fn test_assert_less_than_with_non_power_of_two_pairs() {
     let trace = chip.generate_trace();
     let range_trace: DenseMatrix<BabyBear> = range_checker.generate_trace();
 
-    BabyBearPoseidon2Engine::run_simple_test_no_pis_fast(airs, vec![trace, range_trace])
+    let traces = [trace, range_trace]
+        .into_iter()
+        .map(Arc::new)
+        .map(AirProvingContext::simple_no_pis)
+        .map(AirProvingContextV2::from_v1_no_cached)
+        .collect::<Vec<_>>();
+
+    test_engine_small()
+        .run_test(airs, traces)
         .expect("Verification failed");
 }
 

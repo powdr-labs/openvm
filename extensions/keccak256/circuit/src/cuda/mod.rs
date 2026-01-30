@@ -6,9 +6,7 @@ use openvm_circuit_primitives::{
     bitwise_op_lookup::BitwiseOperationLookupChipGPU, utils::next_power_of_two_or_zero,
     var_range::VariableRangeCheckerChipGPU,
 };
-use openvm_cuda_backend::{
-    base::DeviceMatrix, chip::get_empty_air_proving_ctx, prelude::F, prover_backend::GpuBackend,
-};
+use openvm_cuda_backend::{base::DeviceMatrix, prelude::F, prover_backend::GpuBackend};
 use openvm_cuda_common::{copy::MemCopyH2D, d_buffer::DeviceBuffer};
 use openvm_instructions::riscv::RV32_CELL_BITS;
 use openvm_stark_backend::{prover::types::AirProvingContext, Chip};
@@ -35,7 +33,7 @@ impl Chip<DenseRecordArena, GpuBackend> for Keccak256ChipGpu {
     fn generate_proving_ctx(&self, mut arena: DenseRecordArena) -> AirProvingContext<GpuBackend> {
         let records = arena.allocated_mut();
         if records.is_empty() {
-            return get_empty_air_proving_ctx::<GpuBackend>();
+            return AirProvingContext::simple_no_pis(DeviceMatrix::dummy());
         }
 
         let mut record_offsets = Vec::<usize>::new();
