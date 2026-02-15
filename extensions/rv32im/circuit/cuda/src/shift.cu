@@ -33,10 +33,15 @@ __global__ void rv32_shift_tracegen(
     uint32_t range_bins,
     uint32_t *lookup_ptr,
     uint32_t lookup_bits,
-    uint32_t timestamp_max_bits
+    uint32_t timestamp_max_bits,
+    ApcParams apc
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-    RowSlice row(trace + idx, height);
+    RowSlice row = RowSlice::create_apc_aware(
+        trace, height, idx, sizeof(ShiftCols<uint8_t>), apc, records.len()
+    );
+    if (!row.is_valid()) return;
+
     if (idx < records.len()) {
         auto const &rec = records[idx];
         auto adapter = Rv32BaseAluAdapter(
@@ -51,7 +56,7 @@ __global__ void rv32_shift_tracegen(
         );
         core.fill_trace_row(row.slice_from(COL_INDEX(ShiftCols, core)), rec.core);
     } else {
-        row.fill_zero(0, width);
+        row.fill_zero(0, sizeof(ShiftCols<uint8_t>));
     }
 }
 
@@ -64,23 +69,25 @@ extern "C" int _rv32_shift_tracegen(
     uint32_t range_checker_num_bins,
     uint32_t *__restrict__ d_bitwise_lookup,
     uint32_t bitwise_num_bits,
-    uint32_t timestamp_max_bits
+    uint32_t timestamp_max_bits,
+    ApcParams apc
 ) {
     assert((height & (height - 1)) == 0);
     assert(height >= d_records.len());
-    assert(width == sizeof(ShiftCols<uint8_t>));
-    auto [grid, block] = kernel_launch_params(height, 512);
+    if (!apc.is_apc()) assert(width == sizeof(ShiftCols<uint8_t>));
 
+    auto [grid, block] = kernel_launch_params(apc.thread_count(height), 512);
     rv32_shift_tracegen<<<grid, block>>>(
         d_trace,
-        height,
+        apc.is_apc() ? apc.height : height,
         width,
         d_records,
         d_range_checker,
         range_checker_num_bins,
         d_bitwise_lookup,
         bitwise_num_bits,
-        timestamp_max_bits
+        timestamp_max_bits,
+        apc
     );
     return CHECK_KERNEL();
 }

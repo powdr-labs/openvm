@@ -1,10 +1,10 @@
-use std::sync::Arc;
+use std::{mem::size_of, sync::Arc};
 
 use derive_new::new;
 use openvm_circuit::{arch::DenseRecordArena, utils::next_power_of_two_or_zero};
 use openvm_circuit_primitives::var_range::VariableRangeCheckerChipGPU;
 use openvm_cuda_backend::{
-    base::DeviceMatrix, chip::get_empty_air_proving_ctx, prover_backend::GpuBackend, types::F,
+    base::DeviceMatrix, chip::get_empty_air_proving_ctx, prover_backend::{GpuApcTracingContext, GpuBackend}, types::F,
 };
 use openvm_cuda_common::copy::MemCopyH2D;
 use openvm_instructions::riscv::RV32_REGISTER_NUM_LIMBS;
@@ -12,7 +12,7 @@ use openvm_stark_backend::{prover::types::AirProvingContext, Chip};
 
 use crate::{
     adapters::{Rv32LoadStoreAdapterCols, Rv32LoadStoreAdapterRecord},
-    cuda_abi::loadstore_cuda::tracegen,
+    cuda_abi::{loadstore_cuda::tracegen, ApcParams},
     LoadStoreCoreCols, LoadStoreCoreRecord,
 };
 
@@ -24,7 +24,11 @@ pub struct Rv32LoadStoreChipGpu {
 }
 
 impl Chip<DenseRecordArena, GpuBackend> for Rv32LoadStoreChipGpu {
-    fn generate_proving_ctx(&self, arena: DenseRecordArena) -> AirProvingContext<GpuBackend> {
+    fn generate_proving_ctx_direct(
+        &self,
+        arena: DenseRecordArena,
+        ctx: Option<&GpuApcTracingContext>,
+    ) -> AirProvingContext<GpuBackend> {
         const RECORD_SIZE: usize = size_of::<(
             Rv32LoadStoreAdapterRecord,
             LoadStoreCoreRecord<RV32_REGISTER_NUM_LIMBS>,
@@ -41,21 +45,25 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32LoadStoreChipGpu {
         let padded_height = next_power_of_two_or_zero(height);
 
         let d_records = records.to_device().unwrap();
-        let d_trace = DeviceMatrix::<F>::with_capacity(padded_height, trace_width);
+
+        let owned_trace = ctx
+            .is_none()
+            .then(|| DeviceMatrix::<F>::with_capacity(padded_height, trace_width));
 
         unsafe {
             tracegen(
-                d_trace.buffer(),
+                ctx.map_or_else(|| owned_trace.as_ref().unwrap().buffer(), |c| c.d_trace),
                 padded_height,
                 trace_width,
                 &d_records,
                 self.pointer_max_bits,
                 &self.range_checker.count,
                 self.timestamp_max_bits as u32,
+                ApcParams::from_ctx(ctx),
             )
             .unwrap();
         }
 
-        AirProvingContext::simple_no_pis(d_trace)
+        owned_trace.map_or_else(get_empty_air_proving_ctx::<GpuBackend>, AirProvingContext::simple_no_pis)
     }
 }

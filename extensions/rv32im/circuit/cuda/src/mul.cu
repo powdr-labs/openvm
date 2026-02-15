@@ -32,10 +32,15 @@ __global__ void mul_tracegen(
     size_t range_checker_bins,
     uint32_t *d_range_tuple_ptr,
     uint2 range_tuple_sizes,
-    uint32_t timestamp_max_bits
+    uint32_t timestamp_max_bits,
+    ApcParams apc
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-    RowSlice row(d_trace + idx, height);
+    RowSlice row = RowSlice::create_apc_aware(
+        d_trace, height, idx, sizeof(Rv32MultiplicationCols<uint8_t>), apc, d_records.len()
+    );
+    if (!row.is_valid()) return;
+
     if (idx < d_records.len()) {
         auto const &rec = d_records[idx];
 
@@ -63,22 +68,24 @@ extern "C" int _mul_tracegen(
     size_t range_checker_bins,
     uint32_t *d_range_tuple_ptr,
     uint2 range_tuple_sizes,
-    uint32_t timestamp_max_bits
+    uint32_t timestamp_max_bits,
+    ApcParams apc
 ) {
     assert((height & (height - 1)) == 0);
     assert(height >= d_records.len());
-    assert(width == sizeof(Rv32MultiplicationCols<uint8_t>));
-    auto [grid, block] = kernel_launch_params(height);
+    if (!apc.is_apc()) assert(width == sizeof(Rv32MultiplicationCols<uint8_t>));
 
+    auto [grid, block] = kernel_launch_params(apc.thread_count(height), 512);
     mul_tracegen<<<grid, block>>>(
         d_trace,
-        height,
+        apc.is_apc() ? apc.height : height,
         d_records,
         d_range_checker_ptr,
         range_checker_bins,
         d_range_tuple_ptr,
         range_tuple_sizes,
-        timestamp_max_bits
+        timestamp_max_bits,
+        apc
     );
     return CHECK_KERNEL();
 }

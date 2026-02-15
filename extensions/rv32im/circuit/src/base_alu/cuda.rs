@@ -6,7 +6,7 @@ use openvm_circuit_primitives::{
     bitwise_op_lookup::BitwiseOperationLookupChipGPU, var_range::VariableRangeCheckerChipGPU,
 };
 use openvm_cuda_backend::{
-    base::DeviceMatrix, chip::get_empty_air_proving_ctx, prover_backend::GpuBackend, types::F,
+    base::DeviceMatrix, chip::get_empty_air_proving_ctx, prover_backend::{GpuApcTracingContext, GpuBackend}, types::F,
 };
 use openvm_cuda_common::copy::MemCopyH2D;
 use openvm_stark_backend::{prover::types::AirProvingContext, Chip};
@@ -15,7 +15,7 @@ use crate::{
     adapters::{
         Rv32BaseAluAdapterCols, Rv32BaseAluAdapterRecord, RV32_CELL_BITS, RV32_REGISTER_NUM_LIMBS,
     },
-    cuda_abi::alu_cuda::tracegen,
+    cuda_abi::{alu_cuda::tracegen, ApcParams},
     BaseAluCoreCols, BaseAluCoreRecord,
 };
 
@@ -27,7 +27,11 @@ pub struct Rv32BaseAluChipGpu {
 }
 
 impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
-    fn generate_proving_ctx(&self, arena: DenseRecordArena) -> AirProvingContext<GpuBackend> {
+    fn generate_proving_ctx_direct(
+        &self,
+        arena: DenseRecordArena,
+        ctx: Option<&GpuApcTracingContext>,
+    ) -> AirProvingContext<GpuBackend> {
         const RECORD_SIZE: usize = size_of::<(
             Rv32BaseAluAdapterRecord,
             BaseAluCoreRecord<RV32_REGISTER_NUM_LIMBS>,
@@ -43,11 +47,15 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
         let trace_height = next_power_of_two_or_zero(records.len() / RECORD_SIZE);
 
         let d_records = records.to_device().unwrap();
-        let d_trace = DeviceMatrix::<F>::with_capacity(trace_height, trace_width);
+
+        // Create owned trace only for non-APC path
+        let owned_trace = ctx
+            .is_none()
+            .then(|| DeviceMatrix::<F>::with_capacity(trace_height, trace_width));
 
         unsafe {
             tracegen(
-                d_trace.buffer(),
+                ctx.map_or_else(|| owned_trace.as_ref().unwrap().buffer(), |c| c.d_trace),
                 trace_height,
                 &d_records,
                 &self.range_checker.count,
@@ -55,10 +63,11 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32BaseAluChipGpu {
                 &self.bitwise_lookup.count,
                 RV32_CELL_BITS,
                 self.timestamp_max_bits as u32,
+                ApcParams::from_ctx(ctx),
             )
             .unwrap();
         }
 
-        AirProvingContext::simple_no_pis(d_trace)
+        owned_trace.map_or_else(get_empty_air_proving_ctx::<GpuBackend>, AirProvingContext::simple_no_pis)
     }
 }

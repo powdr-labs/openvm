@@ -73,7 +73,7 @@ struct VariableRangeChecker {
 #pragma unroll
         for (int i = 0; i < limbs_len; i++) {
             uint32_t limb_u32 = x & mask;
-            limbs[i] = limb_u32;
+            limbs.write(i, limb_u32);
             add_count(limb_u32, min(bits_remaining, range_max_bits));
             x >>= range_max_bits;
             bits_remaining -= min(bits_remaining, range_max_bits);

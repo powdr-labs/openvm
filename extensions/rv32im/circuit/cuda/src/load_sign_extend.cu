@@ -55,7 +55,6 @@ template <size_t NUM_CELLS> struct LoadSignExtendCore {
         COL_WRITE_VALUE(row, Cols, opcode_loadh_flag, !record.is_byte);
 
         COL_WRITE_VALUE(row, Cols, data_most_sig_bit, most_sig_bit != 0);
-
         if ((shift & 2) != 0) {
             COL_WRITE_VALUE(row, Cols, shift_most_sig_bit, 1);
             // Shift the read data by 2 places to the left
@@ -93,10 +92,15 @@ __global__ void rv32_load_sign_extend_tracegen(
     size_t pointer_max_bits,
     uint32_t *range_checker_ptr,
     uint32_t range_checker_num_bins,
-    uint32_t timestamp_max_bits
+    uint32_t timestamp_max_bits,
+    ApcParams apc
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-    RowSlice row(trace + idx, height);
+    RowSlice row = RowSlice::create_apc_aware(
+        trace, height, idx, sizeof(Rv32LoadSignExtendCols<uint8_t>), apc, records.len()
+    );
+    if (!row.is_valid()) return;
+
     if (idx < records.len()) {
         auto const &record = records[idx];
 
@@ -124,21 +128,23 @@ extern "C" int _rv32_load_sign_extend_tracegen(
     size_t pointer_max_bits,
     uint32_t *__restrict__ d_range_checker,
     uint32_t range_checker_num_bins,
-    uint32_t timestamp_max_bits
+    uint32_t timestamp_max_bits,
+    ApcParams apc
 ) {
     assert((height & (height - 1)) == 0);
-    assert(width == sizeof(Rv32LoadSignExtendCols<uint8_t>));
-    auto [grid, block] = kernel_launch_params(height, 512);
+    if (!apc.is_apc()) assert(width == sizeof(Rv32LoadSignExtendCols<uint8_t>));
 
+    auto [grid, block] = kernel_launch_params(apc.thread_count(height), 512);
     rv32_load_sign_extend_tracegen<<<grid, block>>>(
         d_trace,
-        height,
+        apc.is_apc() ? apc.height : height,
         width,
         d_records,
         pointer_max_bits,
         d_range_checker,
         range_checker_num_bins,
-        timestamp_max_bits
+        timestamp_max_bits,
+        apc
     );
     return CHECK_KERNEL();
 }

@@ -1,3 +1,4 @@
+#include "launcher.cuh"
 #include "primitives/buffer_view.cuh"
 #include "primitives/histogram.cuh"
 #include "primitives/trace_access.h"
@@ -59,10 +60,14 @@ __global__ void jal_lui_tracegen(
     uint32_t rc_bins,
     uint32_t *bw_ptr,
     uint32_t bw_bits,
-    uint32_t timestamp_max_bits
+    uint32_t timestamp_max_bits,
+    ApcParams apc
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-    RowSlice row(trace + idx, height);
+    RowSlice row = RowSlice::create_apc_aware(
+        trace, height, idx, sizeof(Rv32JalLuiCols<uint8_t>), apc, records.len()
+    );
+    if (!row.is_valid()) return;
 
     if (idx < records.len()) {
         auto const &full = records[idx];
@@ -85,16 +90,24 @@ extern "C" int _jal_lui_tracegen(
     uint32_t rc_bins,
     uint32_t *d_bw,
     uint32_t bw_bits,
-    uint32_t timestamp_max_bits
+    uint32_t timestamp_max_bits,
+    ApcParams apc
 ) {
     assert((height & (height - 1)) == 0);
     assert(height >= d_records.len());
-    assert(width == sizeof(Rv32JalLuiCols<uint8_t>));
+    if (!apc.is_apc()) assert(width == sizeof(Rv32JalLuiCols<uint8_t>));
 
-    auto [grid, block] = kernel_launch_params(height);
-
+    auto [grid, block] = kernel_launch_params(apc.thread_count(height));
     jal_lui_tracegen<<<grid, block>>>(
-        d_trace, height, d_records, d_rc, rc_bins, d_bw, bw_bits, timestamp_max_bits
+        d_trace,
+        apc.is_apc() ? apc.height : height,
+        d_records,
+        d_rc,
+        rc_bins,
+        d_bw,
+        bw_bits,
+        timestamp_max_bits,
+        apc
     );
     return CHECK_KERNEL();
 }

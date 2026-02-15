@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{mem::size_of, sync::Arc};
 
 use derive_new::new;
 use openvm_circuit::{arch::DenseRecordArena, utils::next_power_of_two_or_zero};
@@ -9,7 +9,7 @@ use openvm_circuit_primitives::{
 use openvm_cuda_backend::{
     base::DeviceMatrix,
     chip::{get_empty_air_proving_ctx, UInt2},
-    prover_backend::GpuBackend,
+    prover_backend::{GpuApcTracingContext, GpuBackend},
     types::F,
 };
 use openvm_cuda_common::copy::MemCopyH2D;
@@ -18,7 +18,7 @@ use openvm_stark_backend::{prover::types::AirProvingContext, Chip};
 
 use crate::{
     adapters::{Rv32MultAdapterCols, Rv32MultAdapterRecord},
-    cuda_abi::divrem_cuda::tracegen,
+    cuda_abi::{divrem_cuda::tracegen, ApcParams},
     DivRemCoreCols, DivRemCoreRecord,
 };
 
@@ -32,7 +32,11 @@ pub struct Rv32DivRemChipGpu {
 }
 
 impl Chip<DenseRecordArena, GpuBackend> for Rv32DivRemChipGpu {
-    fn generate_proving_ctx(&self, arena: DenseRecordArena) -> AirProvingContext<GpuBackend> {
+    fn generate_proving_ctx_direct(
+        &self,
+        arena: DenseRecordArena,
+        ctx: Option<&GpuApcTracingContext>,
+    ) -> AirProvingContext<GpuBackend> {
         const RECORD_SIZE: usize = size_of::<(
             Rv32MultAdapterRecord,
             DivRemCoreRecord<RV32_REGISTER_NUM_LIMBS>,
@@ -52,10 +56,13 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32DivRemChipGpu {
         let tuple_checker_sizes = UInt2::new(tuple_checker_sizes[0], tuple_checker_sizes[1]);
 
         let d_records = records.to_device().unwrap();
-        let d_trace = DeviceMatrix::<F>::with_capacity(padded_height, trace_width);
+        let owned_trace = ctx
+            .is_none()
+            .then(|| DeviceMatrix::<F>::with_capacity(padded_height, trace_width));
+
         unsafe {
             tracegen(
-                d_trace.buffer(),
+                ctx.map_or_else(|| owned_trace.as_ref().unwrap().buffer(), |c| c.d_trace),
                 padded_height,
                 trace_width,
                 &d_records,
@@ -65,10 +72,11 @@ impl Chip<DenseRecordArena, GpuBackend> for Rv32DivRemChipGpu {
                 &self.range_tuple_checker.count,
                 tuple_checker_sizes,
                 self.timestamp_max_bits as u32,
+                ApcParams::from_ctx(ctx),
             )
             .unwrap();
         }
 
-        AirProvingContext::simple_no_pis(d_trace)
+        owned_trace.map_or_else(get_empty_air_proving_ctx::<GpuBackend>, AirProvingContext::simple_no_pis)
     }
 }
