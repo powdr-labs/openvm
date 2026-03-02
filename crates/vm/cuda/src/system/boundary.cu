@@ -59,10 +59,12 @@ __global__ void cukernel_persistent_boundary_tracegen(
         COL_WRITE_VALUE(row, PersistentBoundaryCols, leaf_label, record.ptr / PERSISTENT_CHUNK);
         if (row_idx % 2 == 0) {
             // TODO better address space handling
+            // Address spaces 4 (PUBLIC_VALUES_AS) and 5+ use native32 cell type (field elements).
+            // Address spaces 1-3 use U8 cell type (bytes).
             FpArray<8> init_values;
             if (initial_mem[record.address_space - 1]) {
-                init_values = 
-                    record.address_space == 4
+                init_values =
+                    record.address_space >= 4
                         ? FpArray<8>::from_raw_array(
                             reinterpret_cast<uint32_t const *>(
                                 initial_mem[record.address_space - 1]
