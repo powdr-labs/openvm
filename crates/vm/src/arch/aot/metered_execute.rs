@@ -177,7 +177,12 @@ where
             asm_str += "\n";
         }
 
-        for (pc, instruction, _) in exe.program.enumerate_by_pc() {
+        for (pc, mut instruction, _) in exe.program.enumerate_by_pc() {
+            // Check for APC override
+            let pc_index = ((pc - pc_base) / openvm_instructions::program::DEFAULT_PC_STEP) as usize;
+            if let Some((apc_inst, _)) = exe.program.apc_by_pc_index.get(&pc_index) {
+                instruction = apc_inst.clone();
+            }
             /* Preprocessing step, to check if we should suspend or not */
             asm_str += &format!("asm_execute_pc_{pc}:\n");
 

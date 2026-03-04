@@ -142,13 +142,18 @@ where
         let pc_start = exe.pc_start;
         let init_memory = exe.init_memory.clone();
         #[cfg(feature = "tco")]
-        let handlers = repeat_n(&None, get_pc_index(program.pc_base))
+        let base_index = get_pc_index(program.pc_base);
+        #[cfg(feature = "tco")]
+        let handlers = repeat_n(&None, base_index)
             .chain(program.instructions_and_debug_infos.iter())
             .zip_eq(split_pre_compute_buf.iter_mut())
             .enumerate()
             .map(
                 |(pc_idx, (inst_opt, pre_compute))| -> Result<Handler<F, Ctx>, StaticProgramError> {
-                    if let Some((inst, _)) = inst_opt {
+                    let program_idx = if pc_idx >= base_index { pc_idx - base_index } else { usize::MAX };
+                    let effective = program.apc_by_pc_index.get(&program_idx)
+                        .or(inst_opt.as_ref());
+                    if let Some((inst, _)) = effective {
                         let pc = pc_idx as u32 * DEFAULT_PC_STEP;
                         if get_system_opcode_handler::<F, Ctx>(inst, pre_compute).is_some() {
                             Ok(terminate_execute_e12_tco_handler)
@@ -254,13 +259,18 @@ where
         let pc_start = exe.pc_start;
         let init_memory = exe.init_memory.clone();
         #[cfg(feature = "tco")]
-        let handlers = repeat_n(&None, get_pc_index(program.pc_base))
+        let base_index = get_pc_index(program.pc_base);
+        #[cfg(feature = "tco")]
+        let handlers = repeat_n(&None, base_index)
             .chain(program.instructions_and_debug_infos.iter())
             .zip_eq(split_pre_compute_buf.iter_mut())
             .enumerate()
             .map(
                 |(pc_idx, (inst_opt, pre_compute))| -> Result<Handler<F, Ctx>, StaticProgramError> {
-                    if let Some((inst, _)) = inst_opt {
+                    let program_idx = if pc_idx >= base_index { pc_idx - base_index } else { usize::MAX };
+                    let effective = program.apc_by_pc_index.get(&program_idx)
+                        .or(inst_opt.as_ref());
+                    if let Some((inst, _)) = effective {
                         let pc = pc_idx as u32 * DEFAULT_PC_STEP;
                         if get_system_opcode_handler::<F, Ctx>(inst, pre_compute).is_some() {
                             Ok(terminate_execute_e12_tco_handler)
@@ -657,6 +667,12 @@ pub fn get_pre_compute_max_size<F, E: Executor<F>>(
                 0
             }
         })
+        .chain(program.apc_by_pc_index.values().map(|(inst, _)| {
+            inventory
+                .get_executor(inst.opcode)
+                .map(|executor| executor.pre_compute_size())
+                .unwrap_or(0)
+        }))
         .max()
         .unwrap()
         .next_power_of_two()
@@ -683,6 +699,12 @@ pub fn get_metered_pre_compute_max_size<F, E: MeteredExecutor<F>>(
                 0
             }
         })
+        .chain(program.apc_by_pc_index.values().map(|(inst, _)| {
+            inventory
+                .get_executor(inst.opcode)
+                .map(|executor| executor.metered_pre_compute_size())
+                .unwrap_or(0)
+        }))
         .max()
         .unwrap()
         .next_power_of_two()
@@ -710,7 +732,8 @@ where
         exec_state.exit_code = Err(ExecutionError::Unreachable(exec_state.pc()));
     };
 
-    repeat_n(&None, get_pc_index(program.pc_base))
+    let base_index = get_pc_index(program.pc_base);
+    repeat_n(&None, base_index)
         .chain(program.instructions_and_debug_infos.iter())
         .zip_eq(pre_compute.iter_mut())
         .enumerate()
@@ -720,7 +743,10 @@ where
             // from `pre_compute_buf` which will outlive the returned
             // `PreComputeInstruction`s.
             let buf: &mut [u8] = unsafe { &mut *(*buf as *mut [u8]) };
-            let pre_inst = if let Some((inst, _)) = inst_opt {
+            let program_idx = if i >= base_index { i - base_index } else { usize::MAX };
+            let effective = program.apc_by_pc_index.get(&program_idx)
+                .or(inst_opt.as_ref());
+            let pre_inst = if let Some((inst, _)) = effective {
                 tracing::trace!("get_pre_compute_instruction {inst:?}");
                 let pc = i as u32 * DEFAULT_PC_STEP;
                 if let Some(handler) = get_system_opcode_handler(inst, buf) {
@@ -766,7 +792,8 @@ where
     let unreachable_handler: ExecuteFunc<F, Ctx> = |_, exec_state| {
         exec_state.exit_code = Err(ExecutionError::Unreachable(exec_state.pc()));
     };
-    repeat_n(&None, get_pc_index(program.pc_base))
+    let base_index = get_pc_index(program.pc_base);
+    repeat_n(&None, base_index)
         .chain(program.instructions_and_debug_infos.iter())
         .zip_eq(pre_compute.iter_mut())
         .enumerate()
@@ -776,7 +803,10 @@ where
             // from `pre_compute_buf` which will outlive the returned
             // `PreComputeInstruction`s.
             let buf: &mut [u8] = unsafe { &mut *(*buf as *mut [u8]) };
-            let pre_inst = if let Some((inst, _)) = inst_opt {
+            let program_idx = if i >= base_index { i - base_index } else { usize::MAX };
+            let effective = program.apc_by_pc_index.get(&program_idx)
+                .or(inst_opt.as_ref());
+            let pre_inst = if let Some((inst, _)) = effective {
                 tracing::trace!("get_metered_pre_compute_instruction {inst:?}");
                 let pc = program.pc_base + i as u32 * DEFAULT_PC_STEP;
                 if let Some(handler) = get_system_opcode_handler(inst, buf) {
