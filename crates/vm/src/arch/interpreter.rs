@@ -547,6 +547,7 @@ unsafe fn execute_trampoline<F: PrimeField32, Ctx: ExecutionCtxTrait>(
             break;
         }
         let pc = exec_state.pc();
+        tracing::trace!(pc = pc as u64, "executing instruction");
         let pc_index = get_pc_index(pc);
 
         if let Some(inst) = fn_ptrs.get(pc_index) {
