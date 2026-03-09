@@ -255,7 +255,7 @@ impl<F: PrimeField32, const BLOCKS: usize, const BLOCK_SIZE: usize, const IS_FP2
     InterpreterExecutor<F> for FieldExprVecHeapExecutor<BLOCKS, BLOCK_SIZE, IS_FP2>
 {
     #[inline(always)]
-    fn pre_compute_size(&self) -> usize {
+    fn pre_compute_size<Ctx>(&self) -> usize {
         std::mem::size_of::<FieldExpressionPreCompute>()
     }
 
@@ -314,7 +314,7 @@ impl<F: PrimeField32, const BLOCKS: usize, const BLOCK_SIZE: usize, const IS_FP2
     InterpreterMeteredExecutor<F> for FieldExprVecHeapExecutor<BLOCKS, BLOCK_SIZE, IS_FP2>
 {
     #[inline(always)]
-    fn metered_pre_compute_size(&self) -> usize {
+    fn metered_pre_compute_size<Ctx>(&self) -> usize {
         std::mem::size_of::<E2PreCompute<FieldExpressionPreCompute>>()
     }
 

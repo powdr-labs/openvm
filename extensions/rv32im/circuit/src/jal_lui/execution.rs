@@ -59,7 +59,7 @@ where
     F: PrimeField32,
 {
     #[inline(always)]
-    fn pre_compute_size(&self) -> usize {
+    fn pre_compute_size<Ctx>(&self) -> usize {
         size_of::<JalLuiPreCompute>()
     }
 
@@ -143,7 +143,7 @@ impl<F, A> InterpreterMeteredExecutor<F> for Rv32JalLuiExecutor<A>
 where
     F: PrimeField32,
 {
-    fn metered_pre_compute_size(&self) -> usize {
+    fn metered_pre_compute_size<Ctx>(&self) -> usize {
         size_of::<E2PreCompute<JalLuiPreCompute>>()
     }
 

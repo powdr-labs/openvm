@@ -46,7 +46,7 @@ where
     F: PrimeField32,
 {
     #[inline(always)]
-    fn pre_compute_size(&self) -> usize {
+    fn pre_compute_size<Ctx>(&self) -> usize {
         size_of::<PhantomPreCompute<F>>()
     }
     #[cfg(not(feature = "tco"))]
@@ -117,7 +117,7 @@ impl<F> InterpreterMeteredExecutor<F> for PhantomExecutor<F>
 where
     F: PrimeField32,
 {
-    fn metered_pre_compute_size(&self) -> usize {
+    fn metered_pre_compute_size<Ctx>(&self) -> usize {
         size_of::<E2PreCompute<PhantomPreCompute<F>>>()
     }
 

@@ -176,7 +176,7 @@ impl<F: PrimeField32, const BLOCKS: usize, const BLOCK_SIZE: usize> InterpreterE
     for EcAddNeExecutor<BLOCKS, BLOCK_SIZE>
 {
     #[inline(always)]
-    fn pre_compute_size(&self) -> usize {
+    fn pre_compute_size<Ctx>(&self) -> usize {
         std::mem::size_of::<EcAddNePreCompute>()
     }
 
@@ -223,7 +223,7 @@ impl<F: PrimeField32, const BLOCKS: usize, const BLOCK_SIZE: usize> InterpreterM
     for EcAddNeExecutor<BLOCKS, BLOCK_SIZE>
 {
     #[inline(always)]
-    fn metered_pre_compute_size(&self) -> usize {
+    fn metered_pre_compute_size<Ctx>(&self) -> usize {
         std::mem::size_of::<E2PreCompute<EcAddNePreCompute>>()
     }
 

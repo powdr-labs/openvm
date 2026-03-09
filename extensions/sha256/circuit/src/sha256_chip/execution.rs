@@ -38,7 +38,7 @@ impl<F: PrimeField32> InterpreterExecutor<F> for Sha256VmExecutor {
         Ok(execute_e1_handler::<_, _>)
     }
 
-    fn pre_compute_size(&self) -> usize {
+    fn pre_compute_size<Ctx>(&self) -> usize {
         size_of::<ShaPreCompute>()
     }
 
@@ -62,7 +62,7 @@ impl<F: PrimeField32> InterpreterExecutor<F> for Sha256VmExecutor {
 impl<F: PrimeField32> AotExecutor<F> for Sha256VmExecutor {}
 
 impl<F: PrimeField32> InterpreterMeteredExecutor<F> for Sha256VmExecutor {
-    fn metered_pre_compute_size(&self) -> usize {
+    fn metered_pre_compute_size<Ctx>(&self) -> usize {
         size_of::<E2PreCompute<ShaPreCompute>>()
     }
 

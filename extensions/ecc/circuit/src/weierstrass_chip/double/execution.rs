@@ -140,7 +140,7 @@ impl<F: PrimeField32, const BLOCKS: usize, const BLOCK_SIZE: usize> InterpreterE
     for EcDoubleExecutor<BLOCKS, BLOCK_SIZE>
 {
     #[inline(always)]
-    fn pre_compute_size(&self) -> usize {
+    fn pre_compute_size<Ctx>(&self) -> usize {
         size_of::<EcDoublePreCompute>()
     }
 
@@ -187,7 +187,7 @@ impl<F: PrimeField32, const BLOCKS: usize, const BLOCK_SIZE: usize> InterpreterM
     for EcDoubleExecutor<BLOCKS, BLOCK_SIZE>
 {
     #[inline(always)]
-    fn metered_pre_compute_size(&self) -> usize {
+    fn metered_pre_compute_size<Ctx>(&self) -> usize {
         size_of::<E2PreCompute<EcDoublePreCompute>>()
     }
 

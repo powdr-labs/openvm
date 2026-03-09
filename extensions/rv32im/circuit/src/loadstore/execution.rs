@@ -114,7 +114,7 @@ where
     F: PrimeField32,
 {
     #[inline(always)]
-    fn pre_compute_size(&self) -> usize {
+    fn pre_compute_size<Ctx>(&self) -> usize {
         size_of::<LoadStorePreCompute>()
     }
 
@@ -153,7 +153,7 @@ impl<F, A, const NUM_CELLS: usize> InterpreterMeteredExecutor<F> for LoadStoreEx
 where
     F: PrimeField32,
 {
-    fn metered_pre_compute_size(&self) -> usize {
+    fn metered_pre_compute_size<Ctx>(&self) -> usize {
         size_of::<E2PreCompute<LoadStorePreCompute>>()
     }
 

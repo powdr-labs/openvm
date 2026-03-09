@@ -57,7 +57,7 @@ impl KeccakVmExecutor {
 }
 
 impl<F: PrimeField32> InterpreterExecutor<F> for KeccakVmExecutor {
-    fn pre_compute_size(&self) -> usize {
+    fn pre_compute_size<Ctx>(&self) -> usize {
         size_of::<KeccakPreCompute>()
     }
 
@@ -96,7 +96,7 @@ impl<F: PrimeField32> InterpreterExecutor<F> for KeccakVmExecutor {
 impl<F: PrimeField32> AotExecutor<F> for KeccakVmExecutor {}
 
 impl<F: PrimeField32> InterpreterMeteredExecutor<F> for KeccakVmExecutor {
-    fn metered_pre_compute_size(&self) -> usize {
+    fn metered_pre_compute_size<Ctx>(&self) -> usize {
         size_of::<E2PreCompute<KeccakPreCompute>>()
     }
 

@@ -38,7 +38,8 @@ where
         let start = std::time::Instant::now();
 
         let program = &exe.program;
-        let pre_compute_max_size = get_metered_pre_compute_max_size(program, inventory);
+        let pre_compute_max_size =
+            get_metered_pre_compute_max_size::<F, E, MeteredCtx>(program, inventory);
         let mut pre_compute_buf = alloc_pre_compute_buf(program, pre_compute_max_size);
         let mut split_pre_compute_buf =
             split_pre_compute_buf(program, &mut pre_compute_buf, pre_compute_max_size);

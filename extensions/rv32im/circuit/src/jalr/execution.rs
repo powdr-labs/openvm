@@ -61,7 +61,7 @@ where
     F: PrimeField32,
 {
     #[inline(always)]
-    fn pre_compute_size(&self) -> usize {
+    fn pre_compute_size<Ctx>(&self) -> usize {
         size_of::<JalrPreCompute>()
     }
     #[cfg(not(feature = "tco"))]
@@ -142,7 +142,7 @@ impl<F, A> InterpreterMeteredExecutor<F> for Rv32JalrExecutor<A>
 where
     F: PrimeField32,
 {
-    fn metered_pre_compute_size(&self) -> usize {
+    fn metered_pre_compute_size<Ctx>(&self) -> usize {
         size_of::<E2PreCompute<JalrPreCompute>>()
     }
 

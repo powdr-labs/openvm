@@ -17,7 +17,7 @@ The `Executor<F>` trait defines the interface for pure execution:
 
 ```rust
 pub trait Executor<F> {
-    fn pre_compute_size(&self) -> usize;
+    fn pre_compute_size<Ctx>(&self) -> usize;
 
     fn pre_compute<Ctx>(
         &self,

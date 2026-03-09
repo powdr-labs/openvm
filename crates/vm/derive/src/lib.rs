@@ -183,8 +183,8 @@ pub fn executor_derive(input: TokenStream) -> TokenStream {
             quote! {
                 impl #impl_generics ::openvm_circuit::arch::InterpreterExecutor<F> for #name #ty_generics #where_clause {
                     #[inline(always)]
-                    fn pre_compute_size(&self) -> usize {
-                        self.0.pre_compute_size()
+                    fn pre_compute_size<Ctx>(&self) -> usize {
+                        self.0.pre_compute_size::<Ctx>()
                     }
                     #[cfg(not(feature = "tco"))]
                     #[inline(always)]
@@ -236,7 +236,7 @@ pub fn executor_derive(input: TokenStream) -> TokenStream {
             let (pre_compute_size_arms, pre_compute_arms, _handler_arms, where_predicates): (Vec<_>, Vec<_>, Vec<_>, Vec<_>) = multiunzip(variants.iter().map(|(variant_name, field)| {
                 let field_ty = &field.ty;
                 let pre_compute_size_arm = quote! {
-                    #name::#variant_name(x) => <#field_ty as ::openvm_circuit::arch::InterpreterExecutor<#first_ty_generic>>::pre_compute_size(x)
+                    #name::#variant_name(x) => <#field_ty as ::openvm_circuit::arch::InterpreterExecutor<#first_ty_generic>>::pre_compute_size::<Ctx>(x)
                 };
                 let pre_compute_arm = quote! {
                     #name::#variant_name(x) => <#field_ty as ::openvm_circuit::arch::InterpreterExecutor<#first_ty_generic>>::pre_compute(x, pc, instruction, data)
@@ -279,7 +279,7 @@ pub fn executor_derive(input: TokenStream) -> TokenStream {
             quote! {
                 impl #impl_generics ::openvm_circuit::arch::InterpreterExecutor<#first_ty_generic> for #name #ty_generics #where_clause {
                     #[inline(always)]
-                    fn pre_compute_size(&self) -> usize {
+                    fn pre_compute_size<Ctx>(&self) -> usize {
                         match self {
                             #(#pre_compute_size_arms,)*
                         }
@@ -494,8 +494,8 @@ pub fn metered_executor_derive(input: TokenStream) -> TokenStream {
             quote! {
                 impl #impl_generics ::openvm_circuit::arch::InterpreterMeteredExecutor<F> for #name #ty_generics #where_clause {
                     #[inline(always)]
-                    fn metered_pre_compute_size(&self) -> usize {
-                        self.0.metered_pre_compute_size()
+                    fn metered_pre_compute_size<Ctx>(&self) -> usize {
+                        self.0.metered_pre_compute_size::<Ctx>()
                     }
                     #[cfg(not(feature = "tco"))]
                     #[inline(always)]
@@ -547,7 +547,7 @@ pub fn metered_executor_derive(input: TokenStream) -> TokenStream {
             let (pre_compute_size_arms, metered_pre_compute_arms, _metered_handler_arms, where_predicates): (Vec<_>, Vec<_>, Vec<_>, Vec<_>) = multiunzip(variants.iter().map(|(variant_name, field)| {
                 let field_ty = &field.ty;
                 let pre_compute_size_arm = quote! {
-                    #name::#variant_name(x) => <#field_ty as ::openvm_circuit::arch::InterpreterMeteredExecutor<#first_ty_generic>>::metered_pre_compute_size(x)
+                    #name::#variant_name(x) => <#field_ty as ::openvm_circuit::arch::InterpreterMeteredExecutor<#first_ty_generic>>::metered_pre_compute_size::<Ctx>(x)
                 };
                 let metered_pre_compute_arm = quote! {
                     #name::#variant_name(x) => <#field_ty as ::openvm_circuit::arch::InterpreterMeteredExecutor<#first_ty_generic>>::metered_pre_compute(x, chip_idx, pc, instruction, data)
@@ -592,7 +592,7 @@ pub fn metered_executor_derive(input: TokenStream) -> TokenStream {
             quote! {
                 impl #impl_generics ::openvm_circuit::arch::InterpreterMeteredExecutor<#first_ty_generic> for #name #ty_generics #where_clause {
                     #[inline(always)]
-                    fn metered_pre_compute_size(&self) -> usize {
+                    fn metered_pre_compute_size<Ctx>(&self) -> usize {
                         match self {
                             #(#pre_compute_size_arms,)*
                         }

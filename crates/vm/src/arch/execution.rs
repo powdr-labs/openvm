@@ -136,7 +136,7 @@ pub type Handler<F, CTX> = unsafe fn(
 /// data.
 // @dev: In the codebase this is sometimes referred to as (E1).
 pub trait InterpreterExecutor<F> {
-    fn pre_compute_size(&self) -> usize;
+    fn pre_compute_size<Ctx>(&self) -> usize;
 
     #[cfg(not(feature = "tco"))]
     fn pre_compute<Ctx>(
@@ -199,7 +199,7 @@ impl<F, T> Executor<F> for T where T: InterpreterExecutor<F> {}
 /// data which contains auxiliary data (e.g., corresponding AIR ID) for metering purposes.
 // @dev: In the codebase this is sometimes referred to as (E2).
 pub trait InterpreterMeteredExecutor<F> {
-    fn metered_pre_compute_size(&self) -> usize;
+    fn metered_pre_compute_size<Ctx>(&self) -> usize;
 
     #[cfg(not(feature = "tco"))]
     fn metered_pre_compute<Ctx>(

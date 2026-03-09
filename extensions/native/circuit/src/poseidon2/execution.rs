@@ -170,7 +170,7 @@ impl<F: PrimeField32, const SBOX_REGISTERS: usize> InterpreterExecutor<F>
     for NativePoseidon2Executor<F, SBOX_REGISTERS>
 {
     #[inline(always)]
-    fn pre_compute_size(&self) -> usize {
+    fn pre_compute_size<Ctx>(&self) -> usize {
         std::cmp::max(
             size_of::<Pos2PreCompute<F, SBOX_REGISTERS>>(),
             size_of::<VerifyBatchPreCompute<F, SBOX_REGISTERS>>(),
@@ -258,7 +258,7 @@ impl<F: PrimeField32, const SBOX_REGISTERS: usize> InterpreterMeteredExecutor<F>
     for NativePoseidon2Executor<F, SBOX_REGISTERS>
 {
     #[inline(always)]
-    fn metered_pre_compute_size(&self) -> usize {
+    fn metered_pre_compute_size<Ctx>(&self) -> usize {
         std::cmp::max(
             size_of::<E2PreCompute<Pos2PreCompute<F, SBOX_REGISTERS>>>(),
             size_of::<E2PreCompute<VerifyBatchPreCompute<F, SBOX_REGISTERS>>>(),

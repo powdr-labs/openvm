@@ -42,7 +42,7 @@ macro_rules! dispatch {
 }
 
 impl<F: PrimeField32> InterpreterExecutor<F> for Rv32BranchEqual256Executor {
-    fn pre_compute_size(&self) -> usize {
+    fn pre_compute_size<Ctx>(&self) -> usize {
         size_of::<BranchEqPreCompute>()
     }
 
@@ -81,7 +81,7 @@ impl<F: PrimeField32> InterpreterExecutor<F> for Rv32BranchEqual256Executor {
 impl<F: PrimeField32> AotExecutor<F> for Rv32BranchEqual256Executor {}
 
 impl<F: PrimeField32> InterpreterMeteredExecutor<F> for Rv32BranchEqual256Executor {
-    fn metered_pre_compute_size(&self) -> usize {
+    fn metered_pre_compute_size<Ctx>(&self) -> usize {
         size_of::<E2PreCompute<BranchEqPreCompute>>()
     }
 

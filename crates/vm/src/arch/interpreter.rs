@@ -129,7 +129,7 @@ where
         E: Executor<F>,
     {
         let program = &exe.program;
-        let pre_compute_max_size = get_pre_compute_max_size(program, inventory);
+        let pre_compute_max_size = get_pre_compute_max_size::<_, _, Ctx>(program, inventory);
         let mut pre_compute_buf = alloc_pre_compute_buf(program, pre_compute_max_size);
         let mut split_pre_compute_buf =
             split_pre_compute_buf(program, &mut pre_compute_buf, pre_compute_max_size);
@@ -253,7 +253,7 @@ where
         E: MeteredExecutor<F>,
     {
         let program = &exe.program;
-        let pre_compute_max_size = get_metered_pre_compute_max_size(program, inventory);
+        let pre_compute_max_size = get_metered_pre_compute_max_size::<F, E, Ctx>(program, inventory);
         let mut pre_compute_buf = alloc_pre_compute_buf(program, pre_compute_max_size);
         let mut split_pre_compute_buf =
             split_pre_compute_buf(program, &mut pre_compute_buf, pre_compute_max_size);
@@ -662,7 +662,7 @@ unsafe fn unreachable_tco_handler<F: PrimeField32, CTX>(
     exec_state.exit_code = Err(ExecutionError::Unreachable(exec_state.vm_state.pc()));
 }
 
-pub fn get_pre_compute_max_size<F, E: Executor<F>>(
+pub fn get_pre_compute_max_size<F, E: Executor<F>, Ctx>(
     program: &Program<F>,
     inventory: &ExecutorInventory<E>,
 ) -> usize {
@@ -676,7 +676,7 @@ pub fn get_pre_compute_max_size<F, E: Executor<F>>(
                 } else {
                     inventory
                         .get_executor(inst.opcode)
-                        .map(|executor| executor.pre_compute_size())
+                        .map(|executor| executor.pre_compute_size::<Ctx>())
                         .unwrap()
                 }
             } else {
@@ -686,7 +686,7 @@ pub fn get_pre_compute_max_size<F, E: Executor<F>>(
         .chain(program.apc_by_pc_index.values().map(|(inst, _)| {
                 inventory
                     .get_executor(inst.opcode)
-                    .map(|executor| executor.pre_compute_size())
+                    .map(|executor| executor.pre_compute_size::<Ctx>())
                     .unwrap()
         }))
         .max()
@@ -694,7 +694,7 @@ pub fn get_pre_compute_max_size<F, E: Executor<F>>(
         .next_power_of_two()
 }
 
-pub fn get_metered_pre_compute_max_size<F, E: MeteredExecutor<F>>(
+pub fn get_metered_pre_compute_max_size<F, E: MeteredExecutor<F>, Ctx>(
     program: &Program<F>,
     inventory: &ExecutorInventory<E>,
 ) -> usize {
@@ -708,7 +708,7 @@ pub fn get_metered_pre_compute_max_size<F, E: MeteredExecutor<F>>(
                 } else {
                     inventory
                         .get_executor(inst.opcode)
-                        .map(|executor| executor.metered_pre_compute_size())
+                        .map(|executor| executor.metered_pre_compute_size::<Ctx>())
                         .unwrap()
                 }
             } else {
@@ -718,7 +718,7 @@ pub fn get_metered_pre_compute_max_size<F, E: MeteredExecutor<F>>(
         .chain(program.apc_by_pc_index.values().map(|(inst, _)| {
                 inventory
                     .get_executor(inst.opcode)
-                    .map(|executor| executor.metered_pre_compute_size())
+                    .map(|executor| executor.metered_pre_compute_size::<Ctx>())
                     .unwrap()
         }))
         .max()

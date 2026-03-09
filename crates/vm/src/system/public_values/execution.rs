@@ -84,7 +84,7 @@ where
     F: PrimeField32,
 {
     #[inline(always)]
-    fn pre_compute_size(&self) -> usize {
+    fn pre_compute_size<Ctx>(&self) -> usize {
         size_of::<PublicValuesPreCompute>()
     }
 
@@ -129,7 +129,7 @@ impl<F, A> InterpreterMeteredExecutor<F> for PublicValuesExecutor<F, A>
 where
     F: PrimeField32,
 {
-    fn metered_pre_compute_size(&self) -> usize {
+    fn metered_pre_compute_size<Ctx>(&self) -> usize {
         size_of::<E2PreCompute<PublicValuesPreCompute>>()
     }
 

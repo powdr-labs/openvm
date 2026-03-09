@@ -84,7 +84,7 @@ where
     F: PrimeField32,
 {
     #[inline(always)]
-    fn pre_compute_size(&self) -> usize {
+    fn pre_compute_size<Ctx>(&self) -> usize {
         std::cmp::max(
             size_of::<JalPreCompute<F>>(),
             size_of::<RangeCheckPreCompute>(),
@@ -145,7 +145,7 @@ where
     F: PrimeField32,
 {
     #[inline(always)]
-    fn metered_pre_compute_size(&self) -> usize {
+    fn metered_pre_compute_size<Ctx>(&self) -> usize {
         std::cmp::max(
             size_of::<E2PreCompute<JalPreCompute<F>>>(),
             size_of::<E2PreCompute<RangeCheckPreCompute>>(),

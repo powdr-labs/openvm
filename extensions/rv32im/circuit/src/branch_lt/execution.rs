@@ -70,7 +70,7 @@ where
     F: PrimeField32,
 {
     #[inline(always)]
-    fn pre_compute_size(&self) -> usize {
+    fn pre_compute_size<Ctx>(&self) -> usize {
         size_of::<BranchLePreCompute>()
     }
 
@@ -108,7 +108,7 @@ impl<F, A, const NUM_LIMBS: usize, const LIMB_BITS: usize> InterpreterMeteredExe
 where
     F: PrimeField32,
 {
-    fn metered_pre_compute_size(&self) -> usize {
+    fn metered_pre_compute_size<Ctx>(&self) -> usize {
         size_of::<E2PreCompute<BranchLePreCompute>>()
     }
 

@@ -55,7 +55,7 @@ impl<F, A, const LIMB_BITS: usize> InterpreterExecutor<F>
 where
     F: PrimeField32,
 {
-    fn pre_compute_size(&self) -> usize {
+    fn pre_compute_size<Ctx>(&self) -> usize {
         size_of::<MultiPreCompute>()
     }
     #[cfg(not(feature = "tco"))]
@@ -147,7 +147,7 @@ impl<F, A, const LIMB_BITS: usize> InterpreterMeteredExecutor<F>
 where
     F: PrimeField32,
 {
-    fn metered_pre_compute_size(&self) -> usize {
+    fn metered_pre_compute_size<Ctx>(&self) -> usize {
         size_of::<E2PreCompute<MultiPreCompute>>()
     }
 
