@@ -4,17 +4,16 @@ use std::{
     iter,
 };
 
-use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
+use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_stark_backend::{
-    ColumnsAir,
     interaction::{InteractionBuilder, PermutationCheckBus},
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{PrimeCharacteristicRing, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
     prover::{AirProvingContext, ColMajorMatrix, CpuBackend},
-    BaseAirWithPublicValues, PartitionedBaseAir, StarkProtocolConfig, Val,
+    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir, StarkProtocolConfig, Val,
 };
 use rustc_hash::FxHashSet;
 use tracing::instrument;

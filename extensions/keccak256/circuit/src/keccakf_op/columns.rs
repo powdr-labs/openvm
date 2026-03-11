@@ -1,6 +1,6 @@
 use openvm_circuit::system::memory::offline_checker::{MemoryBaseAuxCols, MemoryReadAuxCols};
-use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
+use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::riscv::RV32_REGISTER_NUM_LIMBS;
 
 use crate::{KECCAK_WIDTH_BYTES, KECCAK_WIDTH_WORDS};

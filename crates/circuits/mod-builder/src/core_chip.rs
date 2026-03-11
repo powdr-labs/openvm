@@ -17,11 +17,10 @@ use openvm_circuit_primitives::{
 };
 use openvm_instructions::{instruction::Instruction, program::DEFAULT_PC_STEP};
 use openvm_stark_backend::{
-    ColumnsAir,
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, PrimeCharacteristicRing, PrimeField32},
-    BaseAirWithPublicValues,
+    BaseAirWithPublicValues, ColumnsAir,
 };
 use openvm_stark_sdk::p3_baby_bear::BabyBear;
 

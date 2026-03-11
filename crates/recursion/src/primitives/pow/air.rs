@@ -1,9 +1,8 @@
 use core::borrow::Borrow;
 
 use openvm_stark_backend::{
-    ColumnsAir,
     interaction::InteractionBuilder, p3_util::log2_strict_usize, BaseAirWithPublicValues,
-    PartitionedBaseAir,
+    ColumnsAir, PartitionedBaseAir,
 };
 use p3_air::{Air, AirBuilder, BaseAir};
 use p3_field::PrimeCharacteristicRing;

@@ -2,13 +2,12 @@ use std::mem::size_of;
 
 use openvm_circuit_primitives::Chip;
 use openvm_stark_backend::{
-    ColumnsAir,
     interaction::InteractionBuilder,
     p3_air::{Air, BaseAir},
     p3_field::{PrimeCharacteristicRing, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     prover::{AirProvingContext, ColMajorMatrix, CpuBackend},
-    BaseAirWithPublicValues, PartitionedBaseAir, StarkProtocolConfig, Val,
+    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir, StarkProtocolConfig, Val,
 };
 
 use crate::system::memory::{offline_checker::MemoryBus, MemoryAddress};

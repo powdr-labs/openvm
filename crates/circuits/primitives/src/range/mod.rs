@@ -11,15 +11,15 @@ use std::{
 };
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
-use crate::{StructReflection, StructReflectionHelper};
 use openvm_stark_backend::{
-    ColumnsAir,
     interaction::InteractionBuilder,
     p3_air::{Air, BaseAir, PairBuilder},
     p3_field::Field,
     p3_matrix::{dense::RowMajorMatrix, Matrix},
-    BaseAirWithPublicValues, PartitionedBaseAir,
+    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
 };
+
+use crate::{StructReflection, StructReflectionHelper};
 
 mod bus;
 

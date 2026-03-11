@@ -14,12 +14,11 @@ use openvm_instructions::riscv::{
 };
 use openvm_keccak256_transpiler::XorinOpcode;
 use openvm_stark_backend::{
-    ColumnsAir,
     interaction::InteractionBuilder,
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::PrimeCharacteristicRing,
     p3_matrix::Matrix,
-    BaseAirWithPublicValues, PartitionedBaseAir,
+    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
 };
 
 use crate::xorin::columns::{XorinVmCols, NUM_XORIN_VM_COLS};

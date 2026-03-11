@@ -5,9 +5,8 @@ use openvm_poseidon2_air::{
     Poseidon2SubAir, Poseidon2SubCols, BABY_BEAR_POSEIDON2_HALF_FULL_ROUNDS,
 };
 use openvm_stark_backend::{
-    ColumnsAir,
     air_builders::sub::SubAirBuilder, interaction::InteractionBuilder, BaseAirWithPublicValues,
-    PartitionedBaseAir,
+    ColumnsAir, PartitionedBaseAir,
 };
 use p3_air::{Air, AirBuilder, BaseAir};
 use p3_field::Field;

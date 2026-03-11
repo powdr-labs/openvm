@@ -1,6 +1,5 @@
 use derive_new::new;
 use openvm_circuit_primitives_derive::AlignedBorrow;
-use crate::{StructReflection, StructReflectionHelper};
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::AirBuilder,
@@ -9,7 +8,7 @@ use openvm_stark_backend::{
 
 use crate::{
     var_range::{VariableRangeCheckerBus, VariableRangeCheckerChip},
-    SubAir, TraceSubRowGenerator,
+    StructReflection, StructReflectionHelper, SubAir, TraceSubRowGenerator,
 };
 
 #[cfg(test)]

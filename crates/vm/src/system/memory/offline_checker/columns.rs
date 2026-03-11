@@ -1,9 +1,10 @@
 //! Defines auxiliary columns for memory operations: `MemoryReadAuxCols`,
 //! `MemoryReadWithImmediateAuxCols`, and `MemoryWriteAuxCols`.
 
-use openvm_circuit_primitives::is_less_than::LessThanAuxCols;
+use openvm_circuit_primitives::{
+    is_less_than::LessThanAuxCols, StructReflection, StructReflectionHelper,
+};
 use openvm_circuit_primitives_derive::AlignedBorrow;
-use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
 use openvm_stark_backend::p3_field::PrimeField32;
 
 use crate::system::memory::offline_checker::bridge::AUX_LEN;

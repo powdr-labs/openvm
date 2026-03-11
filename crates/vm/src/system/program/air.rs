@@ -1,13 +1,12 @@
-use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
+use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_stark_backend::{
-    ColumnsAir,
     air_builders::PartitionedAirBuilder,
     interaction::InteractionBuilder,
     p3_air::{Air, BaseAir},
     p3_field::Field,
     p3_matrix::Matrix,
-    BaseAirWithPublicValues, PartitionedBaseAir,
+    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
 };
 
 use super::ProgramBus;

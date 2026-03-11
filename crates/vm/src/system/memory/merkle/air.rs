@@ -1,12 +1,11 @@
 use std::{borrow::Borrow, iter};
 
 use openvm_stark_backend::{
-    ColumnsAir,
     interaction::{InteractionBuilder, PermutationCheckBus},
     p3_air::{Air, AirBuilder, AirBuilderWithPublicValues, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing},
     p3_matrix::Matrix,
-    BaseAirWithPublicValues, PartitionedBaseAir,
+    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
 };
 
 use crate::system::memory::merkle::{MemoryDimensions, MemoryMerkleCols, MemoryMerklePvs};

@@ -5,9 +5,8 @@ use openvm_circuit::system::memory::{
 };
 use openvm_circuit_primitives::SubAir;
 use openvm_stark_backend::{
-    ColumnsAir,
     interaction::InteractionBuilder, p3_util::log2_strict_usize, BaseAirWithPublicValues,
-    PartitionedBaseAir,
+    ColumnsAir, PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::DIGEST_SIZE;
 use p3_air::{Air, AirBuilder, BaseAir};

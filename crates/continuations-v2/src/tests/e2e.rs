@@ -24,10 +24,9 @@ use openvm_rv32im_transpiler::{
     Rv32ITranspilerExtension, Rv32IoTranspilerExtension, Rv32MTranspilerExtension,
 };
 use openvm_stark_backend::{
-    ColumnsAir,
     proof::Proof,
     prover::{AirProvingContext, ColMajorMatrix, DeviceDataTransporter, ProvingContext},
-    AirRef, PartitionedBaseAir, StarkEngine,
+    AirRef, ColumnsAir, PartitionedBaseAir, StarkEngine,
 };
 use openvm_stark_sdk::{
     config::{

@@ -1,6 +1,5 @@
 use itertools::izip;
 use openvm_circuit_primitives_derive::AlignedBorrow;
-use crate::{StructReflection, StructReflectionHelper};
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::AirBuilder,
@@ -11,7 +10,7 @@ use crate::{
     is_less_than::{IsLtSubAir, LessThanAuxCols},
     utils::not,
     var_range::{VariableRangeCheckerBus, VariableRangeCheckerChip},
-    SubAir, TraceSubRowGenerator,
+    StructReflection, StructReflectionHelper, SubAir, TraceSubRowGenerator,
 };
 
 #[cfg(test)]

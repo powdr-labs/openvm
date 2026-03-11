@@ -4,7 +4,6 @@ use core::borrow::Borrow;
 
 use openvm_circuit_primitives::SubAir;
 use openvm_stark_backend::{
-    ColumnsAir,
     any_air_arc_vec,
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::Field,
@@ -14,7 +13,8 @@ use openvm_stark_backend::{
     },
     utils::disable_debug_builder,
     verifier::VerifierError,
-    AirRef, BaseAirWithPublicValues, PartitionedBaseAir, StarkEngine, StarkProtocolConfig,
+    AirRef, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir, StarkEngine,
+    StarkProtocolConfig,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::{BabyBearPoseidon2Config, F};
 

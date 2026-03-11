@@ -1,7 +1,7 @@
 use std::{array::from_fn, borrow::Borrow, marker::PhantomData};
 
-use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
+use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{instruction::Instruction, LocalOpcode};
 use openvm_stark_backend::{
     p3_air::{Air, AirBuilder, BaseAir},
@@ -265,8 +265,9 @@ where
                 Some(cols)
             }
             (None, Some(c)) => {
-                let mut cols: Vec<String> =
-                    (0..self.adapter.width()).map(|i| format!("adapter[{i}]")).collect();
+                let mut cols: Vec<String> = (0..self.adapter.width())
+                    .map(|i| format!("adapter[{i}]"))
+                    .collect();
                 cols.extend(c);
                 Some(cols)
             }

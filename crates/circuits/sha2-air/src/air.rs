@@ -5,11 +5,11 @@ use openvm_circuit_primitives::{
     bitwise_op_lookup::BitwiseOperationLookupBus, encoder::Encoder, utils::select, SubAir,
 };
 use openvm_stark_backend::{
-    ColumnsAir,
     interaction::{BusIndex, InteractionBuilder, PermutationCheckBus},
     p3_air::{AirBuilder, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing},
     p3_matrix::Matrix,
+    ColumnsAir,
 };
 
 use super::{

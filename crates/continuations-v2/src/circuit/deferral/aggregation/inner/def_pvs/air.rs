@@ -2,8 +2,7 @@ use std::{array::from_fn, borrow::Borrow};
 
 use openvm_circuit_primitives::utils::{assert_array_eq, not};
 use openvm_stark_backend::{
-    ColumnsAir,
-    interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
+    interaction::InteractionBuilder, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
 };
 use p3_air::{Air, AirBuilder, AirBuilderWithPublicValues, BaseAir};
 use p3_field::PrimeCharacteristicRing;

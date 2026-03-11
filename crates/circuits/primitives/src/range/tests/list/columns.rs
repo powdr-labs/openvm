@@ -1,8 +1,9 @@
 use core::mem::{size_of, transmute};
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
-use crate::{StructReflection, StructReflectionHelper};
 use openvm_stark_backend::p3_util::indices_arr;
+
+use crate::{StructReflection, StructReflectionHelper};
 
 #[repr(C)]
 #[derive(Default, AlignedBorrow, StructReflection)]

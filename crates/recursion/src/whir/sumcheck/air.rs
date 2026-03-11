@@ -2,8 +2,7 @@ use core::borrow::Borrow;
 
 use openvm_circuit_primitives::{utils::assert_array_eq, SubAir};
 use openvm_stark_backend::{
-    ColumnsAir,
-    interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
+    interaction::InteractionBuilder, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::{D_EF, F};
 use p3_air::{Air, AirBuilder, BaseAir};

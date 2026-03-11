@@ -1,8 +1,7 @@
 use core::borrow::Borrow;
 
 use openvm_stark_backend::{
-    ColumnsAir,
-    interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
+    interaction::InteractionBuilder, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::F;
 use p3_air::{Air, AirBuilder, BaseAir};

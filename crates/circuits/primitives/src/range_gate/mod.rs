@@ -10,18 +10,17 @@ use std::{
 };
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
-use crate::{StructReflection, StructReflectionHelper};
 use openvm_stark_backend::{
-    ColumnsAir,
     interaction::{BusIndex, InteractionBuilder},
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_util::indices_arr,
-    BaseAirWithPublicValues, PartitionedBaseAir,
+    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
 };
 
 pub use crate::range::RangeCheckBus;
+use crate::{StructReflection, StructReflectionHelper};
 
 #[cfg(test)]
 mod tests;

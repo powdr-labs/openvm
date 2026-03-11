@@ -1,9 +1,8 @@
 use itertools::izip;
 use openvm_circuit_primitives_derive::AlignedBorrow;
-use crate::{StructReflection, StructReflectionHelper};
 use openvm_stark_backend::{p3_air::AirBuilder, p3_field::Field};
 
-use crate::{SubAir, TraceSubRowGenerator};
+use crate::{StructReflection, StructReflectionHelper, SubAir, TraceSubRowGenerator};
 
 #[cfg(test)]
 mod tests;

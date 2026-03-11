@@ -1,9 +1,7 @@
 use std::borrow::{Borrow, BorrowMut};
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
-use crate::{StructReflection, StructReflectionHelper};
 use openvm_stark_backend::{
-    ColumnsAir,
     any_air_arc_vec,
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing},
@@ -11,7 +9,7 @@ use openvm_stark_backend::{
     p3_maybe_rayon::prelude::*,
     prover::{AirProvingContext, ColMajorMatrix},
     utils::disable_debug_builder,
-    BaseAirWithPublicValues, PartitionedBaseAir, StarkEngine, StarkTestError,
+    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir, StarkEngine, StarkTestError,
 };
 use test_case::test_matrix;
 #[cfg(feature = "cuda")]
@@ -28,7 +26,10 @@ use {
 };
 
 use super::{IsEqSubAir, IsEqualIo};
-use crate::{utils::test_engine_small, SubAir, TraceSubRowGenerator};
+use crate::{
+    utils::test_engine_small, StructReflection, StructReflectionHelper, SubAir,
+    TraceSubRowGenerator,
+};
 
 #[repr(C)]
 #[derive(AlignedBorrow, StructReflection)]

@@ -10,8 +10,8 @@ use openvm_circuit::{
         MemoryAddress,
     },
 };
-use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
+use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_deferral_transpiler::DeferralOpcode;
 use openvm_instructions::{
     program::DEFAULT_PC_STEP,
@@ -19,11 +19,10 @@ use openvm_instructions::{
     LocalOpcode, DEFERRAL_AS,
 };
 use openvm_stark_backend::{
-    ColumnsAir,
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, PrimeCharacteristicRing},
-    BaseAirWithPublicValues,
+    BaseAirWithPublicValues, ColumnsAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::DIGEST_SIZE;
 

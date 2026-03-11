@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
+use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_stark_backend::{
     interaction::PermutationCheckBus, p3_util::log2_strict_usize, AirRef, StarkProtocolConfig,
 };

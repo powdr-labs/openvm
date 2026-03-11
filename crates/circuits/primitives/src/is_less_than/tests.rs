@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use derive_new::new;
 use openvm_stark_backend::{
-    ColumnsAir,
     any_air_arc_vec,
     interaction::InteractionBuilder,
     p3_air::{Air, BaseAir},
@@ -11,7 +10,7 @@ use openvm_stark_backend::{
     p3_maybe_rayon::prelude::*,
     prover::{AirProvingContext, ColMajorMatrix},
     utils::disable_debug_builder,
-    BaseAirWithPublicValues, PartitionedBaseAir, StarkEngine, StarkTestError,
+    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir, StarkEngine, StarkTestError,
 };
 #[cfg(feature = "cuda")]
 use {

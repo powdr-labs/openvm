@@ -1,5 +1,5 @@
-use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
+use openvm_circuit_primitives_derive::AlignedBorrow;
 
 #[derive(Debug, AlignedBorrow, StructReflection)]
 #[repr(C)]
