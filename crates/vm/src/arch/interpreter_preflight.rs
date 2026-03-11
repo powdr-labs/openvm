@@ -69,17 +69,16 @@ impl<F: Field, E> PreflightInterpretedInstance<F, E> {
         let base_idx = get_pc_index(pc_base);
         let mut pc_handler = Vec::with_capacity(base_idx + len);
         pc_handler.extend(repeat_n(PcEntry::undefined(), base_idx));
-        for (program_idx, insn_and_debug_info) in program.instructions_and_debug_infos.iter().enumerate() {
-            // Check for APC override first
-            let (effective_insn, is_apc) = if let Some((apc_insn, _)) = program.apc_by_pc_index.get(&program_idx) {
-                (Some(apc_insn.clone()), true)
-            } else if let Some((insn, _)) = insn_and_debug_info {
-                (Some(insn.clone()), false)
-            } else {
-                (None, false)
-            };
+        for (pc_idx, insn_and_debug_info) in program.instructions_and_debug_infos.iter().enumerate()
+        {
+            // If an apc exists at this pc index, override the instruction and remember that fact
+            let insn_and_debug_info = program
+                .apc_by_pc_index
+                .get(&pc_idx)
+                .map(|insn| (insn, true))
+                .or(insn_and_debug_info.as_ref().map(|i| (i, false)));
 
-            if let Some(insn) = effective_insn {
+            if let Some(((insn, _), is_apc)) = insn_and_debug_info {
                 let executor_idx = if insn.opcode == SystemOpcode::TERMINATE.global_opcode() {
                     // The execution loop will always branch to terminate before using this executor
                     0
@@ -94,7 +93,11 @@ impl<F: Field, E> PreflightInterpretedInstance<F, E> {
                     (executor_idx as usize) < inventory.executors.len(),
                     "ExecutorInventory ensures executor_idx is in bounds"
                 );
-                let pc_entry = PcEntry { insn, executor_idx, is_apc };
+                let pc_entry = PcEntry {
+                    insn: insn.clone(),
+                    executor_idx,
+                    is_apc,
+                };
                 pc_handler.push(pc_entry);
             } else {
                 pc_handler.push(PcEntry::undefined());
