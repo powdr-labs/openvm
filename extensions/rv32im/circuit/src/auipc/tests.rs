@@ -15,7 +15,7 @@ use openvm_instructions::{instruction::Instruction, program::PC_BITS, LocalOpcod
 use openvm_rv32im_transpiler::Rv32AuipcOpcode::{self, *};
 use openvm_stark_backend::{
     p3_air::BaseAir,
-    p3_field::{FieldAlgebra, PrimeField32},
+    p3_field::{PrimeCharacteristicRing, PrimeField32},
     p3_matrix::{
         dense::{DenseMatrix, RowMajorMatrix},
         Matrix,
@@ -41,7 +41,6 @@ use crate::{
         Rv32RdWriteAdapterAir, Rv32RdWriteAdapterExecutor, Rv32RdWriteAdapterFiller,
         RV32_CELL_BITS, RV32_REGISTER_NUM_LIMBS,
     },
-    test_utils::get_verification_error,
     Rv32AuipcAir, Rv32AuipcFiller,
 };
 
@@ -104,18 +103,18 @@ fn set_and_execute<RA: Arena, E: PreflightExecutor<F, RA>>(
 ) where
     Rv32AuipcExecutor: PreflightExecutor<F, RA>,
 {
-    let imm = imm.unwrap_or(rng.gen_range(0..(1 << IMM_BITS))) as usize;
-    let a = rng.gen_range(0..32) << 2;
+    let imm = imm.unwrap_or(rng.random_range(0..(1 << IMM_BITS))) as usize;
+    let a = rng.random_range(0..32) << 2;
 
     tester.execute_with_pc(
         executor,
         arena,
         &Instruction::from_usize(opcode.global_opcode(), [a, 0, imm, 1, 0]),
-        initial_pc.unwrap_or(rng.gen_range(0..(1 << PC_BITS))),
+        initial_pc.unwrap_or(rng.random_range(0..(1 << PC_BITS))),
     );
     let initial_pc = tester.last_from_pc().as_canonical_u32();
     let rd_data = run_auipc(initial_pc, imm as u32);
-    assert_eq!(rd_data.map(F::from_canonical_u8), tester.read::<4>(1, a));
+    assert_eq!(rd_data.map(F::from_u8), tester.read::<4>(1, a));
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -170,7 +169,6 @@ fn run_negative_auipc_test(
     initial_imm: Option<u32>,
     initial_pc: Option<u32>,
     prank_vals: AuipcPrankValues,
-    interaction_error: bool,
 ) {
     let mut rng = create_seeded_rng();
     let mut tester = VmChipTestBuilder::default();
@@ -188,18 +186,18 @@ fn run_negative_auipc_test(
 
     let adapter_width = BaseAir::<F>::width(&harness.air.adapter);
     let modify_trace = |trace: &mut DenseMatrix<F>| {
-        let mut trace_row = trace.row_slice(0).to_vec();
+        let mut trace_row = trace.row_slice(0).expect("row exists").to_vec();
         let (_, core_row) = trace_row.split_at_mut(adapter_width);
         let core_cols: &mut Rv32AuipcCoreCols<F> = core_row.borrow_mut();
 
         if let Some(data) = prank_vals.rd_data {
-            core_cols.rd_data = data.map(F::from_canonical_u32);
+            core_cols.rd_data = data.map(F::from_u32);
         }
         if let Some(data) = prank_vals.imm_limbs {
-            core_cols.imm_limbs = data.map(F::from_canonical_u32);
+            core_cols.imm_limbs = data.map(F::from_u32);
         }
         if let Some(data) = prank_vals.pc_limbs {
-            core_cols.pc_limbs = data.map(F::from_canonical_u32);
+            core_cols.pc_limbs = data.map(F::from_u32);
         }
 
         *trace = RowMajorMatrix::new(trace_row, trace.width());
@@ -211,7 +209,9 @@ fn run_negative_auipc_test(
         .load_and_prank_trace(harness, modify_trace)
         .load_periphery(bitwise)
         .finalize();
-    tester.simple_test_with_expected_error(get_verification_error(interaction_error));
+    tester
+        .simple_test()
+        .expect_err("Expected verification to fail, but it passed");
 }
 
 #[test]
@@ -224,7 +224,6 @@ fn invalid_limb_negative_tests() {
             imm_limbs: Some([107, 46, 81]),
             ..Default::default()
         },
-        false,
     );
     run_negative_auipc_test(
         AUIPC,
@@ -235,7 +234,6 @@ fn invalid_limb_negative_tests() {
             pc_limbs: Some([51, 32]),
             ..Default::default()
         },
-        true,
     );
     run_negative_auipc_test(
         AUIPC,
@@ -245,7 +243,6 @@ fn invalid_limb_negative_tests() {
             pc_limbs: Some([206, 166]),
             ..Default::default()
         },
-        false,
     );
     run_negative_auipc_test(
         AUIPC,
@@ -255,7 +252,6 @@ fn invalid_limb_negative_tests() {
             rd_data: Some([30, 92, 82, 132]),
             ..Default::default()
         },
-        false,
     );
     run_negative_auipc_test(
         AUIPC,
@@ -266,7 +262,6 @@ fn invalid_limb_negative_tests() {
             imm_limbs: Some([166, 243, 17]),
             pc_limbs: Some([36, 62]),
         },
-        true,
     );
 }
 
@@ -280,7 +275,6 @@ fn overflow_negative_tests() {
             imm_limbs: Some([3592, 219, 3]),
             ..Default::default()
         },
-        false,
     );
     run_negative_auipc_test(
         AUIPC,
@@ -290,7 +284,6 @@ fn overflow_negative_tests() {
             pc_limbs: Some([0, 0]),
             ..Default::default()
         },
-        false,
     );
     run_negative_auipc_test(
         AUIPC,
@@ -300,7 +293,6 @@ fn overflow_negative_tests() {
             imm_limbs: Some([F::NEG_ONE.as_canonical_u32(), 1, 0]),
             ..Default::default()
         },
-        true,
     );
     run_negative_auipc_test(
         AUIPC,
@@ -311,7 +303,6 @@ fn overflow_negative_tests() {
             imm_limbs: Some([0, 0, 0]),
             pc_limbs: Some([1, 0]),
         },
-        true,
     );
 }
 
@@ -373,9 +364,9 @@ fn test_cuda_rand_auipc_tracegen() {
     let num_ops = 100;
 
     for _ in 0..num_ops {
-        let imm = rng.gen_range(0..(1 << IMM_BITS)) as usize;
+        let imm = rng.random_range(0..(1 << IMM_BITS)) as usize;
         let a = gen_pointer(&mut rng, RV32_REGISTER_NUM_LIMBS);
-        let initial_pc = rng.gen_range(0..(1 << PC_BITS));
+        let initial_pc = rng.random_range(0..(1 << PC_BITS));
 
         tester.execute_with_pc(
             &mut harness.executor,

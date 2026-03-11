@@ -1,7 +1,16 @@
 #![allow(clippy::missing_safety_doc)]
 
+use derive_new::new;
 use openvm_cuda_backend::prelude::F;
 use openvm_cuda_common::{d_buffer::DeviceBuffer, error::CudaError};
+
+/// A struct that has the same memory layout as `uint2` to be used in FFI functions
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, new)]
+pub struct UInt2 {
+    pub x: u32,
+    pub y: u32,
+}
 
 pub mod bitwise_op_lookup {
     #[cfg(test)]
@@ -67,6 +76,8 @@ pub mod range_tuple {
             d_count: *const u32,
             d_cpu_count: *const u32,
             d_trace: *mut F,
+            d_sizes: *const u32,
+            num_dims: u32,
             num_bins: usize,
         ) -> i32;
 
@@ -85,6 +96,7 @@ pub mod range_tuple {
         d_count: &DeviceBuffer<F>,
         d_cpu_count: &Option<DeviceBuffer<u32>>,
         d_trace: &DeviceBuffer<F>,
+        d_sizes: &DeviceBuffer<u32>,
     ) -> Result<(), CudaError> {
         CudaError::from_result(_range_tuple_checker_tracegen(
             d_count.as_ptr() as *const u32,
@@ -93,6 +105,8 @@ pub mod range_tuple {
                 .map(|b| b.as_ptr())
                 .unwrap_or(std::ptr::null()),
             d_trace.as_mut_ptr(),
+            d_sizes.as_ptr(),
+            d_sizes.len() as u32,
             d_count.len(),
         ))
     }

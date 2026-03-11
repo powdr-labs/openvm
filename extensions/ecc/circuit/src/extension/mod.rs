@@ -4,16 +4,14 @@ use openvm_algebra_circuit::{Rv32ModularConfig, Rv32ModularConfigExecutor, Rv32M
 use openvm_circuit::{
     arch::{
         AirInventory, ChipInventoryError, InitFileGenerator, MatrixRecordArena, SystemConfig,
-        VmBuilder, VmChipComplex, VmProverExtension,
+        VmBuilder, VmChipComplex, VmField, VmProverExtension,
     },
     system::SystemChipInventory,
 };
 use openvm_circuit_derive::VmConfig;
 use openvm_stark_backend::{
-    config::{StarkGenericConfig, Val},
-    engine::StarkEngine,
-    p3_field::PrimeField32,
-    prover::cpu::{CpuBackend, CpuDevice},
+    prover::{CpuBackend, CpuDevice},
+    StarkEngine, StarkProtocolConfig, Val,
 };
 use serde::{Deserialize, Serialize};
 
@@ -22,9 +20,7 @@ pub use weierstrass::*;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "cuda")] {
-        mod cuda;
         mod hybrid;
-        pub use cuda::*;
         pub use hybrid::*;
         pub use {
             EccHybridProverExt as EccProverExt,
@@ -73,11 +69,12 @@ impl InitFileGenerator for Rv32WeierstrassConfig {
 #[derive(Clone)]
 pub struct Rv32WeierstrassCpuBuilder;
 
-impl<E, SC> VmBuilder<E> for Rv32WeierstrassCpuBuilder
+impl<SC, E> VmBuilder<E> for Rv32WeierstrassCpuBuilder
 where
-    SC: StarkGenericConfig,
+    SC: StarkProtocolConfig,
     E: StarkEngine<SC = SC, PB = CpuBackend<SC>, PD = CpuDevice<SC>>,
-    Val<SC>: PrimeField32,
+    Val<SC>: VmField,
+    SC::EF: Ord,
 {
     type VmConfig = Rv32WeierstrassConfig;
     type SystemChipInventory = SystemChipInventory<SC>;

@@ -8,10 +8,11 @@ use openvm_circuit::{
     },
 };
 use openvm_instructions::riscv::{RV32_MEMORY_AS, RV32_REGISTER_AS};
-use openvm_stark_backend::p3_field::{FieldAlgebra, PrimeField32};
+use openvm_stark_backend::p3_field::{PrimeCharacteristicRing, PrimeField32};
 
 mod alu;
 mod branch;
+mod deferral;
 mod jalr;
 mod loadstore;
 mod mul;
@@ -19,6 +20,7 @@ mod rdwrite;
 
 pub use alu::*;
 pub use branch::*;
+pub use deferral::*;
 pub use jalr::*;
 pub use loadstore::*;
 pub use mul::*;
@@ -49,7 +51,7 @@ pub fn compose<F: PrimeField32>(ptr_data: [F; RV32_REGISTER_NUM_LIMBS]) -> u32 {
 /// inverse of `compose`
 pub fn decompose<F: PrimeField32>(value: u32) -> [F; RV32_REGISTER_NUM_LIMBS] {
     std::array::from_fn(|i| {
-        F::from_canonical_u32((value >> (RV32_CELL_BITS * i)) & ((1 << RV32_CELL_BITS) - 1))
+        F::from_u32((value >> (RV32_CELL_BITS * i)) & ((1 << RV32_CELL_BITS) - 1))
     })
 }
 
@@ -112,16 +114,7 @@ pub fn timed_read<const N: usize>(
     // SAFETY:
     // - address space `RV32_REGISTER_AS` and `RV32_MEMORY_AS` will always have cell type `u8` and
     //   minimum alignment of `RV32_REGISTER_NUM_LIMBS`
-    #[cfg(feature = "legacy-v1-3-mem-align")]
-    if address_space == RV32_MEMORY_AS {
-        unsafe { memory.read::<u8, N, 1>(address_space, ptr) }
-    } else {
-        unsafe { memory.read::<u8, N, RV32_REGISTER_NUM_LIMBS>(address_space, ptr) }
-    }
-    #[cfg(not(feature = "legacy-v1-3-mem-align"))]
-    unsafe {
-        memory.read::<u8, N, RV32_REGISTER_NUM_LIMBS>(address_space, ptr)
-    }
+    unsafe { memory.read::<u8, N, RV32_REGISTER_NUM_LIMBS>(address_space, ptr) }
 }
 
 #[inline(always)]
@@ -140,16 +133,7 @@ pub fn timed_write<const N: usize>(
     // SAFETY:
     // - address space `RV32_REGISTER_AS` and `RV32_MEMORY_AS` will always have cell type `u8` and
     //   minimum alignment of `RV32_REGISTER_NUM_LIMBS`
-    #[cfg(feature = "legacy-v1-3-mem-align")]
-    if address_space == RV32_MEMORY_AS {
-        unsafe { memory.write::<u8, N, 1>(address_space, ptr, data) }
-    } else {
-        unsafe { memory.write::<u8, N, RV32_REGISTER_NUM_LIMBS>(address_space, ptr, data) }
-    }
-    #[cfg(not(feature = "legacy-v1-3-mem-align"))]
-    unsafe {
-        memory.write::<u8, N, RV32_REGISTER_NUM_LIMBS>(address_space, ptr, data)
-    }
+    unsafe { memory.write::<u8, N, RV32_REGISTER_NUM_LIMBS>(address_space, ptr, data) }
 }
 
 /// Reads register value at `reg_ptr` from memory and records the memory access in mutable buffer.
@@ -244,13 +228,13 @@ pub fn read_rv32_register(memory: &GuestMemory, ptr: u32) -> u32 {
     u32::from_le_bytes(memory_read(memory, RV32_REGISTER_AS, ptr))
 }
 
-pub fn abstract_compose<T: FieldAlgebra, V: Mul<T, Output = T>>(
+pub fn abstract_compose<T: PrimeCharacteristicRing, V: Mul<T, Output = T>>(
     data: [V; RV32_REGISTER_NUM_LIMBS],
 ) -> T {
     data.into_iter()
         .enumerate()
         .fold(T::ZERO, |acc, (i, limb)| {
-            acc + limb * T::from_canonical_u32(1 << (i * RV32_CELL_BITS))
+            acc + limb * T::from_u32(1 << (i * RV32_CELL_BITS))
         })
 }
 

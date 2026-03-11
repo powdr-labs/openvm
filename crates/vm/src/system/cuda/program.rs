@@ -1,22 +1,18 @@
 use std::{mem::size_of, sync::Arc};
 
-use openvm_circuit::{system::program::ProgramExecutionCols, utils::next_power_of_two_or_zero};
-use openvm_cuda_backend::{
-    base::DeviceMatrix, gpu_device::GpuDevice, prover_backend::GpuBackend, types::F,
+use openvm_circuit::{
+    primitives::Chip, system::program::ProgramExecutionCols, utils::next_power_of_two_or_zero,
 };
+use openvm_cuda_backend::{base::DeviceMatrix, prelude::F, GpuBackend, GpuDevice};
 use openvm_cuda_common::{copy::MemCopyH2D, d_buffer::DeviceBuffer};
 use openvm_instructions::{
     program::{Program, DEFAULT_PC_STEP},
     LocalOpcode, SystemOpcode,
 };
-use openvm_stark_backend::{
-    prover::{
-        hal::{MatrixDimensions, TraceCommitter},
-        types::{AirProvingContext, CommittedTraceData},
-    },
-    Chip,
+use openvm_stark_backend::prover::{
+    AirProvingContext, CommittedTraceData, MatrixDimensions, TraceCommitter,
 };
-use p3_field::FieldAlgebra;
+use p3_field::PrimeCharacteristicRing;
 
 use crate::cuda_abi::program;
 
@@ -35,7 +31,7 @@ impl ProgramChipGPU {
             .into_iter()
             .map(|(pc, instruction, _)| {
                 [
-                    F::from_canonical_u32(pc),
+                    F::from_u32(pc),
                     instruction.opcode.to_field(),
                     instruction.a,
                     instruction.b,
@@ -77,11 +73,11 @@ impl ProgramChipGPU {
         trace: DeviceMatrix<F>,
         device: &GpuDevice,
     ) -> CommittedTraceData<GpuBackend> {
-        let (root, pcs_data) = device.commit(std::slice::from_ref(&trace));
+        let (commitment, data) = TraceCommitter::<GpuBackend>::commit(device, &[&trace]).unwrap();
         CommittedTraceData {
-            commitment: root,
+            commitment,
+            data: Arc::new(data),
             trace,
-            data: pcs_data,
         }
     }
 }
@@ -95,7 +91,7 @@ impl Default for ProgramChipGPU {
 impl Chip<Vec<u32>, GpuBackend> for ProgramChipGPU {
     fn generate_proving_ctx(&self, filtered_exec_freqs: Vec<u32>) -> AirProvingContext<GpuBackend> {
         let cached = self.cached.clone().expect("Cached program must be loaded");
-        let height = cached.trace.height();
+        let height = cached.height();
         let filtered_len = filtered_exec_freqs.len();
         assert!(
             filtered_len <= height,
@@ -105,7 +101,7 @@ impl Chip<Vec<u32>, GpuBackend> for ProgramChipGPU {
 
         filtered_exec_freqs
             .into_iter()
-            .map(F::from_canonical_u32)
+            .map(F::from_u32)
             .collect::<Vec<_>>()
             .copy_to(&mut buffer)
             .unwrap();
@@ -114,11 +110,11 @@ impl Chip<Vec<u32>, GpuBackend> for ProgramChipGPU {
             buffer.fill_zero_suffix(filtered_len).unwrap();
         }
 
-        let trace = DeviceMatrix::new(Arc::new(buffer), height, 1);
+        let common_main = DeviceMatrix::new(Arc::new(buffer), height, 1);
 
         AirProvingContext {
             cached_mains: vec![cached],
-            common_main: Some(trace),
+            common_main,
             public_values: vec![],
         }
     }
@@ -128,8 +124,8 @@ impl Chip<Vec<u32>, GpuBackend> for ProgramChipGPU {
 mod tests {
     use openvm_circuit::system::program::trace::VmCommittedExe;
     use openvm_cuda_backend::{
-        data_transporter::assert_eq_host_and_device_matrix, engine::GpuBabyBearPoseidon2Engine,
-        prelude::F,
+        data_transporter::assert_eq_host_and_device_matrix_col_maj,
+        prelude::{F, SC},
     };
     use openvm_instructions::{
         exe::VmExe,
@@ -138,60 +134,38 @@ mod tests {
         LocalOpcode,
         SystemOpcode::*,
     };
-    use openvm_native_compiler::{
-        FieldArithmeticOpcode::*, NativeBranchEqualOpcode, NativeJalOpcode::*,
-        NativeLoadStoreOpcode::*,
-    };
-    use openvm_rv32im_transpiler::BranchEqualOpcode::*;
-    use openvm_stark_backend::config::StarkGenericConfig;
-    use openvm_stark_sdk::{
-        config::{
-            baby_bear_poseidon2::{BabyBearPoseidon2Config, BabyBearPoseidon2Engine},
-            FriParameters,
-        },
-        engine::{StarkEngine, StarkFriEngine},
-    };
+    use openvm_stark_backend::StarkEngine;
 
     use super::ProgramChipGPU;
+    use crate::{
+        system::program::tests::{BEQ, BNE, JAL, STOREW, SUB},
+        utils::{test_cpu_engine, test_gpu_engine},
+    };
 
     fn test_cached_committed_trace_data(program: Program<F>) {
-        let gpu_engine = GpuBabyBearPoseidon2Engine::new(FriParameters::new_for_testing(2));
+        let gpu_engine = test_gpu_engine();
         let gpu_device = gpu_engine.device();
         let gpu_trace = ProgramChipGPU::generate_cached_trace(program.clone());
         let gpu_cached = ProgramChipGPU::get_committed_trace(gpu_trace, gpu_device);
 
-        let cpu_engine = BabyBearPoseidon2Engine::new(FriParameters::new_for_testing(2));
+        let cpu_engine = test_cpu_engine();
         let cpu_exe = VmExe::new(program.clone());
-        let cpu_committed_exe =
-            VmCommittedExe::<BabyBearPoseidon2Config>::commit(cpu_exe, cpu_engine.config().pcs());
+        let cpu_committed_exe = VmCommittedExe::<SC>::commit(cpu_exe, &cpu_engine);
         let cpu_cached = cpu_committed_exe.get_committed_trace();
 
-        assert_eq_host_and_device_matrix(cpu_cached.trace, &gpu_cached.trace);
+        // NOTE: This compares the stacked matrices, not the original cached trace
+        assert_eq_host_and_device_matrix_col_maj(&cpu_cached.trace, &gpu_cached.trace);
         assert_eq!(gpu_cached.commitment, cpu_cached.commitment);
     }
 
     #[test]
     fn test_cuda_program_cached_tracegen_1() {
         let instructions = vec![
-            Instruction::large_from_isize(STOREW.global_opcode(), 2, 0, 0, 0, 1, 0, 1),
-            Instruction::large_from_isize(STOREW.global_opcode(), 1, 1, 0, 0, 1, 0, 1),
-            Instruction::from_isize(
-                NativeBranchEqualOpcode(BEQ).global_opcode(),
-                0,
-                0,
-                3 * DEFAULT_PC_STEP as isize,
-                1,
-                0,
-            ),
-            Instruction::from_isize(SUB.global_opcode(), 0, 0, 1, 1, 1),
-            Instruction::from_isize(
-                JAL.global_opcode(),
-                2,
-                -2 * (DEFAULT_PC_STEP as isize),
-                0,
-                1,
-                0,
-            ),
+            Instruction::large_from_isize(STOREW, 2, 0, 0, 0, 1, 0, 1),
+            Instruction::large_from_isize(STOREW, 1, 1, 0, 0, 1, 0, 1),
+            Instruction::from_isize(BEQ, 0, 0, 3 * DEFAULT_PC_STEP as isize, 1, 0),
+            Instruction::from_isize(SUB, 0, 0, 1, 1, 1),
+            Instruction::from_isize(JAL, 2, -2 * (DEFAULT_PC_STEP as isize), 0, 1, 0),
             Instruction::from_isize(TERMINATE.global_opcode(), 0, 0, 0, 0, 0),
         ];
         let program = Program::from_instructions(&instructions);
@@ -201,32 +175,11 @@ mod tests {
     #[test]
     fn test_cuda_program_cached_tracegen_2() {
         let instructions = vec![
-            Instruction::large_from_isize(STOREW.global_opcode(), 5, 0, 0, 0, 1, 0, 1),
-            Instruction::from_isize(
-                NativeBranchEqualOpcode(BNE).global_opcode(),
-                0,
-                4,
-                3 * DEFAULT_PC_STEP as isize,
-                1,
-                0,
-            ),
-            Instruction::from_isize(
-                JAL.global_opcode(),
-                2,
-                -2 * DEFAULT_PC_STEP as isize,
-                0,
-                1,
-                0,
-            ),
+            Instruction::large_from_isize(STOREW, 5, 0, 0, 0, 1, 0, 1),
+            Instruction::from_isize(BNE, 0, 4, 3 * DEFAULT_PC_STEP as isize, 1, 0),
+            Instruction::from_isize(JAL, 2, -2 * DEFAULT_PC_STEP as isize, 0, 1, 0),
             Instruction::from_isize(TERMINATE.global_opcode(), 0, 0, 0, 0, 0),
-            Instruction::from_isize(
-                NativeBranchEqualOpcode(BEQ).global_opcode(),
-                0,
-                5,
-                -(DEFAULT_PC_STEP as isize),
-                1,
-                0,
-            ),
+            Instruction::from_isize(BEQ, 0, 5, -(DEFAULT_PC_STEP as isize), 1, 0),
         ];
         let program = Program::from_instructions(&instructions);
         test_cached_committed_trace_data(program);
@@ -235,28 +188,10 @@ mod tests {
     #[test]
     fn test_cuda_program_cached_tracegen_undefined_instructions() {
         let instructions = vec![
-            Some(Instruction::large_from_isize(
-                STOREW.global_opcode(),
-                2,
-                0,
-                0,
-                0,
-                1,
-                0,
-                1,
-            )),
-            Some(Instruction::large_from_isize(
-                STOREW.global_opcode(),
-                1,
-                1,
-                0,
-                0,
-                1,
-                0,
-                1,
-            )),
+            Some(Instruction::large_from_isize(STOREW, 2, 0, 0, 0, 1, 0, 1)),
+            Some(Instruction::large_from_isize(STOREW, 1, 1, 0, 0, 1, 0, 1)),
             Some(Instruction::from_isize(
-                NativeBranchEqualOpcode(BEQ).global_opcode(),
+                BEQ,
                 0,
                 2,
                 3 * DEFAULT_PC_STEP as isize,

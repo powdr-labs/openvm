@@ -20,16 +20,14 @@ mod tests {
     use openvm_rv32im_transpiler::{
         Rv32ITranspilerExtension, Rv32IoTranspilerExtension, Rv32MTranspilerExtension,
     };
-    use openvm_sdk::{
-        config::{AppConfig, SdkVmBuilder, SdkVmConfig, TranspilerConfig},
-        StdIn,
-    };
-    use openvm_stark_backend::p3_field::FieldAlgebra;
+    use openvm_sdk_config::{SdkVmBuilder, SdkVmConfig, TranspilerConfig};
+    use openvm_stark_backend::p3_field::PrimeCharacteristicRing;
     use openvm_stark_sdk::{openvm_stark_backend, p3_baby_bear::BabyBear};
     use openvm_toolchain_tests::{
         build_example_program_at_path_with_features, get_programs_dir, NoInitFile,
     };
     use openvm_transpiler::{transpiler::Transpiler, FromElf};
+    use sdk_v2::StdIn;
 
     use crate::test_vectors::{
         k256_sec1_decoding_test_vectors, K256_RECOVERY_TEST_VECTORS, P256_RECOVERY_TEST_VECTORS,
@@ -171,7 +169,7 @@ mod tests {
         let coords = [p.x.to_bytes(), p.y.to_bytes(), q_x, q_y, r_x, r_y]
             .concat()
             .into_iter()
-            .map(FieldAlgebra::from_canonical_u8)
+            .map(PrimeCharacteristicRing::from_u8)
             .collect();
         air_test_with_min_segments(Rv32WeierstrassBuilder, config, openvm_exe, vec![coords], 1);
         Ok(())
@@ -179,10 +177,7 @@ mod tests {
 
     #[test]
     fn test_ecdsa() -> Result<()> {
-        let config = toml::from_str::<AppConfig<SdkVmConfig>>(include_str!(
-            "../programs/openvm_k256_keccak.toml"
-        ))?
-        .app_vm_config;
+        let config = SdkVmConfig::from_toml(include_str!("../programs/openvm_k256_keccak.toml"))?;
         let elf = build_example_program_at_path_with_features(
             get_programs_dir!(),
             "ecdsa",
@@ -196,9 +191,7 @@ mod tests {
 
     #[test]
     fn test_p256_ecdsa_recover() -> Result<()> {
-        let config =
-            toml::from_str::<AppConfig<SdkVmConfig>>(include_str!("../programs/openvm_p256.toml"))?
-                .app_vm_config;
+        let config = SdkVmConfig::from_toml(include_str!("../programs/openvm_p256.toml"))?;
         let elf = build_example_program_at_path_with_features(
             get_programs_dir!(),
             "ecdsa_recover_p256",
@@ -214,9 +207,7 @@ mod tests {
 
     #[test]
     fn test_k256_ecdsa_recover() -> Result<()> {
-        let config =
-            toml::from_str::<AppConfig<SdkVmConfig>>(include_str!("../programs/openvm_k256.toml"))?
-                .app_vm_config;
+        let config = SdkVmConfig::from_toml(include_str!("../programs/openvm_k256.toml"))?;
         let elf = build_example_program_at_path_with_features(
             get_programs_dir!(),
             "ecdsa_recover_k256",
@@ -232,9 +223,7 @@ mod tests {
 
     #[test]
     fn test_k256_vk_from_sec1_bytes() -> Result<()> {
-        let config =
-            toml::from_str::<AppConfig<SdkVmConfig>>(include_str!("../programs/openvm_k256.toml"))?
-                .app_vm_config;
+        let config = SdkVmConfig::from_toml(include_str!("../programs/openvm_k256.toml"))?;
         let elf = build_example_program_at_path_with_features(
             get_programs_dir!(),
             "sec1_decode",

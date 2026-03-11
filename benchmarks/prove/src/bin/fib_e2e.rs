@@ -12,13 +12,14 @@ async fn main() -> Result<()> {
     let args = BenchmarkCli::parse();
 
     // Must be larger than RangeTupleCheckerAir.height == 524288
-    let max_segment_length = args.max_segment_length.unwrap_or(1_000_000);
+    let max_segment_length = args.max_segment_length.unwrap_or(1 << 20);
 
     let mut config =
         SdkVmConfig::from_toml(include_str!("../../../guest/fibonacci/openvm.toml"))?.app_vm_config;
     config
         .as_mut()
-        .segmentation_limits
+        .segmentation_config
+        .limits
         .set_max_trace_height(max_segment_length);
     config.as_mut().num_public_values = NUM_PUBLIC_VALUES;
 

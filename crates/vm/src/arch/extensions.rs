@@ -16,22 +16,15 @@ use std::{
 };
 
 use getset::{CopyGetters, Getters};
-use openvm_circuit_primitives::var_range::{
-    SharedVariableRangeCheckerChip, VariableRangeCheckerAir,
+use openvm_circuit_primitives::{
+    var_range::{SharedVariableRangeCheckerChip, VariableRangeCheckerAir},
+    AnyChip, Chip,
 };
 use openvm_instructions::{PhantomDiscriminant, VmOpcode};
 use openvm_stark_backend::{
-    config::{StarkGenericConfig, Val},
-    engine::StarkEngine,
     interaction::BusIndex,
-    keygen::types::MultiStarkProvingKey,
-    prover::{
-        cpu::CpuBackend,
-        hal::ProverBackend,
-        types::{AirProvingContext, ProvingContext},
-    },
-    rap::AnyRap,
-    AirRef, AnyChip, Chip,
+    prover::{AirProvingContext, CpuBackend, MatrixDimensions, ProverBackend, ProvingContext},
+    AirRef, AnyAir, StarkEngine, StarkProtocolConfig, Val,
 };
 use rustc_hash::FxHashMap;
 use tracing::info_span;
@@ -51,14 +44,13 @@ pub const PROGRAM_AIR_ID: usize = 0;
 /// ProgramAir is the first AIR so its cached trace should be the first main trace.
 pub const PROGRAM_CACHED_TRACE_INDEX: usize = 0;
 pub const CONNECTOR_AIR_ID: usize = 1;
-/// If PublicValuesAir is **enabled**, its AIR ID is 2. PublicValuesAir is always disabled when
-/// continuations is enabled.
-pub const PUBLIC_VALUES_AIR_ID: usize = 2;
-/// AIR ID of the Memory Boundary AIR.
-pub const BOUNDARY_AIR_ID: usize = PUBLIC_VALUES_AIR_ID + 1 + BOUNDARY_AIR_OFFSET;
+/// Starting AIR index of memory AIRs in the VM circuit.
+pub const MEMORY_AIRS_START_IDX: usize = 2;
+/// AIR index of the boundary AIR in the VM circuit.
+pub const BOUNDARY_AIR_ID: usize = MEMORY_AIRS_START_IDX + BOUNDARY_AIR_OFFSET;
 /// If VM has continuations enabled, all AIRs of MemoryController are added after ConnectorChip.
 /// Merkle AIR commits start/final memory states.
-pub const MERKLE_AIR_ID: usize = CONNECTOR_AIR_ID + 1 + MERKLE_AIR_OFFSET;
+pub const MERKLE_AIR_ID: usize = MEMORY_AIRS_START_IDX + MERKLE_AIR_OFFSET;
 
 pub type ExecutorId = u32;
 
@@ -77,7 +69,7 @@ pub trait VmExecutionExtension<F> {
 }
 
 /// Extension of the VM circuit. Allows _in-order_ addition of new AIRs with interactions.
-pub trait VmCircuitExtension<SC: StarkGenericConfig> {
+pub trait VmCircuitExtension<SC: StarkProtocolConfig> {
     fn extend_circuit(&self, inventory: &mut AirInventory<SC>) -> Result<(), AirInventoryError>;
 }
 
@@ -133,12 +125,12 @@ pub struct ExecutorInventoryBuilder<'a, F, E> {
 }
 
 #[derive(Clone, Getters, CopyGetters)]
-pub struct AirInventory<SC: StarkGenericConfig> {
+pub struct AirInventory<SC: StarkProtocolConfig> {
     #[get = "pub"]
     config: SystemConfig,
     /// The system AIRs required by the circuit architecture.
     #[get = "pub"]
-    system: SystemAirInventory<SC>,
+    system: SystemAirInventory,
     /// List of all non-system AIRs in the circuit, in insertion order, which is the **reverse** of
     /// the order they appear in the verifying key.
     ///
@@ -163,7 +155,7 @@ pub struct BusIndexManager {
 #[derive(Getters)]
 pub struct ChipInventory<SC, RA, PB>
 where
-    SC: StarkGenericConfig,
+    SC: StarkProtocolConfig,
     PB: ProverBackend,
 {
     /// Read-only view of AIRs, as constructed via the [VmCircuitExtension] trait.
@@ -191,7 +183,7 @@ where
 #[derive(Getters)]
 pub struct VmChipComplex<SC, RA, PB, SCC>
 where
-    SC: StarkGenericConfig,
+    SC: StarkProtocolConfig,
     PB: ProverBackend,
 {
     /// System chip complex responsible for trace generation of [SystemAirInventory]
@@ -399,11 +391,11 @@ impl<F, E> ExecutorInventoryBuilder<'_, F, E> {
     }
 }
 
-impl<SC: StarkGenericConfig> AirInventory<SC> {
+impl<SC: StarkProtocolConfig> AirInventory<SC> {
     /// Outside of this crate, [AirInventory] must be constructed via [SystemConfig].
     pub(crate) fn new(
         config: SystemConfig,
-        system: SystemAirInventory<SC>,
+        system: SystemAirInventory,
         bus_idx_mgr: BusIndexManager,
     ) -> Self {
         Self {
@@ -434,7 +426,7 @@ impl<SC: StarkGenericConfig> AirInventory<SC> {
             .filter_map(|air| air.as_any().downcast_ref())
     }
 
-    pub fn add_air<A: AnyRap<SC> + 'static>(&mut self, air: A) {
+    pub fn add_air<A: AnyAir<SC> + 'static>(&mut self, air: A) {
         self.add_air_ref(Arc::new(air));
     }
 
@@ -464,15 +456,6 @@ impl<SC: StarkGenericConfig> AirInventory<SC> {
         self.config.num_airs() + self.ext_airs.len()
     }
 
-    /// Standalone function to generate proving key and verifying key for this circuit.
-    pub fn keygen<E: StarkEngine<SC = SC>>(self, engine: &E) -> MultiStarkProvingKey<SC> {
-        let mut builder = engine.keygen_builder();
-        for air in self.into_airs() {
-            builder.add_air(air);
-        }
-        builder.generate_pk()
-    }
-
     /// Returns the maximum number of bits used to represent addresses in memory
     pub fn pointer_max_bits(&self) -> usize {
         self.config.memory_config.pointer_max_bits
@@ -493,7 +476,7 @@ impl BusIndexManager {
 
 impl<SC, RA, PB> ChipInventory<SC, RA, PB>
 where
-    SC: StarkGenericConfig,
+    SC: StarkProtocolConfig,
     PB: ProverBackend,
 {
     pub fn new(airs: AirInventory<SC>) -> Self {
@@ -594,12 +577,28 @@ where
     pub fn timestamp_max_bits(&self) -> usize {
         self.airs.config().memory_config.timestamp_max_bits
     }
+
+    /// Returns constant trace heights for all AIRs in verifying key order.
+    /// System AIRs get `None` (their constant heights are handled separately).
+    /// Extension chips follow in the same order as AIRs in the verifying key
+    /// (reversed insertion order).
+    pub fn constant_trace_heights(&self) -> Vec<Option<usize>> {
+        let num_system = self.airs.config().num_airs();
+        let mut heights = vec![None; num_system];
+        heights.extend(
+            self.chips
+                .iter()
+                .rev()
+                .map(|chip| chip.constant_trace_height()),
+        );
+        heights
+    }
 }
 
 // SharedVariableRangeCheckerChip is only used by the CPU backend.
 impl<SC, RA> ChipInventory<SC, RA, CpuBackend<SC>>
 where
-    SC: StarkGenericConfig,
+    SC: StarkProtocolConfig,
 {
     pub fn range_checker(&self) -> Result<&SharedVariableRangeCheckerChip, ChipInventoryError> {
         self.find_chip::<SharedVariableRangeCheckerChip>()
@@ -648,7 +647,7 @@ pub enum ChipInventoryError {
 
 impl<SC, RA, PB, SCC> VmChipComplex<SC, RA, PB, SCC>
 where
-    SC: StarkGenericConfig,
+    SC: StarkProtocolConfig,
     RA: Arena,
     PB: ProverBackend,
     SCC: SystemChipComplex<RA, PB>,
@@ -711,15 +710,10 @@ where
                 ),
             )
             .enumerate()
-            .filter(|(_air_id, ctx)| {
-                (!ctx.cached_mains.is_empty() || ctx.common_main.is_some())
-                    && ctx.main_trace_height() > 0
-            })
+            .filter(|(_air_id, ctx)| ctx.common_main.height() > 0)
             .collect();
 
-        Ok(ProvingContext {
-            per_air: ctx_without_empties,
-        })
+        Ok(ProvingContext::new(ctx_without_empties))
     }
 }
 
@@ -740,7 +734,7 @@ impl<F, EXT: VmExecutionExtension<F>> VmExecutionExtension<F> for Option<EXT> {
     }
 }
 
-impl<SC: StarkGenericConfig, EXT: VmCircuitExtension<SC>> VmCircuitExtension<SC> for Option<EXT> {
+impl<SC: StarkProtocolConfig, EXT: VmCircuitExtension<SC>> VmCircuitExtension<SC> for Option<EXT> {
     fn extend_circuit(&self, inventory: &mut AirInventory<SC>) -> Result<(), AirInventoryError> {
         if let Some(extension) = self {
             extension.extend_circuit(inventory)
@@ -774,7 +768,7 @@ mod tests {
     use openvm_stark_sdk::config::baby_bear_poseidon2::BabyBearPoseidon2Config;
 
     use super::*;
-    use crate::{arch::VmCircuitConfig, system::memory::interface::MemoryInterfaceAirs};
+    use crate::arch::VmCircuitConfig;
 
     #[allow(dead_code)]
     #[derive(Copy, Clone)]
@@ -855,12 +849,7 @@ mod tests {
         assert_eq!(port.memory_bridge.memory_bus().index(), 1);
         assert_eq!(port.program_bus.index(), 2);
         assert_eq!(port.memory_bridge.range_bus().index(), 3);
-        match &system.memory.interface {
-            MemoryInterfaceAirs::Persistent { boundary, .. } => {
-                assert_eq!(boundary.merkle_bus.index, 4);
-                assert_eq!(boundary.compression_bus.index, 5);
-            }
-            _ => unreachable!(),
-        };
+        assert_eq!(system.memory.interface.boundary.merkle_bus.index, 4);
+        assert_eq!(system.memory.interface.boundary.compression_bus.index, 5);
     }
 }

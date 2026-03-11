@@ -2,35 +2,44 @@ use std::{iter, sync::Arc};
 
 use dummy::DummyAir;
 use openvm_stark_backend::{
-    p3_field::FieldAlgebra,
+    any_air_arc_vec,
+    p3_field::PrimeCharacteristicRing,
     p3_matrix::dense::RowMajorMatrix,
     p3_maybe_rayon::prelude::{IntoParallelRefIterator, ParallelIterator},
+    prover::{AirProvingContext, ColMajorMatrix, CpuProverError},
     utils::disable_debug_builder,
-    verifier::VerificationError,
-    AirRef,
+    AirRef, StarkEngine, StarkTestError, VerificationData,
 };
+#[cfg(not(feature = "cuda"))]
+use openvm_stark_sdk::config::baby_bear_poseidon2::F;
 use openvm_stark_sdk::{
-    any_rap_arc_vec, config::baby_bear_poseidon2::BabyBearPoseidon2Engine, engine::StarkFriEngine,
-    p3_baby_bear::BabyBear, utils::create_seeded_rng,
+    config::baby_bear_poseidon2::{BabyBearPoseidon2Config, EF},
+    utils::create_seeded_rng,
 };
 use rand::Rng;
 #[cfg(feature = "cuda")]
 use {
-    crate::bitwise_op_lookup::{BitwiseOperationLookupAir, BitwiseOperationLookupChipGPU},
+    crate::{
+        bitwise_op_lookup::{BitwiseOperationLookupAir, BitwiseOperationLookupChipGPU},
+        utils::test_gpu_engine_small,
+        Chip,
+    },
     dummy::cuda::DummyInteractionChipGPU,
     openvm_cuda_backend::{
         base::DeviceMatrix,
-        engine::GpuBabyBearPoseidon2Engine,
-        types::{F, SC},
+        prelude::{F, SC},
     },
     openvm_cuda_common::copy::MemCopyH2D as _,
-    openvm_stark_backend::{p3_air::BaseAir, prover::types::AirProvingContext, Chip},
-    openvm_stark_sdk::{
-        config::FriParameters, dummy_airs::interaction::dummy_interaction_air::DummyInteractionAir,
+    openvm_stark_backend::{
+        p3_air::BaseAir,
+        test_utils::dummy_airs::interaction::dummy_interaction_air::DummyInteractionAir,
     },
 };
 
-use crate::bitwise_op_lookup::{BitwiseOperationLookupBus, BitwiseOperationLookupChip};
+use crate::{
+    bitwise_op_lookup::{BitwiseOperationLookupBus, BitwiseOperationLookupChip},
+    utils::test_engine_small,
+};
 
 mod dummy;
 
@@ -52,12 +61,12 @@ fn generate_rng_values(
         .map(|_| {
             (0..list_len)
                 .map(|_| {
-                    let op = match rng.gen_range(0..2) {
+                    let op = match rng.random_range(0..2) {
                         0 => BitwiseOperation::Range,
                         _ => BitwiseOperation::Xor,
                     };
-                    let x = rng.gen_range(0..(1 << NUM_BITS));
-                    let y = rng.gen_range(0..(1 << NUM_BITS));
+                    let x = rng.random_range(0..(1 << NUM_BITS));
+                    let y = rng.random_range(0..(1 << NUM_BITS));
                     let z = match op {
                         BitwiseOperation::Range => 0,
                         BitwiseOperation::Xor => x ^ y,
@@ -103,19 +112,28 @@ fn test_bitwise_operation_lookup() {
                         };
                         [x, y, z, op as u32].into_iter()
                     })
-                    .map(FieldAlgebra::from_canonical_u32)
+                    .map(PrimeCharacteristicRing::from_u32)
                     .collect(),
                 4,
             )
         })
-        .collect::<Vec<RowMajorMatrix<BabyBear>>>();
+        .collect::<Vec<RowMajorMatrix<F>>>();
     traces.push(lookup.generate_trace());
 
-    BabyBearPoseidon2Engine::run_simple_test_no_pis_fast(chips, traces)
+    let traces = traces
+        .iter()
+        .map(ColMajorMatrix::from_row_major)
+        .map(AirProvingContext::simple_no_pis)
+        .collect::<Vec<_>>();
+
+    test_engine_small()
+        .run_test(chips, traces)
         .expect("Verification failed");
 }
 
-fn run_negative_test(bad_row: (u32, u32, u32, BitwiseOperation)) {
+fn run_negative_test(
+    bad_row: (u32, u32, u32, BitwiseOperation),
+) -> Result<VerificationData<BabyBearPoseidon2Config>, StarkTestError<CpuProverError, EF>> {
     let bus = BitwiseOperationLookupBus::new(0);
     let lookup = BitwiseOperationLookupChip::<NUM_BITS>::new(bus);
 
@@ -123,9 +141,9 @@ fn run_negative_test(bad_row: (u32, u32, u32, BitwiseOperation)) {
     list.push(bad_row);
 
     let dummy = DummyAir::new(bus);
-    let chips = any_rap_arc_vec![dummy, lookup.air];
+    let chips = any_air_arc_vec![dummy, lookup.air];
 
-    let traces = vec![
+    let traces = [
         RowMajorMatrix::new(
             list.iter()
                 .flat_map(|&(x, y, z, op)| {
@@ -137,56 +155,104 @@ fn run_negative_test(bad_row: (u32, u32, u32, BitwiseOperation)) {
                     };
                     [x, y, z, op as u32].into_iter()
                 })
-                .map(FieldAlgebra::from_canonical_u32)
+                .map(PrimeCharacteristicRing::from_u32)
                 .collect(),
             4,
         ),
         lookup.generate_trace(),
     ];
 
+    let traces = traces
+        .iter()
+        .map(ColMajorMatrix::from_row_major)
+        .map(AirProvingContext::simple_no_pis)
+        .collect::<Vec<_>>();
+
     disable_debug_builder();
-    assert_eq!(
-        BabyBearPoseidon2Engine::run_simple_test_no_pis_fast(chips, traces).err(),
-        Some(VerificationError::ChallengePhaseError),
-        "Expected constraint to fail"
-    );
+    test_engine_small().run_test(chips, traces)
 }
 
 #[test]
 fn negative_test_bitwise_operation_lookup_range_wrong_z() {
-    run_negative_test((2, 1, 1, BitwiseOperation::Range));
+    let result = run_negative_test((2, 1, 1, BitwiseOperation::Range));
+    assert!(matches!(result, Err(StarkTestError::Prover(_))));
 }
 
 #[test]
-#[should_panic]
 fn negative_test_bitwise_operation_lookup_range_x_out_of_range() {
-    run_negative_test((16, 1, 0, BitwiseOperation::Range));
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        run_negative_test((16, 1, 0, BitwiseOperation::Range))
+    }));
+    match result {
+        Err(_) => {
+            // debug_assert! fired (debug mode) — expected
+            assert!(cfg!(debug_assertions), "Unexpected panic in release mode");
+        }
+        Ok(test_result) => {
+            // No panic (release mode) — verification should fail
+            assert!(matches!(test_result, Err(StarkTestError::Verifier(_))));
+        }
+    }
 }
 
 #[test]
-#[should_panic]
 fn negative_test_bitwise_operation_lookup_range_y_out_of_range() {
-    run_negative_test((1, 16, 0, BitwiseOperation::Range));
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        run_negative_test((1, 16, 0, BitwiseOperation::Range))
+    }));
+    match result {
+        Err(_) => {
+            // debug_assert! fired (debug mode) — expected
+            assert!(cfg!(debug_assertions), "Unexpected panic in release mode");
+        }
+        Ok(test_result) => {
+            // No panic (release mode) — verification should fail
+            assert!(matches!(test_result, Err(StarkTestError::Verifier(_))));
+        }
+    }
 }
 
 #[test]
 fn negative_test_bitwise_operation_lookup_xor_wrong_z() {
     // 1011(11) ^ 0101(5) = 1110(14)
-    run_negative_test((11, 5, 15, BitwiseOperation::Xor));
+    let result = run_negative_test((11, 5, 15, BitwiseOperation::Xor));
+    assert!(matches!(result, Err(StarkTestError::Prover(_))));
 }
 
 #[test]
-#[should_panic]
 fn negative_test_bitwise_operation_lookup_xor_x_out_of_range() {
     // 10000(16) ^ 0001(1) = 0001(1) in 4 bits, but need x < 2^NUM_BITS
-    run_negative_test((16, 1, 1, BitwiseOperation::Xor));
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        run_negative_test((16, 1, 1, BitwiseOperation::Xor))
+    }));
+    match result {
+        Err(_) => {
+            // debug_assert! fired (debug mode) — expected
+            assert!(cfg!(debug_assertions), "Unexpected panic in release mode");
+        }
+        Ok(test_result) => {
+            // No panic (release mode) — verification should fail
+            assert!(matches!(test_result, Err(StarkTestError::Verifier(_))));
+        }
+    }
 }
 
 #[test]
-#[should_panic]
 fn negative_test_bitwise_operation_lookup_xor_y_out_of_range() {
     // 0001(1) ^ 10000(16) = 0001(1) in 4 bits, but need y < 2^NUM_BITS
-    run_negative_test((1, 16, 1, BitwiseOperation::Xor));
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        run_negative_test((1, 16, 1, BitwiseOperation::Xor))
+    }));
+    match result {
+        Err(_) => {
+            // debug_assert! fired (debug mode) — expected
+            assert!(cfg!(debug_assertions), "Unexpected panic in release mode");
+        }
+        Ok(test_result) => {
+            // No panic (release mode) — verification should fail
+            assert!(matches!(test_result, Err(StarkTestError::Verifier(_))));
+        }
+    }
 }
 
 #[cfg(feature = "cuda")]
@@ -201,9 +267,9 @@ fn test_cuda_bitwise_op_lookup() {
 
     let random_values = (0..NUM_INPUTS)
         .flat_map(|_| {
-            let x = rng.gen::<u32>() & BIT_MASK;
-            let y = rng.gen::<u32>() & BIT_MASK;
-            let op = rng.gen_bool(0.5);
+            let x = rng.random::<u32>() & BIT_MASK;
+            let y = rng.random::<u32>() & BIT_MASK;
+            let op = rng.random_bool(0.5);
             [x, y, op as u32]
         })
         .collect::<Vec<_>>();
@@ -219,9 +285,9 @@ fn test_cuda_bitwise_op_lookup() {
     let bitwise_ctx = bitwise.generate_proving_ctx(());
     let ctxs = vec![dummy_ctx, bitwise_ctx];
 
-    let engine: GpuBabyBearPoseidon2Engine =
-        GpuBabyBearPoseidon2Engine::new(FriParameters::new_for_testing(1));
-    engine.run_test(airs, ctxs).expect("Verification failed");
+    test_gpu_engine_small()
+        .run_test(airs, ctxs)
+        .expect("Verification failed");
 }
 
 #[cfg(feature = "cuda")]
@@ -239,9 +305,9 @@ fn test_cuda_bitwise_op_lookup_hybrid() {
 
     let gpu_random_values = (0..NUM_INPUTS)
         .flat_map(|_| {
-            let x = rng.gen::<u32>() & BIT_MASK;
-            let y = rng.gen::<u32>() & BIT_MASK;
-            let op = rng.gen_bool(0.5);
+            let x = rng.random::<u32>() & BIT_MASK;
+            let y = rng.random::<u32>() & BIT_MASK;
+            let op = rng.random_bool(0.5);
             [x, y, op as u32]
         })
         .collect::<Vec<_>>();
@@ -250,9 +316,9 @@ fn test_cuda_bitwise_op_lookup_hybrid() {
     let cpu_chip = bitwise.cpu_chip.clone().unwrap();
     let cpu_values = (0..NUM_INPUTS)
         .map(|_| {
-            let x = rng.gen::<u32>() & BIT_MASK;
-            let y = rng.gen::<u32>() & BIT_MASK;
-            let op_xor = rng.gen_bool(0.5);
+            let x = rng.random::<u32>() & BIT_MASK;
+            let y = rng.random::<u32>() & BIT_MASK;
+            let op_xor = rng.random_bool(0.5);
             let z = if op_xor {
                 cpu_chip.request_xor(x, y)
             } else {
@@ -267,10 +333,10 @@ fn test_cuda_bitwise_op_lookup_hybrid() {
         .chain(
             cpu_values
                 .iter()
-                .map(|v| F::from_canonical_u32(v[0]))
-                .chain(cpu_values.iter().map(|v| F::from_canonical_u32(v[1])))
-                .chain(cpu_values.iter().map(|v| F::from_canonical_u32(v[2])))
-                .chain(cpu_values.iter().map(|v| F::from_canonical_u32(v[3]))),
+                .map(|v| F::from_u32(v[0]))
+                .chain(cpu_values.iter().map(|v| F::from_u32(v[1])))
+                .chain(cpu_values.iter().map(|v| F::from_u32(v[2])))
+                .chain(cpu_values.iter().map(|v| F::from_u32(v[3]))),
         )
         .collect::<Vec<_>>()
         .to_device()
@@ -279,11 +345,11 @@ fn test_cuda_bitwise_op_lookup_hybrid() {
     let dummy_air = DummyInteractionAir::new(4, true, bus.inner.index);
     let cpu_proving_ctx = AirProvingContext {
         cached_mains: vec![],
-        common_main: Some(DeviceMatrix::new(
+        common_main: DeviceMatrix::new(
             Arc::new(cpu_dummy_trace),
             NUM_INPUTS,
             BaseAir::<F>::width(&dummy_air),
-        )),
+        ),
         public_values: vec![],
     };
 
@@ -298,6 +364,7 @@ fn test_cuda_bitwise_op_lookup_hybrid() {
         bitwise.generate_proving_ctx(()),
     ];
 
-    let engine = GpuBabyBearPoseidon2Engine::new(FriParameters::new_for_testing(1));
-    engine.run_test(airs, ctxs).expect("Verification failed");
+    test_gpu_engine_small()
+        .run_test(airs, ctxs)
+        .expect("Verification failed");
 }

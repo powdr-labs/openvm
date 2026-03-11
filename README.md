@@ -19,7 +19,6 @@ OpenVM is a performant and modular zkVM framework built for customization and ex
 - **Extensible Instruction Set**: The instruction set architecture (ISA) is designed to be extended with new custom instructions that integrate directly with the virtual machine. Current extensions available for OpenVM include:
 
   - RISC-V support via RV32IM
-  - A native field arithmetic extension for proof recursion and aggregation
   - The Keccak-256 and SHA2-256 hash functions
   - Int256 arithmetic
   - Modular arithmetic over arbitrary fields
@@ -32,7 +31,9 @@ OpenVM is a performant and modular zkVM framework built for customization and ex
 
 ## Status
 
-As of June 2025, OpenVM v1.2.0 and later are recommended for production use. OpenVM completed an external [audit](https://github.com/openvm-org/openvm/blob/main/audits/v1-cantina-report.pdf) on [Cantina](https://cantina.xyz/) from January to March 2025 as well as an internal [audit](https://github.com/openvm-org/openvm/blob/main/audits/v1-internal/README.md) by members of the [Axiom](https://axiom.xyz/) team during the same timeframe.
+As of February 2026, OpenVM v1.5.0 and later are recommended for production use. OpenVM completed manual security reviews through external [audits](https://github.com/openvm-org/openvm/blob/main/audits/) on [Cantina](https://cantina.xyz/) and an internal [audit](https://github.com/openvm-org/openvm/blob/main/audits/v1-internal/README.md) by members of the [Axiom](https://axiom.xyz/) team.
+
+As of February 2026, the OpenVM RV32IM extension has been formally verified in [Lean](https://lean-lang.org/) by [Nethermind Research](https://www.nethermind.io).
 
 ## For Users
 

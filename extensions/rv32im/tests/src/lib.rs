@@ -13,12 +13,14 @@ mod tests {
     };
     use openvm_instructions::{exe::VmExe, instruction::Instruction, LocalOpcode, SystemOpcode};
     use openvm_rv32im_circuit::{Rv32IBuilder, Rv32IConfig, Rv32ImBuilder, Rv32ImConfig};
-    use openvm_rv32im_guest::hint_load_by_key_encode;
+    use openvm_rv32im_guest::{hint_load_by_key_encode, MAX_HINT_BUFFER_WORDS};
     use openvm_rv32im_transpiler::{
         DivRemOpcode, MulHOpcode, MulOpcode, Rv32ITranspilerExtension, Rv32IoTranspilerExtension,
         Rv32MTranspilerExtension,
     };
-    use openvm_stark_sdk::{openvm_stark_backend::p3_field::FieldAlgebra, p3_baby_bear::BabyBear};
+    use openvm_stark_sdk::{
+        openvm_stark_backend::p3_field::PrimeCharacteristicRing, p3_baby_bear::BabyBear,
+    };
     use openvm_toolchain_tests::{
         build_example_program_at_path, build_example_program_at_path_with_features,
         get_programs_dir,
@@ -141,7 +143,7 @@ mod tests {
                 .with_extension(Rv32MTranspilerExtension)
                 .with_extension(Rv32IoTranspilerExtension),
         )?;
-        let input = vec![[0, 1, 2, 3].map(F::from_canonical_u8).to_vec()];
+        let input = vec![[0, 1, 2, 3].map(F::from_u8).to_vec()];
         air_test_with_min_segments(Rv32ImBuilder, config, exe, input, 1);
         Ok(())
     }
@@ -158,14 +160,45 @@ mod tests {
                 .with_extension(Rv32IoTranspilerExtension),
         )?;
         // stdin will be read after reading kv_store
-        let stdin = vec![[0, 1, 2].map(F::from_canonical_u8).to_vec()];
+        let stdin = vec![[0, 1, 2].map(F::from_u8).to_vec()];
         let mut streams: Streams<F> = stdin.into();
-        let input = vec![[0, 1, 2, 3].map(F::from_canonical_u8).to_vec()];
+        let input = vec![[0, 1, 2, 3].map(F::from_u8).to_vec()];
         streams.kv_store = Arc::new(HashMap::from([(
             "key".as_bytes().to_vec(),
             hint_load_by_key_encode(&input),
         )]));
         air_test_with_min_segments(Rv32ImBuilder, config, exe, streams, 1);
+        Ok(())
+    }
+
+    /// NOTE: This test is slow because it processes > 1MB of data. It is marked #[ignore]
+    /// and can be run with: cargo test -p openvm-rv32im-integration-tests test_hint_buffer_chunking
+    /// -- --ignored
+    #[test]
+    #[ignore = "slow test: processes >1MB of data"]
+    fn test_hint_buffer_chunking() -> Result<()> {
+        let config = test_rv32im_config();
+        let elf = build_example_program_at_path(get_programs_dir!(), "hint_large_buffer", &config)?;
+        let exe = VmExe::from_elf(
+            elf,
+            Transpiler::<F>::default()
+                .with_extension(Rv32ITranspilerExtension)
+                .with_extension(Rv32MTranspilerExtension)
+                .with_extension(Rv32IoTranspilerExtension),
+        )?;
+
+        // Create input buffer larger than MAX_HINT_BUFFER_WORDS
+        // This will require chunking to succeed
+        let expected_words = MAX_HINT_BUFFER_WORDS + 100;
+        let expected_len = expected_words * 4;
+
+        // Create data with a pattern that can be verified
+        let data: Vec<F> = (0..expected_len)
+            .map(|i| F::from_u8((i % 256) as u8))
+            .collect();
+
+        let input = vec![data];
+        air_test_with_min_segments(Rv32ImBuilder, config, exe, input, 1);
         Ok(())
     }
 
@@ -194,7 +227,7 @@ mod tests {
         let input = serialized_foo
             .into_iter()
             .flat_map(|w| w.to_le_bytes())
-            .map(F::from_canonical_u8)
+            .map(F::from_u8)
             .collect();
         air_test_with_min_segments(Rv32ImBuilder, config, exe, vec![input], 1);
         Ok(())
@@ -234,7 +267,7 @@ mod tests {
                         .into_iter()
                         .flat_map(|x| x.to_le_bytes())
                 )
-                .map(F::from_canonical_u8)
+                .map(F::from_u8)
                 .collect::<Vec<_>>()
         );
         Ok(())
@@ -269,7 +302,7 @@ mod tests {
 
         let executor = VmExecutor::new(config)?;
         let instance = executor.instance(&exe)?;
-        let input = vec![[0, 0, 0, 1].map(F::from_canonical_u8).to_vec()];
+        let input = vec![[0, 0, 0, 1].map(F::from_u8).to_vec()];
         match instance.execute(input.clone(), None) {
             Err(ExecutionError::FailedWithExitCode(_)) => Ok(()),
             Err(_) => panic!("should fail with `FailedWithExitCode`"),

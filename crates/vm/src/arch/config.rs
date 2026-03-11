@@ -6,29 +6,21 @@ use std::{
 
 use derive_new::new;
 use getset::{Setters, WithSetters};
-use openvm_instructions::{
-    riscv::{RV32_IMM_AS, RV32_MEMORY_AS, RV32_REGISTER_AS},
-    NATIVE_AS,
-};
+use openvm_instructions::riscv::{RV32_IMM_AS, RV32_MEMORY_AS, RV32_REGISTER_AS};
 use openvm_poseidon2_air::Poseidon2Config;
 use openvm_stark_backend::{
-    config::{StarkGenericConfig, Val},
-    engine::StarkEngine,
-    p3_field::Field,
-    p3_util::log2_strict_usize,
+    p3_field::Field, p3_util::log2_strict_usize, StarkEngine, StarkProtocolConfig, Val,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use super::{AnyEnum, VmChipComplex, PUBLIC_VALUES_AIR_ID};
+use super::{AnyEnum, VmChipComplex, BOUNDARY_AIR_ID, CONNECTOR_AIR_ID, PROGRAM_AIR_ID};
 use crate::{
     arch::{
-        execution_mode::metered::segment_ctx::SegmentationLimits, AirInventory, AirInventoryError,
+        execution_mode::metered::segment_ctx::SegmentationConfig, AirInventory, AirInventoryError,
         Arena, ChipInventoryError, ExecutorInventory, ExecutorInventoryError,
     },
     system::{
-        memory::{
-            merkle::public_values::PUBLIC_VALUES_AS, num_memory_airs, CHUNK, POINTER_MAX_BITS,
-        },
+        memory::{merkle::public_values::PUBLIC_VALUES_AS, num_memory_airs, POINTER_MAX_BITS},
         SystemChipComplex,
     },
 };
@@ -67,7 +59,7 @@ pub trait VmConfig<SC>:
     + AsRef<SystemConfig>
     + AsMut<SystemConfig>
 where
-    SC: StarkGenericConfig,
+    SC: StarkProtocolConfig,
 {
 }
 
@@ -78,7 +70,7 @@ pub trait VmExecutionConfig<F> {
         -> Result<ExecutorInventory<Self::Executor>, ExecutorInventoryError>;
 }
 
-pub trait VmCircuitConfig<SC: StarkGenericConfig> {
+pub trait VmCircuitConfig<SC: StarkProtocolConfig> {
     fn create_airs(&self) -> Result<AirInventory<SC>, AirInventoryError>;
 }
 
@@ -104,7 +96,7 @@ pub trait VmBuilder<E: StarkEngine>: Sized {
 
 impl<SC, VC> VmConfig<SC> for VC
 where
-    SC: StarkGenericConfig,
+    SC: StarkProtocolConfig,
     VC: Clone
         + Serialize
         + DeserializeOwned
@@ -122,6 +114,11 @@ pub const OPENVM_DEFAULT_INIT_FILE_NAME: &str = "openvm_init.rs";
 /// alignment of 2 because the instructions are implemented by doing an access of block size 4.
 const DEFAULT_U8_BLOCK_SIZE: usize = 4;
 const DEFAULT_NATIVE_BLOCK_SIZE: usize = 1;
+
+/// The constant block size used for memory accesses when access adapters are disabled.
+/// All memory accesses for address spaces 1-3 must use this block size.
+/// This is also the block size used by the Boundary AIR for memory bus interactions.
+pub const CONST_BLOCK_SIZE: usize = DEFAULT_U8_BLOCK_SIZE;
 
 /// Trait for generating a init.rs file that contains a call to moduli_init!,
 /// complex_init!, sw_init! with the supported moduli and curves.
@@ -181,8 +178,6 @@ pub struct MemoryConfig {
     pub timestamp_max_bits: usize,
     /// Limb size used by the range checker
     pub decomp: usize,
-    /// Maximum N AccessAdapter AIR to support.
-    pub max_access_adapter_n: usize,
 }
 
 impl Default for MemoryConfig {
@@ -193,8 +188,7 @@ impl Default for MemoryConfig {
         addr_spaces[RV32_REGISTER_AS as usize].num_cells = 32 * size_of::<u32>();
         addr_spaces[RV32_MEMORY_AS as usize].num_cells = MAX_CELLS;
         addr_spaces[PUBLIC_VALUES_AS as usize].num_cells = DEFAULT_MAX_NUM_PUBLIC_VALUES;
-        addr_spaces[NATIVE_AS as usize].num_cells = MAX_CELLS;
-        Self::new(3, addr_spaces, POINTER_MAX_BITS, 29, 17, 32)
+        Self::new(3, addr_spaces, POINTER_MAX_BITS, 29, 17)
     }
 }
 
@@ -214,16 +208,8 @@ impl MemoryConfig {
         addr_spaces[RV32_REGISTER_AS as usize] =
             AddressSpaceHostConfig::new(0, DEFAULT_U8_BLOCK_SIZE, MemoryCellType::U8);
 
-        #[cfg(feature = "legacy-v1-3-mem-align")]
-        {
-            addr_spaces[RV32_MEMORY_AS as usize] =
-                AddressSpaceHostConfig::new(0, 1, MemoryCellType::U8);
-        }
-        #[cfg(not(feature = "legacy-v1-3-mem-align"))]
-        {
-            addr_spaces[RV32_MEMORY_AS as usize] =
-                AddressSpaceHostConfig::new(0, DEFAULT_U8_BLOCK_SIZE, MemoryCellType::U8);
-        }
+        addr_spaces[RV32_MEMORY_AS as usize] =
+            AddressSpaceHostConfig::new(0, DEFAULT_U8_BLOCK_SIZE, MemoryCellType::U8);
 
         addr_spaces[PUBLIC_VALUES_AS as usize] =
             AddressSpaceHostConfig::new(0, DEFAULT_U8_BLOCK_SIZE, MemoryCellType::U8);
@@ -235,8 +221,8 @@ impl MemoryConfig {
     pub fn aggregation() -> Self {
         let mut addr_spaces =
             Self::empty_address_space_configs((1 << 3) + ADDR_SPACE_OFFSET as usize);
-        addr_spaces[NATIVE_AS as usize].num_cells = 1 << 29;
-        Self::new(3, addr_spaces, POINTER_MAX_BITS, 29, 17, 8)
+        addr_spaces[openvm_instructions::DEFERRAL_AS as usize].num_cells = 1 << 29;
+        Self::new(3, addr_spaces, POINTER_MAX_BITS, 29, 17)
     }
 
     pub fn min_block_size_bits(&self) -> Vec<u8> {
@@ -248,37 +234,26 @@ impl MemoryConfig {
 }
 
 /// System-level configuration for the virtual machine. Contains all configuration parameters that
-/// are managed by the architecture, including configuration for continuations support.
+/// are managed by the architecture.
 #[derive(Debug, Clone, Serialize, Deserialize, Setters, WithSetters)]
 pub struct SystemConfig {
     /// The maximum constraint degree any chip is allowed to use.
     #[getset(set_with = "pub")]
     pub max_constraint_degree: usize,
-    /// True if the VM is in continuation mode. In this mode, an execution could be segmented and
-    /// each segment is proved by a proof. Each proof commits the before and after state of the
-    /// corresponding segment.
-    /// False if the VM is in single segment mode. In this mode, an execution is proved by a single
-    /// proof.
-    pub continuation_enabled: bool,
     /// Memory configuration
     pub memory_config: MemoryConfig,
-    /// `num_public_values` has different meanings in single segment mode and continuation mode.
-    /// In single segment mode, `num_public_values` is the number of public values of
-    /// `PublicValuesChip`. In this case, verifier can read public values directly.
-    /// In continuation mode, public values are stored in a special address space.
-    /// `num_public_values` indicates the number of allowed addresses in that address space. The
-    /// verifier cannot read public values directly, but they can decommit the public values
-    /// from the memory merkle root.
+    /// Public values are stored in a special address space.
+    /// `num_public_values` indicates the number of allowed addresses in that address space.
     pub num_public_values: usize,
     /// Whether to collect detailed profiling metrics.
     /// **Warning**: this slows down the runtime.
     pub profiling: bool,
-    /// Segmentation limits
+    /// Segmentation configuration
     /// This field is skipped in serde as it's only used in execution and
     /// not needed after any serialize/deserialize.
-    #[serde(skip, default = "SegmentationLimits::default")]
+    #[serde(skip, default)]
     #[getset(set = "pub")]
-    pub segmentation_limits: SegmentationLimits,
+    pub segmentation_config: SegmentationConfig,
 }
 
 impl SystemConfig {
@@ -294,11 +269,10 @@ impl SystemConfig {
         memory_config.addr_spaces[PUBLIC_VALUES_AS as usize].num_cells = num_public_values;
         Self {
             max_constraint_degree,
-            continuation_enabled: true,
             memory_config,
             num_public_values,
             profiling: false,
-            segmentation_limits: SegmentationLimits::default(),
+            segmentation_config: SegmentationConfig::default(),
         }
     }
 
@@ -310,16 +284,6 @@ impl SystemConfig {
         )
     }
 
-    pub fn with_continuations(mut self) -> Self {
-        self.continuation_enabled = true;
-        self
-    }
-
-    pub fn without_continuations(mut self) -> Self {
-        self.continuation_enabled = false;
-        self
-    }
-
     pub fn with_public_values(mut self, num_public_values: usize) -> Self {
         self.num_public_values = num_public_values;
         self.memory_config.addr_spaces[PUBLIC_VALUES_AS as usize].num_cells = num_public_values;
@@ -327,7 +291,8 @@ impl SystemConfig {
     }
 
     pub fn with_max_segment_len(mut self, max_segment_len: usize) -> Self {
-        self.segmentation_limits
+        self.segmentation_config
+            .limits
             .set_max_trace_height(max_segment_len as u32);
         self
     }
@@ -342,47 +307,32 @@ impl SystemConfig {
         self
     }
 
-    pub fn has_public_values_chip(&self) -> bool {
-        !self.continuation_enabled && self.num_public_values > 0
-    }
-
     /// Returns the AIR ID of the memory boundary AIR. Panic if the boundary AIR is not enabled.
     pub fn memory_boundary_air_id(&self) -> usize {
-        PUBLIC_VALUES_AIR_ID + usize::from(self.has_public_values_chip())
+        BOUNDARY_AIR_ID
     }
 
-    /// Returns the AIR ID of the memory merkle AIR. Returns None if continuations are not enabled.
-    pub fn memory_merkle_air_id(&self) -> Option<usize> {
-        let boundary_idx = self.memory_boundary_air_id();
-        if self.continuation_enabled {
-            Some(boundary_idx + 1)
-        } else {
-            None
-        }
+    /// Returns the AIR ID of the memory merkle AIR.
+    pub fn memory_merkle_air_id(&self) -> usize {
+        self.memory_boundary_air_id() + 1
     }
 
-    /// AIR ID for the first memory access adapter AIR.
-    pub fn access_adapter_air_id_offset(&self) -> usize {
-        let boundary_idx = self.memory_boundary_air_id();
-        // boundary, (if persistent memory) merkle AIRs
-        boundary_idx + 1 + usize::from(self.continuation_enabled)
+    /// Whether the AIR ID must be present in a valid v2 proof.
+    pub fn is_required_air_id(&self, air_id: usize) -> bool {
+        air_id == PROGRAM_AIR_ID
+            || air_id == CONNECTOR_AIR_ID
+            || air_id == self.memory_boundary_air_id()
+            || air_id == self.memory_merkle_air_id()
     }
 
     /// This is O(1) and returns the length of
     /// [`SystemAirInventory::into_airs`](crate::system::SystemAirInventory::into_airs).
     pub fn num_airs(&self) -> usize {
-        self.memory_boundary_air_id()
-            + num_memory_airs(
-                self.continuation_enabled,
-                self.memory_config.max_access_adapter_n,
-            )
+        self.memory_boundary_air_id() + num_memory_airs()
     }
 
     pub fn initial_block_size(&self) -> usize {
-        match self.continuation_enabled {
-            true => CHUNK,
-            false => 1,
-        }
+        CONST_BLOCK_SIZE
     }
 }
 
@@ -471,9 +421,9 @@ impl AddressSpaceHostLayout for MemoryCellType {
     unsafe fn to_field<F: Field>(&self, value: &[u8]) -> F {
         match self {
             Self::Null => unreachable!(),
-            Self::U8 => F::from_canonical_u8(*value.get_unchecked(0)),
-            Self::U16 => F::from_canonical_u16(core::ptr::read(value.as_ptr() as *const u16)),
-            Self::U32 => F::from_canonical_u32(core::ptr::read(value.as_ptr() as *const u32)),
+            Self::U8 => F::from_u8(*value.get_unchecked(0)),
+            Self::U16 => F::from_u16(core::ptr::read(value.as_ptr() as *const u16)),
+            Self::U32 => F::from_u32(core::ptr::read(value.as_ptr() as *const u32)),
             Self::Native { .. } => core::ptr::read(value.as_ptr() as *const F),
         }
     }

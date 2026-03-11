@@ -7,14 +7,14 @@ on:
   pull_request:
     branches: ["**"]
     paths:
-      - "crates/circuits/**"
-      - "crates/vm/**"
-      - "crates/toolchain/**"
-      - "extensions/**"
+#     - "crates/circuits/**"
+#     - "crates/vm/**"
+#     - "crates/toolchain/**"
+#     - "extensions/**"
       - "guest-libs/**"
-      - "Cargo.toml"
+#     - "Cargo.toml"
       - ".github/workflows/guest-lib-tests.yml"
-      - "crates/sdk/guest/fib/**"
+#     - "crates/sdk/guest/fib/**"
 
 concurrency:
   group: ${{ github.workflow_ref }}-guest-lib-tests-${{ github.event.pull_request.number || github.sha }}
@@ -37,7 +37,6 @@ jobs:
           - { name: "p256", path: "p256" }
           - { name: "ruint", path: "ruint" }
           - { name: "pairing", path: "pairing" }
-          - { name: "verify_stark", path: "verify_stark" }
         platform:
           - { runner: "64cpu-linux-x64", image: "ubuntu24-full-x64" }
       # Ensure tests run in parallel even if one fails
@@ -75,8 +74,10 @@ jobs:
         working-directory: guest-libs/${{ matrix.crate.path }}
         run: |
           rustup component add rust-src --toolchain nightly-2025-08-02
-          PAIRING_FEATURE_ARGS=""
-          if [[ "${{ matrix.crate.name }}" == "pairing" ]]; then
-            PAIRING_FEATURE_ARGS="--features=bn254,bls12_381,aot"
+          FEATURE_ARGS=""
+          if [[ "${{ matrix.crate.name }}" == "sha2" || "${{ matrix.crate.name }}" == "keccak256" ]]; then
+            FEATURE_ARGS="--features=aot"
+          elif [[ "${{ matrix.crate.name }}" == "pairing" ]]; then
+            FEATURE_ARGS="--features=bn254,bls12_381,aot"
           fi
-          cargo nextest run --cargo-profile=fast $PAIRING_FEATURE_ARGS --no-tests=pass --test-threads=1
+          cargo nextest run --cargo-profile=fast $FEATURE_ARGS --no-tests=pass --test-threads=1

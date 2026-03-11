@@ -3,7 +3,7 @@ use std::sync::Arc;
 use openvm_circuit::{
     arch::{
         AirInventory, ChipInventory, ChipInventoryError, DenseRecordArena, SystemConfig, VmBuilder,
-        VmChipComplex, PUBLIC_VALUES_AIR_ID,
+        VmChipComplex,
     },
     system::poseidon2::air::Poseidon2PeripheryAir,
 };
@@ -13,7 +13,7 @@ use openvm_circuit_primitives::{
     },
     var_range::{VariableRangeCheckerAir, VariableRangeCheckerChip, VariableRangeCheckerChipGPU},
 };
-use openvm_cuda_backend::{engine::GpuBabyBearPoseidon2Engine, prover_backend::GpuBackend};
+use openvm_cuda_backend::{BabyBearPoseidon2GpuEngine, GpuBackend};
 use openvm_stark_sdk::config::baby_bear_poseidon2::BabyBearPoseidon2Config;
 use p3_baby_bear::BabyBear;
 
@@ -65,7 +65,7 @@ pub const PV_EXECUTOR_IDX: usize = 0;
 #[derive(Clone)]
 pub struct SystemGpuBuilder;
 
-impl VmBuilder<GpuBabyBearPoseidon2Engine> for SystemGpuBuilder {
+impl VmBuilder<BabyBearPoseidon2GpuEngine> for SystemGpuBuilder {
     type VmConfig = SystemConfig;
     type RecordArena = DenseRecordArena;
     type SystemChipInventory = SystemChipInventoryGPU;
@@ -89,61 +89,34 @@ impl VmBuilder<GpuBabyBearPoseidon2Engine> for SystemGpuBuilder {
         )));
 
         let mut inventory = ChipInventory::new(airs);
-        // PublicValuesChip is required when num_public_values > 0 in single segment mode.
-        if config.has_public_values_chip() {
-            assert_eq!(
-                inventory.executor_idx_to_insertion_idx.len(),
-                PV_EXECUTOR_IDX
-            );
-
-            // We set insertion_idx so that air_idx = num_airs - (insertion_idx + 1) =
-            // PUBLIC_VALUES_AIR_ID in `VmChipComplex::executor_idx_to_air_idx`. We need to do this
-            // because this chip is special and not part of the normal inventory.
-            let insertion_idx = inventory
-                .airs()
-                .num_airs()
-                .checked_sub(1 + PUBLIC_VALUES_AIR_ID)
-                .unwrap();
-            inventory.executor_idx_to_insertion_idx.push(insertion_idx);
-        }
         inventory.next_air::<VariableRangeCheckerAir>()?;
         inventory.add_periphery_chip(range_checker.clone());
 
-        let hasher_chip = if config.continuation_enabled {
-            let max_buffer_size = (config.segmentation_limits.max_trace_height as usize)
-                .next_power_of_two() * 2 // seems like a reliable estimate
-                * (DIGEST_WIDTH * 2); // size of one record
-            assert_eq!(inventory.chips().len(), POSEIDON2_INSERTION_IDX);
-            let sbox_registers = if config.max_constraint_degree >= 7 {
-                0
-            } else {
-                1
-            };
-            // ATTENTION: The threshold 7 here must match the one in `new_poseidon2_periphery_air`
-            let _direct_bus = if sbox_registers == 0 {
-                inventory
-                    .next_air::<Poseidon2PeripheryAir<BabyBear, 0>>()?
-                    .bus
-            } else {
-                inventory
-                    .next_air::<Poseidon2PeripheryAir<BabyBear, 1>>()?
-                    .bus
-            };
-            let chip = Arc::new(Poseidon2PeripheryChipGPU::new(
-                max_buffer_size,
-                sbox_registers,
-            ));
-            inventory.add_periphery_chip(chip.clone());
-            Some(chip)
+        let max_buffer_size = (config.segmentation_config.limits.max_trace_height as usize)
+            .next_power_of_two() * 2 // seems like a reliable estimate
+            * (DIGEST_WIDTH * 2); // size of one record
+        assert_eq!(inventory.chips().len(), POSEIDON2_INSERTION_IDX);
+        let sbox_registers = if config.max_constraint_degree >= 7 {
+            0
         } else {
-            None
+            1
         };
-        let system = SystemChipInventoryGPU::new(
-            config,
-            &inventory.airs().system().memory,
-            range_checker,
-            hasher_chip,
-        );
+        // ATTENTION: The threshold 7 here must match the one in `new_poseidon2_periphery_air`
+        let _direct_bus = if sbox_registers == 0 {
+            inventory
+                .next_air::<Poseidon2PeripheryAir<BabyBear, 0>>()?
+                .bus
+        } else {
+            inventory
+                .next_air::<Poseidon2PeripheryAir<BabyBear, 1>>()?
+                .bus
+        };
+        let hasher_chip = Arc::new(Poseidon2PeripheryChipGPU::new(
+            max_buffer_size,
+            sbox_registers,
+        ));
+        inventory.add_periphery_chip(hasher_chip.clone());
+        let system = SystemChipInventoryGPU::new(config, range_checker, hasher_chip);
 
         let phantom_chip = PhantomChipGPU::new();
         inventory.add_executor_chip(phantom_chip);

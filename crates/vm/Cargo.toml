@@ -16,12 +16,12 @@ openvm-circuit-primitives = { workspace = true }
 openvm-circuit-primitives-derive = { workspace = true }
 openvm-circuit-derive = { workspace = true }
 openvm-instructions = { workspace = true }
+openvm-rv32im-transpiler = { workspace = true, optional = true }
 
 openvm-stark-backend = { workspace = true }
 openvm-stark-sdk = { workspace = true, optional = true }
 openvm-cuda-common = { workspace = true, optional = true }
 openvm-cuda-backend = { workspace = true, optional = true }
-openvm-rv32im-transpiler = { workspace = true, optional = true }
 struct-reflection = { workspace = true }
 
 itertools.workspace = true
@@ -45,6 +45,7 @@ cfg-if.workspace = true
 libloading = { workspace = true, optional = true }
 tempfile = { workspace = true, optional = true }
 abi_stable.workspace = true
+bytesize.workspace = true
 
 [build-dependencies]
 openvm-cuda-builder = { workspace = true, optional = true }
@@ -58,10 +59,9 @@ libc.workspace = true
 test-log.workspace = true
 test-case.workspace = true
 
-openvm-circuit = { workspace = true, features = ["test-utils"] }
+openvm-stark-backend = { workspace = true, features = ["test-utils"] }
 openvm-stark-sdk.workspace = true
-openvm-native-compiler.workspace = true
-openvm-rv32im-transpiler.workspace = true
+openvm-circuit = { workspace = true, features = ["test-utils"] }
 
 [features]
 default = ["parallel", "jemalloc"]
@@ -81,7 +81,7 @@ perf-metrics = ["metrics"]
 basic-memory = []
 # turns on stark-backend debugger in all proofs
 stark-debug = []
-test-utils = ["dep:openvm-stark-sdk"]
+test-utils = ["dep:openvm-stark-sdk", "openvm-stark-backend/test-utils"]
 # Tail call optimizations. This requires nightly for the `become` keyword (https://github.com/rust-lang/rust/pull/144232).
 # However tail call elimination is still an incomplete feature in Rust, so the `tco` feature remains experimental until then.
 tco = ["openvm-circuit-derive/tco"]
@@ -98,7 +98,6 @@ unprotected = []
 mimalloc = ["openvm-stark-backend/mimalloc"]
 jemalloc = ["openvm-stark-backend/jemalloc"]
 jemalloc-prof = ["openvm-stark-backend/jemalloc-prof"]
-nightly-features = ["openvm-stark-sdk?/nightly-features"]
 cuda = [
     "dep:openvm-stark-sdk",           # for BabyBearPoseidon2Config
     "openvm-circuit-primitives/cuda",
@@ -112,4 +111,3 @@ touchemall = [
     "openvm-cuda-backend/touchemall",
     "openvm-cuda-common/touchemall",
 ]
-legacy-v1-3-mem-align = []

@@ -23,8 +23,8 @@ use openvm_circuit::{
         hasher::{poseidon2::vm_poseidon2_hasher, Hasher},
         instructions::exe::VmExe,
         Executor, InitFileGenerator, MeteredExecutor, PreflightExecutor, VirtualMachineError,
-        VmBuilder, VmExecutionConfig, VmExecutor, VmVerificationError, CONNECTOR_AIR_ID,
-        PROGRAM_AIR_ID, PROGRAM_CACHED_TRACE_INDEX, PUBLIC_VALUES_AIR_ID,
+        VmBuilder, VmExecutionConfig, VmExecutor, VmVerificationError, BOUNDARY_AIR_ID,
+        CONNECTOR_AIR_ID, PROGRAM_AIR_ID, PROGRAM_CACHED_TRACE_INDEX,
     },
     system::{
         memory::{
@@ -690,7 +690,7 @@ where
     pub fn with_halo2_pk(self, halo2_pk: Halo2ProvingKey) -> Self {
         let _ = self
             .set_halo2_pk(halo2_pk)
-            .map_err(|_| "halo2_pk already set");
+            .map_err(|_| panic!("halo2_pk already set"));
         self
     }
 
@@ -727,9 +727,9 @@ where
                 air_id: CONNECTOR_AIR_ID,
             }
             .into());
-        } else if proof.inner.per_air[2].air_id != PUBLIC_VALUES_AIR_ID {
+        } else if proof.inner.per_air[2].air_id != BOUNDARY_AIR_ID {
             return Err(VmVerificationError::SystemAirMissing {
-                air_id: PUBLIC_VALUES_AIR_ID,
+                air_id: BOUNDARY_AIR_ID,
             }
             .into());
         }

@@ -34,9 +34,9 @@ use openvm_stark_backend::{
     p3_maybe_rayon::prelude::*,
     rap::{BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir},
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use crate::adapters::{read_rv32_register, tracing_read, tracing_write};
-use struct_reflection::{StructReflection, StructReflectionHelper};
 
 mod execution;
 

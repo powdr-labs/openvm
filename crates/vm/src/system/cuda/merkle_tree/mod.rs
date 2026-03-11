@@ -1,11 +1,11 @@
 use std::{ffi::c_void, sync::Arc};
 
 use openvm_circuit::{
-    arch::{MemoryConfig, ADDR_SPACE_OFFSET},
+    arch::{MemoryConfig, ADDR_SPACE_OFFSET, CONST_BLOCK_SIZE},
     system::memory::{merkle::MemoryMerkleCols, TimestampedEquipartition},
     utils::next_power_of_two_or_zero,
 };
-use openvm_cuda_backend::{base::DeviceMatrix, prelude::F, prover_backend::GpuBackend};
+use openvm_cuda_backend::{base::DeviceMatrix, prelude::F, GpuBackend};
 use openvm_cuda_common::{
     copy::{cuda_memcpy, MemCopyD2H, MemCopyH2D},
     d_buffer::DeviceBuffer,
@@ -16,9 +16,9 @@ use openvm_cuda_common::{
 use openvm_stark_backend::{
     p3_maybe_rayon::prelude::{IntoParallelIterator, ParallelIterator},
     p3_util::log2_ceil_usize,
-    prover::types::AirProvingContext,
+    prover::AirProvingContext,
 };
-use p3_field::FieldAlgebra;
+use p3_field::PrimeCharacteristicRing;
 
 use super::{poseidon2::SharedBuffer, Poseidon2PeripheryChipGPU, DIGEST_WIDTH};
 
@@ -26,7 +26,12 @@ pub mod cuda;
 use cuda::merkle_tree::*;
 
 type H = [F; DIGEST_WIDTH];
-pub const TIMESTAMPED_BLOCK_WIDTH: usize = 11;
+/// Width of `((u32, u32), TimestampedValues<F, CONST_BLOCK_SIZE>)` in u32 units.
+/// = 2 (key) + 1 (timestamp) + CONST_BLOCK_SIZE (values)
+pub const TIMESTAMPED_BLOCK_WIDTH: usize = 3 + CONST_BLOCK_SIZE;
+/// Width of `((u32, u32), TimestampedValues<F, DIGEST_WIDTH>)` in u32 units.
+/// = 2 (key) + 1 (timestamp) + DIGEST_WIDTH (values)
+pub const MERKLE_TOUCHED_BLOCK_WIDTH: usize = 3 + DIGEST_WIDTH;
 
 /// A Merkle subtree stored in a single flat buffer, combining a vertical path and a heap-ordered
 /// binary tree.
@@ -332,7 +337,7 @@ impl MemoryMerkleTree {
     pub fn update_with_touched_blocks(
         &mut self,
         unpadded_height: usize,
-        d_touched_blocks: &DeviceBuffer<u32>, // consists of (as, label, ts, [F; 8])
+        d_touched_blocks: &DeviceBuffer<u32>, // consists of (as, ptr, ts, [F; DIGEST_WIDTH])
         empty_touched_blocks: bool,
     ) -> AirProvingContext<GpuBackend> {
         let mut public_values = self.top_roots.to_host().unwrap()[0].to_vec();
@@ -387,13 +392,14 @@ impl MemoryMerkleTree {
         self.top_roots_host = self.top_roots.to_host().unwrap();
         public_values.extend(self.top_roots_host[0]);
 
-        AirProvingContext::new(Vec::new(), Some(merkle_trace), public_values)
+        AirProvingContext::new(Vec::new(), merkle_trace, public_values)
     }
 
     /// An auxiliary function to calculate the required number of rows for the merkle trace.
-    pub fn calculate_unpadded_height(
+    /// Generic over BLOCK_SIZE since only addresses are used, not values.
+    pub fn calculate_unpadded_height<const BLOCK_SIZE: usize>(
         &self,
-        touched_memory: &TimestampedEquipartition<F, DIGEST_WIDTH>,
+        touched_memory: &TimestampedEquipartition<F, BLOCK_SIZE>,
     ) -> usize {
         let md = self.mem_config.memory_dimensions();
         let tree_height = md.overall_height();
@@ -407,7 +413,12 @@ impl MemoryMerkleTree {
                     .map(|i| {
                         let x = md.label_to_index(shift_address(touched_memory[i].0));
                         let y = md.label_to_index(shift_address(touched_memory[i + 1].0));
-                        (x ^ y).ilog2() as usize
+                        let xor = x ^ y;
+                        if xor == 0 {
+                            0
+                        } else {
+                            xor.ilog2() as usize
+                        }
                     })
                     .sum::<usize>()
         }
@@ -425,11 +436,9 @@ mod tests {
     use std::sync::Arc;
 
     use openvm_circuit::{
-        arch::{
-            testing::POSEIDON2_DIRECT_BUS, vm_poseidon2_config, AddressSpaceHostLayout,
-            MemoryCellType, MemoryConfig,
-        },
+        arch::{vm_poseidon2_config, AddressSpaceHostLayout, MemoryCellType, MemoryConfig},
         system::{
+            cuda::merkle_tree::MERKLE_TOUCHED_BLOCK_WIDTH,
             memory::{
                 merkle::MerkleTree,
                 online::{GuestMemory, LinearMemory},
@@ -445,10 +454,10 @@ mod tests {
     };
     use openvm_instructions::{
         riscv::{RV32_MEMORY_AS, RV32_REGISTER_AS},
-        NATIVE_AS,
+        DEFERRAL_AS,
     };
     use openvm_stark_sdk::utils::create_seeded_rng;
-    use p3_field::{FieldAlgebra, PrimeField32};
+    use p3_field::{PrimeCharacteristicRing, PrimeField32};
     use rand::Rng;
 
     use super::MemoryMerkleTree;
@@ -462,8 +471,8 @@ mod tests {
             let max_cells = 1 << 16;
             addr_spaces[RV32_REGISTER_AS as usize].num_cells = 32 * size_of::<u32>();
             addr_spaces[RV32_MEMORY_AS as usize].num_cells = max_cells;
-            addr_spaces[NATIVE_AS as usize].num_cells = max_cells;
-            MemoryConfig::new(2, addr_spaces, max_cells.ilog2() as usize, 29, 17, 32)
+            addr_spaces[DEFERRAL_AS as usize].num_cells = max_cells;
+            MemoryConfig::new(2, addr_spaces, max_cells.ilog2() as usize, 29, 17)
         };
 
         let mut initial_memory = GuestMemory::new(AddressMap::from_mem_config(&mem_config));
@@ -476,7 +485,7 @@ mod tests {
                             initial_memory.write::<u8, 1>(
                                 idx as u32,
                                 i as u32,
-                                [rng.gen_range(0..space.layout.size()) as u8],
+                                [rng.random_range(0..space.layout.size()) as u8],
                             );
                         }
                     }
@@ -485,7 +494,7 @@ mod tests {
                             initial_memory.write::<u16, 1>(
                                 idx as u32,
                                 i as u32,
-                                [rng.gen_range(0..space.layout.size()) as u16],
+                                [rng.random_range(0..space.layout.size()) as u16],
                             );
                         }
                     }
@@ -494,7 +503,7 @@ mod tests {
                             initial_memory.write::<u32, 1>(
                                 idx as u32,
                                 i as u32,
-                                [rng.gen_range(0..space.layout.size()) as u32],
+                                [rng.random_range(0..space.layout.size()) as u32],
                             );
                         }
                     }
@@ -503,7 +512,7 @@ mod tests {
                             initial_memory.write::<F, 1>(
                                 idx as u32,
                                 i as u32,
-                                [F::from_canonical_u32(rng.gen_range(0..F::ORDER_U32))],
+                                [F::from_u32(rng.random_range(0..F::ORDER_U32))],
                             );
                         }
                     }
@@ -537,8 +546,7 @@ mod tests {
         }
         gpu_merkle_tree.finalize();
 
-        let cpu_hasher_chip =
-            Poseidon2PeripheryChip::new(vm_poseidon2_config(), POSEIDON2_DIRECT_BUS, 3);
+        let cpu_hasher_chip = Poseidon2PeripheryChip::new(vm_poseidon2_config(), 3);
         let mut cpu_merkle_tree = MerkleTree::<F, DIGEST_WIDTH>::from_memory(
             &initial_memory.memory,
             &mem_config.memory_dimensions(),
@@ -562,7 +570,7 @@ mod tests {
             .flat_map(|(i, cnf)| {
                 let mut ptrs = Vec::new();
                 for j in 0..(cnf.num_cells / DIGEST_WIDTH) {
-                    if rng.gen_bool(0.333) {
+                    if rng.random_bool(0.333) {
                         ptrs.push((i as u32, (j * DIGEST_WIDTH) as u32));
                     }
                 }
@@ -571,7 +579,7 @@ mod tests {
             .collect::<Vec<_>>();
         let new_data = touched_ptrs
             .iter()
-            .map(|_| std::array::from_fn(|_| F::from_canonical_u32(rng.gen_range(0..F::ORDER_U32))))
+            .map(|_| std::array::from_fn(|_| F::from_u32(rng.random_range(0..F::ORDER_U32))))
             .collect::<Vec<[F; DIGEST_WIDTH]>>();
         assert!(!touched_ptrs.is_empty());
         cpu_merkle_tree.finalize(
@@ -590,13 +598,24 @@ mod tests {
                 (
                     address,
                     TimestampedValues {
-                        timestamp: rng.gen_range(0..(1u32 << mem_config.timestamp_max_bits)),
+                        timestamp: rng.random_range(0..(1u32 << mem_config.timestamp_max_bits)),
                         values: data,
                     },
                 )
             })
             .collect::<Vec<_>>();
-        let d_touched_blocks = touched_blocks.to_device().unwrap().as_buffer::<u32>();
+        let mut merkle_records =
+            Vec::<u32>::with_capacity(touched_blocks.len() * MERKLE_TOUCHED_BLOCK_WIDTH);
+        for (address, ts_values) in &touched_blocks {
+            let (address_space, ptr) = *address;
+            merkle_records.push(address_space);
+            merkle_records.push(ptr);
+            merkle_records.push(ts_values.timestamp);
+            for &v in &ts_values.values {
+                merkle_records.push(unsafe { std::mem::transmute::<F, u32>(v) });
+            }
+        }
+        let d_touched_blocks = merkle_records.to_device().unwrap();
 
         gpu_merkle_tree.update_with_touched_blocks(
             gpu_merkle_tree.calculate_unpadded_height(&touched_blocks),

@@ -7,17 +7,15 @@ use openvm_algebra_circuit::{
 use openvm_circuit::{
     arch::{
         AirInventory, ChipInventoryError, InitFileGenerator, MatrixRecordArena, SystemConfig,
-        VmBuilder, VmChipComplex, VmProverExtension,
+        VmBuilder, VmChipComplex, VmField, VmProverExtension,
     },
     system::SystemChipInventory,
 };
 use openvm_circuit_derive::VmConfig;
 use openvm_ecc_circuit::{EccCpuProverExt, WeierstrassExtension, WeierstrassExtensionExecutor};
 use openvm_stark_backend::{
-    config::{StarkGenericConfig, Val},
-    engine::StarkEngine,
-    p3_field::PrimeField32,
-    prover::cpu::{CpuBackend, CpuDevice},
+    prover::{CpuBackend, CpuDevice},
+    StarkEngine, StarkProtocolConfig, Val,
 };
 use serde::{Deserialize, Serialize};
 
@@ -73,11 +71,12 @@ impl InitFileGenerator for Rv32PairingConfig {
 #[derive(Clone)]
 pub struct Rv32PairingCpuBuilder;
 
-impl<E, SC> VmBuilder<E> for Rv32PairingCpuBuilder
+impl<SC, E> VmBuilder<E> for Rv32PairingCpuBuilder
 where
-    SC: StarkGenericConfig,
+    SC: StarkProtocolConfig,
     E: StarkEngine<SC = SC, PB = CpuBackend<SC>, PD = CpuDevice<SC>>,
-    Val<SC>: PrimeField32,
+    Val<SC>: VmField,
+    SC::EF: Ord,
 {
     type VmConfig = Rv32PairingConfig;
     type SystemChipInventory = SystemChipInventory<SC>;

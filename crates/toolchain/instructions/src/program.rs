@@ -1,10 +1,18 @@
-use std::{collections::HashMap, fmt::{self, Display}, ops::Deref, sync::Arc};
+use std::{
+    collections::HashMap,
+    fmt::{self, Display},
+    ops::Deref,
+    sync::Arc,
+};
 
 use itertools::Itertools;
 use openvm_stark_backend::p3_field::Field;
 use serde::{de::Deserializer, Deserialize, Serialize, Serializer};
 
-use crate::{instruction::{DebugInfo, Instruction}, VmOpcode};
+use crate::{
+    instruction::{DebugInfo, Instruction},
+    VmOpcode,
+};
 
 pub const PC_BITS: usize = 30;
 /// We use default PC step of 4 whenever possible for consistency with RISC-V, where 4 comes
@@ -24,7 +32,7 @@ pub struct Program<F> {
         deserialize_with = "deserialize_instructions_and_debug_infos"
     )]
     pub instructions_and_debug_infos: Vec<Option<(Instruction<F>, Option<DebugInfo>)>>,
-    pub apc_by_pc_index: HashMap<usize, (Instruction<F>, Option<DebugInfo>)>, 
+    pub apc_by_pc_index: HashMap<usize, (Instruction<F>, Option<DebugInfo>)>,
     pub pc_base: u32,
 }
 
@@ -69,10 +77,14 @@ impl<F: Field> Program<F> {
     }
 
     pub fn add_apc_instruction_at_pc_index(&mut self, pc_index: usize, opcode: VmOpcode) {
-        let debug: Option<DebugInfo> = self.instructions_and_debug_infos
-            [pc_index].as_ref().unwrap().1.clone();
+        let debug: Option<DebugInfo> = self.instructions_and_debug_infos[pc_index]
+            .as_ref()
+            .unwrap()
+            .1
+            .clone();
 
-        self.apc_by_pc_index.insert(pc_index, (Instruction::from_usize(opcode, []), debug));
+        self.apc_by_pc_index
+            .insert(pc_index, (Instruction::from_usize(opcode, []), debug));
     }
 
     /// We assume that pc_start = pc_base = 0 everywhere except the RISC-V programs, until we need
@@ -171,8 +183,11 @@ impl<F: Field> Program<F> {
         self.instructions_and_debug_infos
             .extend(other.instructions_and_debug_infos);
     }
-    
-    pub fn get_apc_instruction(&self, pc_index: usize) -> Option<&(Instruction<F>, Option<DebugInfo>)> {
+
+    pub fn get_apc_instruction(
+        &self,
+        pc_index: usize,
+    ) -> Option<&(Instruction<F>, Option<DebugInfo>)> {
         self.apc_by_pc_index.get(&pc_index)
     }
 }

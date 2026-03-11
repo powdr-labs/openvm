@@ -18,8 +18,8 @@ use openvm_stark_backend::{
     Chip, ChipUsageGetter,
 };
 use rustc_hash::FxHashSet;
-use tracing::instrument;
 use struct_reflection::{StructReflection, StructReflectionHelper};
+use tracing::instrument;
 
 use super::{merkle::SerialReceiver, online::INITIAL_TIMESTAMP, TimestampedValues};
 use crate::{

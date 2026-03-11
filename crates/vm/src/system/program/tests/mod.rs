@@ -1,33 +1,22 @@
-use std::{iter, sync::Arc};
+use std::iter;
 
+use openvm_circuit_primitives::Chip;
 use openvm_instructions::{
     exe::VmExe,
     instruction::Instruction,
     program::{Program, DEFAULT_PC_STEP},
-    LocalOpcode,
+    LocalOpcode, VmOpcode,
 };
-use openvm_native_compiler::{
-    FieldArithmeticOpcode::*, NativeBranchEqualOpcode, NativeJalOpcode::*, NativeLoadStoreOpcode::*,
-};
-use openvm_rv32im_transpiler::BranchEqualOpcode::*;
 use openvm_stark_backend::{
-    config::StarkGenericConfig,
-    engine::StarkEngine,
-    p3_field::FieldAlgebra,
+    any_air_arc_vec,
+    p3_field::PrimeCharacteristicRing,
     p3_matrix::{dense::RowMajorMatrix, Matrix},
-    prover::types::AirProvingContext,
-    Chip,
+    prover::{AirProvingContext, ColMajorMatrix, MatrixDimensions},
+    test_utils::dummy_airs::interaction::dummy_interaction_air::DummyInteractionAir,
+    StarkEngine, StarkTestError,
 };
 use openvm_stark_sdk::{
-    any_rap_arc_vec,
-    config::{
-        baby_bear_poseidon2::{BabyBearPoseidon2Config, BabyBearPoseidon2Engine},
-        baby_bear_poseidon2_root::BabyBearPoseidon2RootConfig,
-        FriParameters,
-    },
-    dummy_airs::interaction::dummy_interaction_air::DummyInteractionAir,
-    engine::StarkFriEngine,
-    p3_baby_bear::BabyBear,
+    config::baby_bear_poseidon2::BabyBearPoseidon2Config, p3_baby_bear::BabyBear,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use static_assertions::assert_impl_all;
@@ -35,10 +24,19 @@ use static_assertions::assert_impl_all;
 use crate::{
     arch::{instructions::SystemOpcode::*, testing::READ_INSTRUCTION_BUS},
     system::program::{trace::VmCommittedExe, ProgramAir, ProgramBus, ProgramChip},
+    utils::test_cpu_engine,
 };
 
+// The tests do not need anything about opcodes besides the global opcode offset, so we use
+// constants to avoid extra dependencies.
+pub(crate) const LOADW: VmOpcode = VmOpcode::from_usize(0x210);
+pub(crate) const STOREW: VmOpcode = VmOpcode::from_usize(0x213);
+pub(crate) const BEQ: VmOpcode = VmOpcode::from_usize(0x220);
+pub(crate) const SUB: VmOpcode = VmOpcode::from_usize(0x201);
+pub(crate) const JAL: VmOpcode = VmOpcode::from_usize(0x230);
+pub(crate) const BNE: VmOpcode = VmOpcode::from_usize(0x221);
+
 assert_impl_all!(VmCommittedExe<BabyBearPoseidon2Config>: Serialize, DeserializeOwned);
-assert_impl_all!(VmCommittedExe<BabyBearPoseidon2RootConfig>: Serialize, DeserializeOwned);
 
 fn interaction_test(program: Program<BabyBear>, execution: Vec<u32>) {
     let mut execution_frequencies = vec![0; program.len()];
@@ -57,14 +55,14 @@ fn interaction_test(program: Program<BabyBear>, execution: Vec<u32>) {
     let bus = ProgramBus::new(READ_INSTRUCTION_BUS);
     let program_air = ProgramAir::new(bus);
 
-    let engine = BabyBearPoseidon2Engine::new(FriParameters::new_for_testing(1));
+    let engine = test_cpu_engine();
     let exe = VmExe::new(program);
-    let committed_exe =
-        VmCommittedExe::<BabyBearPoseidon2Config>::commit(exe, engine.config().pcs());
+    let committed_exe = VmCommittedExe::<BabyBearPoseidon2Config>::commit(exe, &engine);
     let cached = committed_exe.get_committed_trace();
     let chip = ProgramChip {
         filtered_exec_frequencies,
         cached: Some(cached),
+        _marker: std::marker::PhantomData,
     };
     let ctx = chip.generate_proving_ctx(());
 
@@ -75,8 +73,8 @@ fn interaction_test(program: Program<BabyBear>, execution: Vec<u32>) {
         let option = program.get_instruction_and_debug_info(index);
         if let Some((instruction, _)) = option {
             program_cells.extend([
-                BabyBear::from_canonical_u32(frequency),
-                BabyBear::from_canonical_usize(index * (DEFAULT_PC_STEP as usize)),
+                BabyBear::from_u32(frequency),
+                BabyBear::from_usize(index * (DEFAULT_PC_STEP as usize)),
                 instruction.opcode.to_field(),
                 instruction.a,
                 instruction.b,
@@ -95,13 +93,13 @@ fn interaction_test(program: Program<BabyBear>, execution: Vec<u32>) {
     let cells_to_add = (desired_height - original_height) * width;
     program_cells.extend(iter::repeat_n(BabyBear::ZERO, cells_to_add));
 
-    let counter_trace = Arc::new(RowMajorMatrix::new(program_cells, 10));
+    let counter_trace = ColMajorMatrix::from_row_major(&RowMajorMatrix::new(program_cells, 10));
     println!("trace height = {original_height}");
     println!("counter trace height = {}", counter_trace.height());
 
     engine
         .run_test(
-            any_rap_arc_vec!(program_air, counter_air),
+            any_air_arc_vec!(program_air, counter_air),
             vec![ctx, AirProvingContext::simple_no_pis(counter_trace)],
         )
         .expect("Verification failed");
@@ -114,29 +112,15 @@ fn test_program_1() {
     // see core/tests/mod.rs
     let instructions = vec![
         // word[0]_1 <- word[n]_0
-        Instruction::large_from_isize(STOREW.global_opcode(), n, 0, 0, 0, 1, 0, 1),
+        Instruction::large_from_isize(STOREW, n, 0, 0, 0, 1, 0, 1),
         // word[1]_1 <- word[1]_1
-        Instruction::large_from_isize(STOREW.global_opcode(), 1, 1, 0, 0, 1, 0, 1),
+        Instruction::large_from_isize(STOREW, 1, 1, 0, 0, 1, 0, 1),
         // if word[0]_1 == 0 then pc += 3*DEFAULT_PC_STEP
-        Instruction::from_isize(
-            NativeBranchEqualOpcode(BEQ).global_opcode(),
-            0,
-            0,
-            3 * DEFAULT_PC_STEP as isize,
-            1,
-            0,
-        ),
+        Instruction::from_isize(BEQ, 0, 0, 3 * DEFAULT_PC_STEP as isize, 1, 0),
         // word[0]_1 <- word[0]_1 - word[1]_1
-        Instruction::from_isize(SUB.global_opcode(), 0, 0, 1, 1, 1),
+        Instruction::from_isize(SUB, 0, 0, 1, 1, 1),
         // word[2]_1 <- pc + DEFAULT_PC_STEP, pc -= 2*DEFAULT_PC_STEP
-        Instruction::from_isize(
-            JAL.global_opcode(),
-            2,
-            -2 * (DEFAULT_PC_STEP as isize),
-            0,
-            1,
-            0,
-        ),
+        Instruction::from_isize(JAL, 2, -2 * (DEFAULT_PC_STEP as isize), 0, 1, 0),
         // terminate
         Instruction::from_isize(TERMINATE.global_opcode(), 0, 0, 0, 0, 0),
     ];
@@ -151,36 +135,15 @@ fn test_program_without_field_arithmetic() {
     // see core/tests/mod.rs
     let instructions = vec![
         // word[0]_1 <- word[5]_0
-        Instruction::large_from_isize(STOREW.global_opcode(), 5, 0, 0, 0, 1, 0, 1),
+        Instruction::large_from_isize(STOREW, 5, 0, 0, 0, 1, 0, 1),
         // if word[0]_1 != 4 then pc += 3*DEFAULT_PC_STEP
-        Instruction::from_isize(
-            NativeBranchEqualOpcode(BNE).global_opcode(),
-            0,
-            4,
-            3 * DEFAULT_PC_STEP as isize,
-            1,
-            0,
-        ),
+        Instruction::from_isize(BNE, 0, 4, 3 * DEFAULT_PC_STEP as isize, 1, 0),
         // word[2]_1 <- pc + DEFAULT_PC_STEP, pc -= 2*DEFAULT_PC_STEP
-        Instruction::from_isize(
-            JAL.global_opcode(),
-            2,
-            -2 * DEFAULT_PC_STEP as isize,
-            0,
-            1,
-            0,
-        ),
+        Instruction::from_isize(JAL, 2, -2 * DEFAULT_PC_STEP as isize, 0, 1, 0),
         // terminate
         Instruction::from_isize(TERMINATE.global_opcode(), 0, 0, 0, 0, 0),
         // if word[0]_1 == 5 then pc -= DEFAULT_PC_STEP
-        Instruction::from_isize(
-            NativeBranchEqualOpcode(BEQ).global_opcode(),
-            0,
-            5,
-            -(DEFAULT_PC_STEP as isize),
-            1,
-            0,
-        ),
+        Instruction::from_isize(BEQ, 0, 5, -(DEFAULT_PC_STEP as isize), 1, 0),
     ];
 
     let program = Program::from_instructions(&instructions);
@@ -189,11 +152,10 @@ fn test_program_without_field_arithmetic() {
 }
 
 #[test]
-#[should_panic(expected = "LogUp multiset equality check failed.")]
 fn test_program_negative() {
     let instructions = vec![
-        Instruction::large_from_isize(STOREW.global_opcode(), -1, 0, 0, 0, 1, 0, 1),
-        Instruction::large_from_isize(LOADW.global_opcode(), -1, 0, 0, 1, 1, 0, 1),
+        Instruction::large_from_isize(STOREW, -1, 0, 0, 0, 1, 0, 1),
+        Instruction::large_from_isize(LOADW, -1, 0, 0, 1, 1, 0, 1),
         Instruction::large_from_isize(TERMINATE.global_opcode(), 0, 0, 0, 0, 0, 0, 0),
     ];
     let bus = ProgramBus::new(READ_INSTRUCTION_BUS);
@@ -201,14 +163,14 @@ fn test_program_negative() {
     let program_air = ProgramAir::new(bus);
 
     let execution_frequencies = vec![1; instructions.len()];
-    let engine = BabyBearPoseidon2Engine::new(FriParameters::new_for_testing(1));
+    let engine = test_cpu_engine();
     let exe = VmExe::new(program);
-    let committed_exe =
-        VmCommittedExe::<BabyBearPoseidon2Config>::commit(exe, engine.config().pcs());
+    let committed_exe = VmCommittedExe::<BabyBearPoseidon2Config>::commit(exe, &engine);
     let cached = committed_exe.get_committed_trace();
     let chip = ProgramChip {
         filtered_exec_frequencies: execution_frequencies.clone(),
         cached: Some(cached),
+        _marker: std::marker::PhantomData,
     };
     let ctx = chip.generate_proving_ctx(());
 
@@ -216,8 +178,8 @@ fn test_program_negative() {
     let mut program_rows = vec![];
     for (pc_idx, instruction) in instructions.iter().enumerate() {
         program_rows.extend(vec![
-            BabyBear::from_canonical_u32(execution_frequencies[pc_idx]),
-            BabyBear::from_canonical_usize(pc_idx * DEFAULT_PC_STEP as usize),
+            BabyBear::from_u32(execution_frequencies[pc_idx]),
+            BabyBear::from_usize(pc_idx * DEFAULT_PC_STEP as usize),
             instruction.opcode.to_field(),
             instruction.a,
             instruction.b,
@@ -226,16 +188,19 @@ fn test_program_negative() {
             instruction.e,
         ]);
     }
-    let mut counter_trace = RowMajorMatrix::new(program_rows, 8);
+    let width = 8;
+    let mut counter_trace = RowMajorMatrix::new(program_rows, width);
     counter_trace.row_mut(1)[1] = BabyBear::ZERO;
-    let counter_trace = Arc::new(counter_trace);
+    let rows_used = counter_trace.height();
+    let height = rows_used.next_power_of_two();
+    counter_trace.values.resize(height * width, BabyBear::ZERO);
+    let counter_trace = ColMajorMatrix::from_row_major(&counter_trace);
 
-    engine
-        .run_test(
-            any_rap_arc_vec!(program_air, counter_air),
-            vec![ctx, AirProvingContext::simple_no_pis(counter_trace)],
-        )
-        .expect("Verification failed");
+    let result = engine.run_test(
+        any_air_arc_vec!(program_air, counter_air),
+        vec![ctx, AirProvingContext::simple_no_pis(counter_trace)],
+    );
+    assert!(matches!(result, Err(StarkTestError::Prover(_))));
 }
 
 #[test]
@@ -245,30 +210,12 @@ fn test_program_with_undefined_instructions() {
     // see core/tests/mod.rs
     let instructions = vec![
         // word[0]_1 <- word[n]_0
-        Some(Instruction::large_from_isize(
-            STOREW.global_opcode(),
-            n,
-            0,
-            0,
-            0,
-            1,
-            0,
-            1,
-        )),
+        Some(Instruction::large_from_isize(STOREW, n, 0, 0, 0, 1, 0, 1)),
         // word[1]_1 <- word[1]_1
-        Some(Instruction::large_from_isize(
-            STOREW.global_opcode(),
-            1,
-            1,
-            0,
-            0,
-            1,
-            0,
-            1,
-        )),
+        Some(Instruction::large_from_isize(STOREW, 1, 1, 0, 0, 1, 0, 1)),
         // if word[0]_1 == n then pc += 3*DEFAULT_PC_STEP
         Some(Instruction::from_isize(
-            NativeBranchEqualOpcode(BEQ).global_opcode(),
+            BEQ,
             0,
             n,
             3 * DEFAULT_PC_STEP as isize,

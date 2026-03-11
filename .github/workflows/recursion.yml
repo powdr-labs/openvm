@@ -1,49 +1,40 @@
-name: STARK Recursion Tests
+name: Recursion Tests
 
 on:
-  workflow_call:
   push:
     branches: ["main"]
   pull_request:
     branches: ["**"]
     paths:
-      - "crates/circuits/primitives/**"
-      - "crates/vm/**"
-      - "extensions/native/compiler/**"
-      - "extensions/native/recursion/**"
       - "Cargo.toml"
+      - "crates/recursion/**"
       - ".github/workflows/recursion.yml"
 
 concurrency:
-  group: ${{ github.workflow_ref }}-recursion-${{ github.event.pull_request.number || github.sha }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
-  OPENVM_FAST_TEST: "1"
 
 jobs:
   tests:
+    name: Recursion tests
     runs-on:
-      - runs-on=${{ github.run_id }}-cpu/runner=64cpu-linux-x64/image=ubuntu24-full-x64/extras=s3-cache
+      - runs-on=${{ github.run_id }}/runner=16cpu-linux-arm64
 
     steps:
       - uses: runs-on/action@v2
       - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
         with:
-          cache-on-failure: true
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        env:
+          RUSTUP_PERMIT_COPY_RENAME: "1"
+      - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@nextest
-      - name: Install solc # svm should support arm64 linux
-        run: (hash svm 2>/dev/null || cargo install --locked --version 0.2.23 svm-rs) && svm install 0.8.19 && solc --version
 
-      - name: Run recursion crate tests
-        working-directory: extensions/native/recursion
+      - name: Run tests
+        working-directory: crates/recursion
         run: |
-          cargo nextest run --features parallel,static-verifier
-
-      - name: Run continuations verifier crate tests
-        working-directory: crates/continuations
-        run: |
-          cargo nextest run --no-tests=pass
+          cargo nextest run

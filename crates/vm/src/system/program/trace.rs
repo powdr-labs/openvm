@@ -2,24 +2,21 @@ use std::{borrow::BorrowMut, sync::Arc};
 
 use derivative::Derivative;
 use itertools::Itertools;
-use openvm_circuit::arch::hasher::poseidon2::Poseidon2Hasher;
+use openvm_circuit::{arch::hasher::poseidon2::Poseidon2Hasher, primitives::Chip};
 use openvm_instructions::{
     exe::VmExe,
     program::{Program, DEFAULT_PC_STEP},
     LocalOpcode, SystemOpcode,
 };
 use openvm_stark_backend::{
-    config::{Com, PcsProverData, StarkGenericConfig, Val},
-    p3_commit::Pcs,
-    p3_field::{Field, FieldAlgebra, PrimeField32},
-    p3_matrix::{dense::RowMajorMatrix, Matrix},
+    p3_field::{Field, PrimeCharacteristicRing, PrimeField32},
+    p3_matrix::dense::RowMajorMatrix,
     p3_maybe_rayon::prelude::*,
-    p3_util::log2_strict_usize,
     prover::{
-        cpu::{self, CpuBackend},
-        types::{AirProvingContext, CommittedTraceData},
+        stacked_pcs::StackedPcsData, AirProvingContext, ColMajorMatrix, CommittedTraceData,
+        CpuBackend, TraceCommitter,
     },
-    Chip,
+    Com, StarkEngine, StarkProtocolConfig, Val,
 };
 use serde::{Deserialize, Serialize};
 
@@ -39,45 +36,47 @@ use crate::{
 /// matrix `trace`.
 #[derive(Serialize, Deserialize, Derivative)]
 #[serde(bound(
-    serialize = "VmExe<Val<SC>>: Serialize, Com<SC>: Serialize, PcsProverData<SC>: Serialize",
-    deserialize = "VmExe<Val<SC>>: Deserialize<'de>, Com<SC>: Deserialize<'de>, PcsProverData<SC>: Deserialize<'de>"
+    serialize = "VmExe<Val<SC>>: Serialize, Com<SC>: Serialize",
+    deserialize = "VmExe<Val<SC>>: Deserialize<'de>, Com<SC>: Deserialize<'de>"
 ))]
 #[derivative(Clone(bound = "Com<SC>: Clone"))]
-pub struct VmCommittedExe<SC: StarkGenericConfig> {
+pub struct VmCommittedExe<SC: StarkProtocolConfig> {
     /// Raw executable.
     pub exe: Arc<VmExe<Val<SC>>>,
     program_commitment: Com<SC>,
     /// Program ROM as cached trace matrix.
     pub trace: Arc<RowMajorMatrix<Val<SC>>>,
-    pub prover_data: Arc<PcsProverData<SC>>,
+    pub prover_data: Arc<StackedPcsData<SC::F, SC::Digest>>,
 }
 
-impl<SC: StarkGenericConfig> VmCommittedExe<SC> {
+impl<SC: StarkProtocolConfig> VmCommittedExe<SC> {
     /// Creates [VmCommittedExe] from [VmExe] by using `pcs` to commit to the
     /// program code as a _cached trace_ matrix.
-    pub fn commit(exe: VmExe<Val<SC>>, pcs: &SC::Pcs) -> Self {
+    pub fn commit<E: StarkEngine<SC = SC, PB = CpuBackend<SC>>>(
+        exe: VmExe<Val<SC>>,
+        e: &E,
+    ) -> Self {
         let trace = generate_cached_trace(&exe.program);
-        let domain = pcs.natural_domain_for_degree(trace.height());
-
-        let (program_commitment, data) = pcs.commit(vec![(domain, trace.clone())]);
+        let (commit, prover_data) = e
+            .device()
+            .commit(&[&ColMajorMatrix::from_row_major(&trace)])
+            .unwrap();
         Self {
             exe: Arc::new(exe),
-            program_commitment,
+            program_commitment: commit,
             trace: Arc::new(trace),
-            prover_data: Arc::new(data),
+            prover_data: Arc::new(prover_data),
         }
     }
     pub fn get_program_commit(&self) -> Com<SC> {
-        self.program_commitment.clone()
+        self.program_commitment
     }
 
     pub fn get_committed_trace(&self) -> CommittedTraceData<CpuBackend<SC>> {
-        let log_trace_height: u8 = log2_strict_usize(self.trace.height()).try_into().unwrap();
-        let data = cpu::PcsData::new(self.prover_data.clone(), vec![log_trace_height]);
         CommittedTraceData {
-            commitment: self.program_commitment.clone(),
-            trace: self.trace.clone(),
-            data,
+            commitment: self.prover_data.commit().unwrap(),
+            data: self.prover_data.clone(),
+            trace: ColMajorMatrix::from_row_major(&self.trace),
         }
     }
 
@@ -94,49 +93,47 @@ impl<SC: StarkGenericConfig> VmCommittedExe<SC> {
     ///
     /// **Note**: This function recomputes the Merkle tree for the initial memory image.
     pub fn compute_exe_commit(
-        program_commitment: &Com<SC>,
+        program_commitment: &[Val<SC>; CHUNK],
         exe: &VmExe<Val<SC>>,
         memory_config: &MemoryConfig,
-    ) -> Com<SC>
+    ) -> [Val<SC>; CHUNK]
     where
-        Com<SC>: AsRef<[Val<SC>; CHUNK]> + From<[Val<SC>; CHUNK]>,
         Val<SC>: PrimeField32,
     {
         let hasher = vm_poseidon2_hasher();
         let memory_dimensions = memory_config.memory_dimensions();
-        let app_program_commit: &[Val<SC>; CHUNK] = program_commitment.as_ref();
         let mem_config = memory_config;
         let mut memory_image = AddressMap::new(mem_config.addr_spaces.clone());
         memory_image.set_from_sparse(&exe.init_memory);
         let init_memory_commit =
             MerkleTree::from_memory(&memory_image, &memory_dimensions, &hasher).root();
-        Com::<SC>::from(compute_exe_commit(
+        compute_exe_commit(
             &hasher,
-            app_program_commit,
+            program_commitment,
             &init_memory_commit,
-            Val::<SC>::from_canonical_u32(exe.pc_start),
-        ))
+            Val::<SC>::from_u32(exe.pc_start),
+        )
     }
 }
 
-impl<RA, SC: StarkGenericConfig> Chip<RA, CpuBackend<SC>> for ProgramChip<SC> {
+impl<SC: StarkProtocolConfig> Chip<(), CpuBackend<SC>> for ProgramChip<SC> {
     /// The cached program trace is cloned and left for future use. The clone is cheap because the
     /// cached trace is behind smart pointers. The execution frequencies are left unchanged.
-    fn generate_proving_ctx(&self, _: RA) -> AirProvingContext<CpuBackend<SC>> {
+    fn generate_proving_ctx(&self, _: ()) -> AirProvingContext<CpuBackend<SC>> {
         let cached = self
             .cached
             .clone()
             .expect("cached program trace must be loaded");
-        assert!(self.filtered_exec_frequencies.len() <= cached.trace.height());
-        let mut freqs = Val::<SC>::zero_vec(cached.trace.height());
+        assert!(self.filtered_exec_frequencies.len() <= cached.height());
+        let mut freqs = Val::<SC>::zero_vec(cached.height());
         freqs
             .par_iter_mut()
             .zip(self.filtered_exec_frequencies.par_iter())
-            .for_each(|(f, x)| *f = Val::<SC>::from_canonical_u32(*x));
-        let common_trace = RowMajorMatrix::new_col(freqs);
+            .for_each(|(f, x)| *f = Val::<SC>::from_u32(*x));
+        let common_trace = ColMajorMatrix::new(freqs, 1);
         AirProvingContext {
             cached_mains: vec![cached],
-            common_main: Some(Arc::new(common_trace)),
+            common_main: common_trace,
             public_values: vec![],
         }
     }
@@ -185,7 +182,7 @@ pub(crate) fn generate_cached_trace<F: Field>(program: &Program<F>) -> RowMajorM
         .for_each(|(row, (pc, instruction))| {
             let row: &mut ProgramExecutionCols<F> = row.borrow_mut();
             *row = ProgramExecutionCols {
-                pc: F::from_canonical_u32(pc),
+                pc: F::from_u32(pc),
                 opcode: instruction.opcode.to_field(),
                 a: instruction.a,
                 b: instruction.b,

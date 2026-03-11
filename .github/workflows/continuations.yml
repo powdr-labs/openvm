@@ -1,0 +1,41 @@
+name: Continuations Tests
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["**"]
+    paths:
+      - "crates/continuations-v2/**"
+      - "crates/recursion/**"
+      - ".github/workflows/continuations.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  tests:
+    name: Recursion tests
+    runs-on:
+      - runs-on=${{ github.run_id }}/runner=16cpu-linux-arm64
+
+    steps:
+      - uses: runs-on/action@v2
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        env:
+          RUSTUP_PERMIT_COPY_RENAME: "1"
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@nextest
+
+      - name: Run tests
+        working-directory: crates/continuations-v2
+        run: |
+          rustup component add rust-src --toolchain nightly-2025-08-02
+          cargo nextest run

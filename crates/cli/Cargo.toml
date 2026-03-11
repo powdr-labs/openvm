@@ -24,8 +24,8 @@ openvm-stark-sdk.workspace = true
 openvm-stark-backend.workspace = true
 openvm-circuit = { workspace = true }
 
-aws-sdk-s3 = "1.98.0"
-aws-config = "1.8.2"
+aws-sdk-s3 = "1.119.0"
+aws-config = "1.8.12"
 tokio = { version = "1.46.1", features = ["rt", "rt-multi-thread", "macros"] }
 clap = { workspace = true, features = ["derive", "env"] }
 eyre.workspace = true
@@ -39,6 +39,7 @@ toml = { workspace = true }
 itertools.workspace = true
 toml_edit = "0.22"
 include_dir = "0.7"
+static_assertions.workspace = true
 
 [features]
 default = ["parallel", "jemalloc", "evm-verify", "metrics"]
@@ -56,6 +57,5 @@ parallel = ["openvm-sdk/parallel"]
 mimalloc = ["openvm-sdk/mimalloc"]
 jemalloc = ["openvm-sdk/jemalloc"]
 jemalloc-prof = ["openvm-sdk/jemalloc-prof"]
-nightly-features = ["openvm-sdk/nightly-features"]
 cuda = ["openvm-sdk/cuda"]
 ci = []

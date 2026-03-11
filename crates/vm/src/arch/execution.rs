@@ -5,7 +5,7 @@ use openvm_instructions::{
 };
 use openvm_stark_backend::{
     interaction::{BusIndex, InteractionBuilder, PermutationCheckBus},
-    p3_field::FieldAlgebra,
+    p3_field::PrimeCharacteristicRing,
 };
 use rand::rngs::StdRng;
 use serde::{Deserialize, Serialize};
@@ -39,6 +39,12 @@ pub enum ExecutionError {
     DisabledOperation { pc: u32, opcode: VmOpcode },
     #[error("at pc = {pc}")]
     HintOutOfBounds { pc: u32 },
+    #[error("at pc {pc}, hint buffer num_words {num_words} exceeds MAX_HINT_BUFFER_WORDS {max_hint_buffer_words}")]
+    HintBufferTooLarge {
+        pc: u32,
+        num_words: u32,
+        max_hint_buffer_words: u32,
+    },
     #[error("at pc {pc}, tried to publish into index {public_value_index} when num_public_values = {num_public_values}")]
     PublicValueIndexOutOfBounds {
         pc: u32,
@@ -284,8 +290,6 @@ pub struct VmStateMut<'a, F, MEM, RA> {
     pub memory: &'a mut MEM,
     pub streams: &'a mut Streams<F>,
     pub rng: &'a mut StdRng,
-    /// Custom public values to be set by the system PublicValuesExecutor
-    pub custom_pvs: &'a mut Vec<Option<F>>,
     pub ctx: &'a mut RA,
     #[cfg(feature = "metrics")]
     pub metrics: &'a mut VmMetrics,
@@ -451,7 +455,7 @@ impl ExecutionBridge {
         timestamp_change: impl Into<AB::Expr>,
     ) -> ExecutionBridgeInteractor<AB> {
         let to_state = ExecutionState {
-            pc: from_state.pc.clone().into() + AB::Expr::from_canonical_u32(DEFAULT_PC_STEP),
+            pc: from_state.pc.clone().into() + AB::Expr::from_u32(DEFAULT_PC_STEP),
             timestamp: from_state.timestamp.clone().into() + timestamp_change.into(),
         };
         self.execute(opcode, operands, from_state, to_state)
@@ -494,10 +498,10 @@ impl<AB: InteractionBuilder> ExecutionBridgeInteractor<AB> {
     }
 }
 
-impl<T: FieldAlgebra> From<(u32, Option<T>)> for PcIncOrSet<T> {
+impl<T: PrimeCharacteristicRing> From<(u32, Option<T>)> for PcIncOrSet<T> {
     fn from((pc_inc, to_pc): (u32, Option<T>)) -> Self {
         match to_pc {
-            None => PcIncOrSet::Inc(T::from_canonical_u32(pc_inc)),
+            None => PcIncOrSet::Inc(T::from_u32(pc_inc)),
             Some(to_pc) => PcIncOrSet::Set(to_pc),
         }
     }

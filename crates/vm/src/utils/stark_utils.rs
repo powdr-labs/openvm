@@ -1,35 +1,47 @@
+use openvm_circuit_primitives::utils::next_power_of_two_or_zero;
 use openvm_instructions::exe::VmExe;
 use openvm_stark_backend::{
-    config::{Com, Val},
-    engine::VerificationData,
-    p3_field::PrimeField32,
+    keygen::types::MultiStarkVerifyingKey, p3_field::PrimeField32, proof::Proof,
+    prover::ProvingContext, Com, StarkEngine, SystemParams, Val,
 };
 use openvm_stark_sdk::{
-    config::{baby_bear_poseidon2::BabyBearPoseidon2Config, setup_tracing, FriParameters},
-    engine::{StarkFriEngine, VerificationDataWithFriParams},
-    p3_baby_bear::BabyBear,
+    config::baby_bear_poseidon2::*, p3_baby_bear::BabyBear, utils::setup_tracing,
 };
 
 #[cfg(feature = "aot")]
-use crate::arch::{SystemConfig, VmState};
+use crate::arch::SystemConfig;
+#[cfg(feature = "aot")]
+use crate::arch::VmState;
 #[cfg(feature = "aot")]
 use crate::system::memory::online::GuestMemory;
 use crate::{
     arch::{
-        debug_proving_ctx, execution_mode::Segment, vm::VirtualMachine, Executor, ExitCode,
-        MeteredExecutor, PreflightExecutionOutput, PreflightExecutor, Streams, VmBuilder,
+        debug_proving_ctx, execution_mode::Segment, verify_segments, vm::VirtualMachine, Executor,
+        ExitCode, MeteredExecutor, PreflightExecutionOutput, PreflightExecutor, Streams, VmBuilder,
         VmCircuitConfig, VmConfig, VmExecutionConfig,
     },
     system::memory::{MemoryImage, CHUNK},
 };
 
+/// Supports `trace height <= 2^20`.
+pub fn test_cpu_engine() -> BabyBearPoseidon2CpuEngine {
+    setup_tracing();
+    BabyBearPoseidon2CpuEngine::new(SystemParams::new_for_testing(21))
+}
+
 cfg_if::cfg_if! {
     if #[cfg(feature = "cuda")] {
-        pub use openvm_cuda_backend::{engine::GpuBabyBearPoseidon2Engine as TestStarkEngine, chip::cpu_proving_ctx_to_gpu};
+        pub use openvm_circuit_primitives::{hybrid_chip::cpu_proving_ctx_to_gpu};
+        pub use openvm_cuda_backend::BabyBearPoseidon2GpuEngine as TestStarkEngine;
         use crate::arch::DenseRecordArena;
         pub type TestRecordArena = DenseRecordArena;
+
+        pub fn test_gpu_engine() -> TestStarkEngine {
+            setup_tracing();
+            TestStarkEngine::new(SystemParams::new_for_testing(21))
+        }
     } else {
-        pub use openvm_stark_sdk::config::baby_bear_poseidon2::BabyBearPoseidon2Engine as TestStarkEngine;
+        pub use openvm_stark_sdk::config::baby_bear_poseidon2::BabyBearPoseidon2CpuEngine as TestStarkEngine;
         use crate::arch::MatrixRecordArena;
         pub type TestRecordArena = MatrixRecordArena<BabyBear>;
     }
@@ -71,10 +83,10 @@ where
     while config.as_ref().max_constraint_degree > (1 << log_blowup) + 1 {
         log_blowup += 1;
     }
-    let fri_params = FriParameters::new_for_testing(log_blowup);
+    let params = SystemParams::new_for_testing(22); // max log_trace_height=22
     let debug = std::env::var("OPENVM_SKIP_DEBUG") != Result::Ok(String::from("1"));
     let (final_memory, _) = air_test_impl::<TestStarkEngine, VB>(
-        fri_params,
+        params,
         builder,
         config,
         exe,
@@ -95,13 +107,13 @@ pub fn check_aot_equivalence<E, VB>(
     input: &Streams<Val<E::SC>>,
 ) -> eyre::Result<()>
 where
-    E: StarkFriEngine,
+    E: StarkEngine,
     Val<E::SC>: PrimeField32,
     VB: VmBuilder<E>,
     <VB::VmConfig as VmExecutionConfig<Val<E::SC>>>::Executor: Executor<Val<E::SC>>
         + MeteredExecutor<Val<E::SC>>
         + PreflightExecutor<Val<E::SC>, VB::RecordArena>,
-    Com<E::SC>: AsRef<[Val<E::SC>; CHUNK]> + From<[Val<E::SC>; CHUNK]>,
+    Com<E::SC>: Into<[Val<E::SC>; CHUNK]> + From<[Val<E::SC>; CHUNK]>,
 {
     /*
     Assertions for Pure Execution AOT
@@ -173,7 +185,7 @@ where
 // Same implementation as VmLocalProver, but we need to do something special to run the debug prover
 #[allow(clippy::type_complexity)]
 pub fn air_test_impl<E, VB>(
-    fri_params: FriParameters,
+    params: SystemParams,
     builder: VB,
     config: VB::VmConfig,
     exe: impl Into<VmExe<Val<E::SC>>>,
@@ -182,19 +194,19 @@ pub fn air_test_impl<E, VB>(
     debug: bool,
 ) -> eyre::Result<(
     Option<MemoryImage>,
-    Vec<VerificationDataWithFriParams<E::SC>>,
+    Vec<(MultiStarkVerifyingKey<E::SC>, Proof<E::SC>)>,
 )>
 where
-    E: StarkFriEngine,
+    E: StarkEngine,
     Val<E::SC>: PrimeField32,
     VB: VmBuilder<E>,
     <VB::VmConfig as VmExecutionConfig<Val<E::SC>>>::Executor: Executor<Val<E::SC>>
         + MeteredExecutor<Val<E::SC>>
         + PreflightExecutor<Val<E::SC>, VB::RecordArena>,
-    Com<E::SC>: AsRef<[Val<E::SC>; CHUNK]> + From<[Val<E::SC>; CHUNK]>,
+    Com<E::SC>: Into<[Val<E::SC>; CHUNK]> + From<[Val<E::SC>; CHUNK]>,
 {
     setup_tracing();
-    let engine = E::new(fri_params);
+    let engine = E::new(params);
     let (mut vm, pk) = VirtualMachine::<E, VB>::new_with_keygen(engine, builder, config.clone())?;
     let vk = pk.get_vk();
     let exe = exe.into();
@@ -215,12 +227,12 @@ where
     let mut state = Some(vm.create_initial_state(&exe, input));
     let mut proofs = Vec::new();
     let mut exit_code = None;
-    for segment in segments {
+    for (seg_idx, segment) in segments.iter().enumerate() {
         let Segment {
             num_insns,
             trace_heights,
             ..
-        } = segment;
+        } = segment.clone();
         let from_state = Option::take(&mut state).unwrap();
         vm.transport_init_memory_to_device(&from_state.memory);
         let PreflightExecutionOutput {
@@ -237,27 +249,116 @@ where
         exit_code = system_records.exit_code;
 
         let ctx = vm.generate_proving_ctx(system_records, record_arenas)?;
+
+        validate_metered_estimates(&vm, &trace_heights, &ctx, seg_idx);
+
         if debug {
-            debug_proving_ctx(&vm, &pk, &ctx);
+            debug_proving_ctx(&vm, &ctx);
         }
-        let proof = vm.engine.prove(vm.pk(), ctx);
+        let proof = vm.engine.prove(vm.pk(), ctx).unwrap();
         proofs.push(proof);
     }
     assert!(proofs.len() >= min_segments);
-    vm.verify(&vk, &proofs)
-        .expect("segment proofs should verify");
+    match verify_segments(&vm.engine, &vk, &proofs) {
+        Ok(_) => {}
+        Err(err) => {
+            panic!("segment proofs should verify: {err}");
+        }
+    }
     let state = state.unwrap();
     let final_memory = (exit_code == Some(ExitCode::Success as u32)).then_some(state.memory.memory);
     let vdata = proofs
         .into_iter()
-        .map(|proof| VerificationDataWithFriParams {
-            data: VerificationData {
-                vk: vk.clone(),
-                proof,
-            },
-            fri_params: vm.engine.fri_params(),
-        })
+        .map(|proof| (vk.clone(), proof))
         .collect();
 
     Ok((final_memory, vdata))
+}
+
+/// Validates that metered execution estimates match realized trace heights.
+///
+/// Note: Metered execution stores un-padded counts, so we pad them for comparison.
+/// The proving context trace height (realized) is already padded.
+/// For most AIRs, estimated_padded should exactly equal realized.
+/// For MemoryMerkleAir, Poseidon2PeripheryAir, and PersistentBoundaryAir, it is expected that
+/// estimated >> realized.
+fn validate_metered_estimates<E, VB>(
+    vm: &VirtualMachine<E, VB>,
+    estimated_heights: &[u32],
+    ctx: &ProvingContext<E::PB>,
+    seg_idx: usize,
+) where
+    E: StarkEngine,
+    VB: VmBuilder<E>,
+{
+    let air_names: Vec<_> = vm.air_names().collect();
+
+    // Iterate over all AIRs, not just those in ctx.per_trace
+    for (air_id, &estimated_u32) in estimated_heights.iter().enumerate() {
+        let estimated = estimated_u32 as usize;
+        // Look up realized height from ctx.per_trace, or 0 if not present
+        let realized = ctx
+            .per_trace
+            .iter()
+            .find(|(id, _)| *id == air_id)
+            .map(|(_, air_ctx)| air_ctx.height())
+            .unwrap_or(0);
+
+        // Pad the estimated height (realized is already padded from proving context)
+        let estimated_padded = next_power_of_two_or_zero(estimated);
+        let air_name = air_names.get(air_id).unwrap_or(&"unknown");
+
+        #[cfg(feature = "metrics")]
+        {
+            metrics::gauge!(
+                "metered_estimated_height",
+                "air_id" => air_id.to_string(),
+                "air_name" => air_name.to_string(),
+                "segment" => seg_idx.to_string(),
+            )
+            .set(estimated_padded as f64);
+            metrics::gauge!(
+                "metered_realized_height",
+                "air_id" => air_id.to_string(),
+                "air_name" => air_name.to_string(),
+                "segment" => seg_idx.to_string(),
+            )
+            .set(realized as f64);
+        }
+
+        // Check for underestimation: padded estimate should be >= realized
+        assert!(
+            estimated_padded >= realized,
+            "Metered estimation underestimate for AIR {} ({}): estimated {} (padded {}) < realized {} \
+             (segment {})",
+            air_id,
+            air_name,
+            estimated,
+            estimated_padded,
+            realized,
+            seg_idx
+        );
+
+        // For some airs, the overestimates are expected
+        if air_name.contains("MemoryMerkleAir")
+            || air_name.contains("Poseidon2PeripheryAir")
+            || air_name.contains("PersistentBoundaryAir")
+            || air_name.contains("NativeAdapterAir")
+        {
+            continue;
+        }
+
+        // Check that estimated_padded exactly matches realized
+        assert!(
+            estimated_padded == realized,
+            "Metered estimation mismatch for AIR {} ({}): estimated {} (padded {}) != realized {} \
+             (segment {})",
+            air_id,
+            air_name,
+            estimated,
+            estimated_padded,
+            realized,
+            seg_idx
+        );
+    }
 }

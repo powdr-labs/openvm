@@ -13,30 +13,23 @@ use openvm_circuit_primitives::{
         SharedVariableRangeCheckerChip, VariableRangeCheckerAir, VariableRangeCheckerBus,
         VariableRangeCheckerChip, VariableRangeCheckerChipGPU,
     },
+    Chip,
 };
 use openvm_cuda_backend::{
-    data_transporter::assert_eq_host_and_device_matrix,
-    engine::GpuBabyBearPoseidon2Engine,
-    prover_backend::GpuBackend,
-    types::{F, SC},
+    data_transporter::assert_eq_host_and_device_matrix_col_maj,
+    prelude::{EF, F, SC},
+    BabyBearPoseidon2GpuEngine, GpuBackend, ProverError,
 };
 use openvm_instructions::{program::PC_BITS, riscv::RV32_REGISTER_AS};
 use openvm_poseidon2_air::{Poseidon2Config, Poseidon2SubAir};
 use openvm_stark_backend::{
-    config::Val,
     interaction::{LookupBus, PermutationCheckBus},
     p3_air::BaseAir,
-    p3_field::{FieldAlgebra, PrimeField32},
-    prover::{cpu::CpuBackend, types::AirProvingContext},
-    rap::AnyRap,
-    utils::disable_debug_builder,
-    verifier::VerificationError,
-    AirRef, Chip,
+    p3_field::{PrimeCharacteristicRing, PrimeField32},
+    prover::{AirProvingContext, CpuBackend},
+    AirRef, AnyAir, StarkEngine, Val, VerificationData,
 };
-use openvm_stark_sdk::{
-    config::{setup_tracing_with_log_level, FriParameters},
-    engine::{StarkFriEngine, VerificationDataWithFriParams},
-};
+use openvm_stark_sdk::utils::setup_tracing_with_log_level;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use tracing::Level;
 
@@ -54,10 +47,10 @@ use crate::{
             POSEIDON2_DIRECT_BUS, READ_INSTRUCTION_BUS,
         },
         Arena, DenseRecordArena, ExecutionBridge, ExecutionBus, ExecutionState, MatrixRecordArena,
-        MemoryConfig, PreflightExecutor, Streams, VmStateMut,
+        MemoryConfig, PreflightExecutor, Streams, VmStateMut, CONST_BLOCK_SIZE,
     },
     system::{
-        cuda::{poseidon2::Poseidon2PeripheryChipGPU, DIGEST_WIDTH},
+        cuda::poseidon2::Poseidon2PeripheryChipGPU,
         memory::{
             offline_checker::{MemoryBridge, MemoryBus},
             MemoryAirInventory, SharedMemoryHelper,
@@ -66,7 +59,7 @@ use crate::{
         program::ProgramBus,
         SystemPort,
     },
-    utils::next_power_of_two_or_zero,
+    utils::{next_power_of_two_or_zero, test_gpu_engine},
 };
 
 pub struct GpuTestChipHarness<F, Executor, AIR, GpuChip, CpuChip> {
@@ -111,7 +104,7 @@ impl TestBuilder<F> for GpuChipTestBuilder {
         E: PreflightExecutor<F, RA>,
         RA: Arena,
     {
-        let initial_pc = self.rng.gen_range(0..(1 << PC_BITS));
+        let initial_pc = self.rng.random_range(0..(1 << PC_BITS));
         self.execute_with_pc(executor, arena, instruction, initial_pc);
     }
 
@@ -137,7 +130,6 @@ impl TestBuilder<F> for GpuChipTestBuilder {
             &mut self.memory.memory,
             &mut self.streams,
             &mut self.rng,
-            &mut self.custom_pvs,
             arena,
             #[cfg(feature = "metrics")]
             &mut self.metrics,
@@ -177,7 +169,7 @@ impl TestBuilder<F> for GpuChipTestBuilder {
         pointer: usize,
         value: [usize; N],
     ) {
-        self.write(address_space, pointer, value.map(F::from_canonical_usize));
+        self.write(address_space, pointer, value.map(F::from_usize));
     }
 
     fn address_bits(&self) -> usize {
@@ -217,7 +209,8 @@ impl TestBuilder<F> for GpuChipTestBuilder {
     ) -> (usize, usize) {
         let register = self.get_default_register(reg_increment);
         let pointer = self.get_default_pointer(pointer_increment);
-        self.write(1, register, pointer.to_le_bytes().map(F::from_canonical_u8));
+        // Cast to u32 to ensure we write exactly 4 bytes (RV32 register size).
+        self.write(1, register, (pointer as u32).to_le_bytes().map(F::from_u8));
         (register, pointer)
     }
 
@@ -245,7 +238,6 @@ pub struct GpuChipTestBuilder {
     range_tuple_checker: Option<Arc<RangeTupleCheckerChipGPU<2>>>,
 
     rng: StdRng,
-    pub custom_pvs: Vec<Option<F>>,
     default_register: usize,
     default_pointer: usize,
     #[cfg(feature = "metrics")]
@@ -257,31 +249,20 @@ impl Default for GpuChipTestBuilder {
         let mut mem_config = MemoryConfig::default();
         // Currently tests still use gen_pointer for the full 1<<29 range of address space 1.
         mem_config.addr_spaces[RV32_REGISTER_AS as usize].num_cells = 1 << 29;
-        Self::volatile(mem_config, default_var_range_checker_bus())
+        Self::new(mem_config, default_var_range_checker_bus())
     }
 }
 
 impl GpuChipTestBuilder {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn new_persistent() -> Self {
-        let mut mem_config = MemoryConfig::default();
-        // Currently tests still use gen_pointer for the full 1<<29 range of address space 1.
-        mem_config.addr_spaces[RV32_REGISTER_AS as usize].num_cells = 1 << 29;
-        Self::persistent(mem_config, default_var_range_checker_bus())
-    }
-
-    pub fn volatile(mem_config: MemoryConfig, bus: VariableRangeCheckerBus) -> Self {
+    pub fn new(mem_config: MemoryConfig, bus: VariableRangeCheckerBus) -> Self {
         setup_tracing_with_log_level(Level::INFO);
         let mem_bus = MemoryBus::new(MEMORY_BUS);
         let range_checker = Arc::new(VariableRangeCheckerChipGPU::hybrid(Arc::new(
             VariableRangeCheckerChip::new(bus),
         )));
         Self {
-            memory: DeviceMemoryTester::volatile(
-                default_tracing_memory(&mem_config, 1),
+            memory: DeviceMemoryTester::new(
+                default_tracing_memory(&mem_config, CONST_BLOCK_SIZE),
                 mem_bus,
                 mem_config,
                 range_checker.clone(),
@@ -293,35 +274,6 @@ impl GpuChipTestBuilder {
             bitwise_op_lookup: None,
             range_tuple_checker: None,
             rng: StdRng::seed_from_u64(0),
-            custom_pvs: Vec::new(),
-            default_register: 0,
-            default_pointer: 0,
-            #[cfg(feature = "metrics")]
-            metrics: VmMetrics::default(),
-        }
-    }
-
-    pub fn persistent(mem_config: MemoryConfig, bus: VariableRangeCheckerBus) -> Self {
-        setup_tracing_with_log_level(Level::INFO);
-        let mem_bus = MemoryBus::new(MEMORY_BUS);
-        let range_checker = Arc::new(VariableRangeCheckerChipGPU::hybrid(Arc::new(
-            VariableRangeCheckerChip::new(bus),
-        )));
-        Self {
-            memory: DeviceMemoryTester::persistent(
-                default_tracing_memory(&mem_config, DIGEST_WIDTH),
-                mem_bus,
-                mem_config,
-                range_checker.clone(),
-            ),
-            execution: DeviceExecutionTester::new(ExecutionBus::new(EXECUTION_BUS)),
-            program: DeviceProgramTester::new(ProgramBus::new(READ_INSTRUCTION_BUS)),
-            streams: Default::default(),
-            var_range_checker: range_checker,
-            bitwise_op_lookup: None,
-            range_tuple_checker: None,
-            rng: StdRng::seed_from_u64(0),
-            custom_pvs: Vec::new(),
             default_register: 0,
             default_pointer: 0,
             #[cfg(feature = "metrics")]
@@ -375,21 +327,22 @@ impl GpuChipTestBuilder {
         pointer: usize,
         writes: Vec<[F; NUM_LIMBS]>,
     ) {
+        // Cast to u32 to ensure we write exactly 4 bytes (RV32 register size).
         self.write(
             1usize,
             register,
-            pointer.to_le_bytes().map(F::from_canonical_u8),
+            (pointer as u32).to_le_bytes().map(F::from_u8),
         );
-        if NUM_LIMBS.is_power_of_two() {
-            for (i, &write) in writes.iter().enumerate() {
-                self.write(2usize, pointer + i * NUM_LIMBS, write);
-            }
-        } else {
-            for (i, &write) in writes.iter().enumerate() {
-                let ptr = pointer + i * NUM_LIMBS;
-                for j in (0..NUM_LIMBS).step_by(4) {
-                    self.write::<4>(2usize, ptr + j, write[j..j + 4].try_into().unwrap());
-                }
+        // Always write in CONST_BLOCK_SIZE-byte chunks to avoid generating
+        // access adapter records when access adapters are disabled.
+        for (i, &write) in writes.iter().enumerate() {
+            let ptr = pointer + i * NUM_LIMBS;
+            for j in (0..NUM_LIMBS).step_by(CONST_BLOCK_SIZE) {
+                self.write::<CONST_BLOCK_SIZE>(
+                    2usize,
+                    ptr + j,
+                    write[j..j + CONST_BLOCK_SIZE].try_into().unwrap(),
+                );
             }
         }
     }
@@ -523,11 +476,11 @@ pub struct GpuChipTester {
 impl GpuChipTester {
     pub fn load<A, G, RA>(mut self, air: A, gpu_chip: G, gpu_arena: RA) -> Self
     where
-        A: AnyRap<SC> + 'static,
+        A: AnyAir<SC> + 'static,
         G: Chip<RA, GpuBackend>,
     {
         let proving_ctx = gpu_chip.generate_proving_ctx(gpu_arena);
-        if proving_ctx.common_main.is_some() {
+        if proving_ctx.height() > 0 {
             self = self.load_air_proving_ctx(Arc::new(air) as AirRef<SC>, proving_ctx);
         }
         self
@@ -535,7 +488,7 @@ impl GpuChipTester {
 
     pub fn load_harness<E, A, G, RA>(self, harness: TestChipHarness<F, E, A, G, RA>) -> Self
     where
-        A: AnyRap<SC> + 'static,
+        A: AnyAir<SC> + 'static,
         G: Chip<RA, GpuBackend>,
     {
         self.load(harness.air, harness.chip, harness.arena)
@@ -543,7 +496,7 @@ impl GpuChipTester {
 
     pub fn load_periphery<A, G>(self, air: A, gpu_chip: G) -> Self
     where
-        A: AnyRap<SC> + 'static,
+        A: AnyAir<SC> + 'static,
         G: Chip<(), GpuBackend>,
     {
         self.load(air, gpu_chip, ())
@@ -556,7 +509,7 @@ impl GpuChipTester {
     ) -> Self {
         #[cfg(feature = "touchemall")]
         {
-            use openvm_cuda_backend::engine::check_trace_validity;
+            use crate::primitives::utils::check_trace_validity;
 
             check_trace_validity(&proving_ctx, &air.name());
         }
@@ -574,26 +527,19 @@ impl GpuChipTester {
         cpu_arena: CRA,
     ) -> Self
     where
-        A: AnyRap<SC> + 'static,
+        A: AnyAir<SC> + 'static,
         C: Chip<CRA, CpuBackend<SC>>,
         G: Chip<RA, GpuBackend>,
     {
         let proving_ctx = gpu_chip.generate_proving_ctx(gpu_arena);
         let expected_trace = cpu_chip.generate_proving_ctx(cpu_arena).common_main;
-        if proving_ctx.common_main.is_none() {
-            assert!(expected_trace.is_none());
-            return self;
-        }
         #[cfg(feature = "touchemall")]
         {
-            use openvm_cuda_backend::engine::check_trace_validity;
+            use crate::primitives::utils::check_trace_validity;
 
             check_trace_validity(&proving_ctx, &air.name());
         }
-        assert_eq_host_and_device_matrix(
-            expected_trace.unwrap(),
-            proving_ctx.common_main.as_ref().unwrap(),
-        );
+        assert_eq_host_and_device_matrix_col_maj(&expected_trace, &proving_ctx.common_main);
         self.airs.push(Arc::new(air) as AirRef<SC>);
         self.ctxs.push(proving_ctx);
         self
@@ -604,7 +550,7 @@ impl GpuChipTester {
         harness: GpuTestChipHarness<Val<SC>, E, A, GpuChip, CpuChip>,
     ) -> Self
     where
-        A: AnyRap<SC> + 'static,
+        A: AnyAir<SC> + 'static,
         CpuChip: Chip<MatrixRecordArena<Val<SC>>, CpuBackend<SC>>,
         GpuChip: Chip<DenseRecordArena, GpuBackend>,
     {
@@ -619,31 +565,27 @@ impl GpuChipTester {
 
     pub fn finalize(mut self) -> Self {
         if let Some(mut memory_tester) = self.memory.take() {
-            let is_persistent = memory_tester.inventory.continuation_enabled();
-            let touched_memory = memory_tester.memory.finalize::<F>(is_persistent);
+            let touched_memory = memory_tester.memory.finalize::<F>();
             let memory_bridge = memory_tester.memory_bridge();
 
             for chip in memory_tester.chip_for_block.into_values() {
                 self = self.load_periphery(chip.0.air, chip);
             }
 
-            let airs = MemoryAirInventory::<SC>::new(
+            let airs = MemoryAirInventory::new(
                 memory_bridge,
                 &memory_tester.config,
-                memory_tester.range_bus,
-                is_persistent.then_some((
-                    PermutationCheckBus::new(MEMORY_MERKLE_BUS),
-                    PermutationCheckBus::new(POSEIDON2_DIRECT_BUS),
-                )),
+                PermutationCheckBus::new(MEMORY_MERKLE_BUS),
+                PermutationCheckBus::new(POSEIDON2_DIRECT_BUS),
             )
             .into_airs();
             let ctxs = memory_tester
                 .inventory
-                .generate_proving_ctxs(memory_tester.memory.access_adapter_records, touched_memory);
+                .generate_proving_ctxs(touched_memory);
             for (air, ctx) in airs
                 .into_iter()
                 .zip(ctxs)
-                .filter(|(_, ctx)| ctx.common_main.is_some())
+                .filter(|(_, ctx)| ctx.height() > 0)
             {
                 self = self.load_air_proving_ctx(air, ctx);
             }
@@ -694,24 +636,17 @@ impl GpuChipTester {
         self
     }
 
-    pub fn test<P: Fn() -> GpuBabyBearPoseidon2Engine>(
+    pub fn test<P: Fn() -> BabyBearPoseidon2GpuEngine>(
         self,
         engine_provider: P,
-    ) -> Result<VerificationDataWithFriParams<SC>, VerificationError> {
+    ) -> Result<VerificationData<SC>, TestGpuStarkError> {
         engine_provider().run_test(self.airs, self.ctxs)
     }
 
-    pub fn simple_test(self) -> Result<VerificationDataWithFriParams<SC>, VerificationError> {
-        self.test(|| GpuBabyBearPoseidon2Engine::new(FriParameters::new_for_testing(1)))
-    }
-
-    pub fn simple_test_with_expected_error(self, expected_error: VerificationError) {
-        disable_debug_builder();
-        let msg = format!(
-            "Expected verification to fail with {:?}, but it didn't",
-            &expected_error
-        );
-        let result = self.simple_test();
-        assert_eq!(result.err(), Some(expected_error), "{msg}");
+    pub fn simple_test(self) -> Result<VerificationData<SC>, TestGpuStarkError> {
+        self.test(test_gpu_engine)
     }
 }
+
+/// Concrete `StarkTestError` type alias for BabyBear Poseidon2 GPU tests.
+pub type TestGpuStarkError = openvm_stark_backend::StarkTestError<ProverError, EF>;

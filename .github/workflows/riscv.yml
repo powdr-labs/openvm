@@ -7,13 +7,13 @@ on:
   pull_request:
     branches: ["**"]
     paths:
-      - "crates/circuits/primitives/**"
-      - "crates/vm/**"
-      - "crates/toolchain/**"
+#     - "crates/circuits/primitives/**"
+#     - "crates/vm/**"
+#     - "crates/toolchain/**"
       - "extensions/rv32im/circuit/**"
       - "extensions/rv32im/transpiler/**"
       - "extensions/rv32im/guest/**"
-      - "Cargo.toml"
+#     - "Cargo.toml"
       - ".github/workflows/riscv.yml"
 
 concurrency:
@@ -30,14 +30,27 @@ jobs:
     strategy:
       matrix:
         platform:
-          - { runner: "64cpu-linux-x64", image: "ubuntu24-full-x64", features: "aot" }
-          - { runner: "test-gpu-nvidia", image: "ubuntu24-gpu-x64", features: "cuda,touchemall" }
+          - {
+              runner: "64cpu-linux-x64",
+              image: "ubuntu24-full-x64",
+              features: "aot",
+            }
+          - {
+              runner: "test-gpu-nvidia",
+              image: "ubuntu24-gpu-x64",
+              features: "cuda,touchemall",
+            }
 
     runs-on:
       - runs-on=${{ github.run_id }}-riscv-${{ github.run_attempt }}-${{ strategy.job-index }}/runner=${{ matrix.platform.runner }}/image=${{ matrix.platform.image }}/extras=s3-cache
 
     steps:
       - uses: runs-on/action@v2
+      - name: Load SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: |
+            ${{ secrets.GH_ACTIONS_DEPLOY_PRIVATE_KEY }}
       - run: | # avoid cross-device link error
           rustup component remove clippy || true
           rm -rf ~/.rustup/toolchains/stable-x86_64-unknown-linux-gnu || true

@@ -1,17 +1,19 @@
 use std::{iter, sync::Arc};
 
 use openvm_stark_backend::{
-    p3_field::FieldAlgebra, p3_matrix::dense::RowMajorMatrix, p3_maybe_rayon::prelude::*,
-    utils::disable_debug_builder, verifier::VerificationError, AirRef,
+    any_air_arc_vec,
+    p3_field::PrimeCharacteristicRing,
+    p3_matrix::dense::RowMajorMatrix,
+    p3_maybe_rayon::prelude::*,
+    prover::{AirProvingContext, ColMajorMatrix},
+    test_utils::dummy_airs::interaction::dummy_interaction_air::DummyInteractionAir,
+    utils::disable_debug_builder,
+    AirRef, StarkEngine, StarkTestError,
 };
-use openvm_stark_sdk::{
-    any_rap_arc_vec, config::baby_bear_blake3::BabyBearBlake3Engine,
-    dummy_airs::interaction::dummy_interaction_air::DummyInteractionAir, engine::StarkFriEngine,
-    p3_baby_bear::BabyBear, utils::create_seeded_rng,
-};
+use openvm_stark_sdk::{config::baby_bear_poseidon2::*, utils::create_seeded_rng};
 use rand::Rng;
 
-use crate::{range::RangeCheckBus, range_gate::RangeCheckerGateChip};
+use crate::{range::RangeCheckBus, range_gate::RangeCheckerGateChip, utils::test_engine_small};
 
 #[test]
 fn test_range_gate_chip() {
@@ -31,7 +33,7 @@ fn test_range_gate_chip() {
     let lists_vals = (0..num_lists)
         .map(|_| {
             (0..LIST_LEN)
-                .map(|_| rng.gen::<u32>() % MAX)
+                .map(|_| rng.random::<u32>() % MAX)
                 .collect::<Vec<u32>>()
         })
         .collect::<Vec<Vec<u32>>>();
@@ -50,12 +52,12 @@ fn test_range_gate_chip() {
                         range_checker.add_count(v);
                         iter::once(1).chain(iter::once(v))
                     })
-                    .map(FieldAlgebra::from_wrapped_u32)
+                    .map(PrimeCharacteristicRing::from_u32)
                     .collect(),
                 2,
             )
         })
-        .collect::<Vec<RowMajorMatrix<BabyBear>>>();
+        .collect::<Vec<RowMajorMatrix<F>>>();
 
     let range_trace = range_checker.generate_trace();
 
@@ -65,12 +67,18 @@ fn test_range_gate_chip() {
         .collect::<Vec<_>>();
     all_chips.push(Arc::new(range_checker.air));
 
-    let all_traces = lists_traces
+    let all_traces_vec: Vec<_> = lists_traces
         .into_iter()
         .chain(iter::once(range_trace))
-        .collect::<Vec<RowMajorMatrix<BabyBear>>>();
+        .collect();
+    let all_traces = all_traces_vec
+        .iter()
+        .map(ColMajorMatrix::from_row_major)
+        .map(AirProvingContext::simple_no_pis)
+        .collect::<Vec<_>>();
 
-    BabyBearBlake3Engine::run_simple_test_no_pis_fast(all_chips, all_traces)
+    test_engine_small()
+        .run_test(all_chips, all_traces)
         .expect("Verification failed");
 }
 
@@ -91,19 +99,18 @@ fn negative_test_range_gate_chip() {
                     range_checker.count[i as usize].load(std::sync::atomic::Ordering::Relaxed);
                 iter::once(i + 1).chain(iter::once(count))
             })
-            .map(FieldAlgebra::from_wrapped_u32)
+            .map(PrimeCharacteristicRing::from_u32)
             .collect(),
         2,
     );
 
+    let traces = [range_trace]
+        .iter()
+        .map(ColMajorMatrix::from_row_major)
+        .map(AirProvingContext::simple_no_pis)
+        .collect::<Vec<_>>();
+
     disable_debug_builder();
-    assert_eq!(
-        BabyBearBlake3Engine::run_simple_test_no_pis_fast(
-            any_rap_arc_vec![range_checker.air],
-            vec![range_trace]
-        )
-        .err(),
-        Some(VerificationError::OodEvaluationMismatch),
-        "Expected constraint to fail"
-    );
+    let result = test_engine_small().run_test(any_air_arc_vec![range_checker.air], traces);
+    assert!(matches!(result, Err(StarkTestError::Verifier(_))));
 }

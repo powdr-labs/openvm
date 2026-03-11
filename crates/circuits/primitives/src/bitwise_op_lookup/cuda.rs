@@ -1,12 +1,15 @@
 use std::sync::{atomic::Ordering, Arc};
 
-use openvm_cuda_backend::{base::DeviceMatrix, prover_backend::GpuBackend, types::F};
+use openvm_cuda_backend::{base::DeviceMatrix, prelude::F, GpuBackend};
 use openvm_cuda_common::{copy::MemCopyH2D as _, d_buffer::DeviceBuffer};
-use openvm_stark_backend::{prover::types::AirProvingContext, Chip};
+use openvm_stark_backend::prover::AirProvingContext;
 
 use crate::{
-    bitwise_op_lookup::{BitwiseOperationLookupChip, NUM_BITWISE_OP_LOOKUP_COLS},
+    bitwise_op_lookup::{
+        BitwiseOperationLookupChip, BitwiseOperationLookupCols, NUM_BITWISE_OP_LOOKUP_MULT_COLS,
+    },
     cuda_abi::bitwise_op_lookup::tracegen,
+    Chip,
 };
 
 pub struct BitwiseOperationLookupChipGPU<const NUM_BITS: usize> {
@@ -22,7 +25,7 @@ impl<const NUM_BITS: usize> BitwiseOperationLookupChipGPU<NUM_BITS> {
     pub fn new() -> Self {
         // The first 2^(2 * NUM_BITS) indices are for range checking, the rest are for XOR
         let count = Arc::new(DeviceBuffer::<F>::with_capacity(
-            NUM_BITWISE_OP_LOOKUP_COLS * Self::num_rows(),
+            NUM_BITWISE_OP_LOOKUP_MULT_COLS * Self::num_rows(),
         ));
         count.fill_zero().unwrap();
         Self {
@@ -35,7 +38,7 @@ impl<const NUM_BITS: usize> BitwiseOperationLookupChipGPU<NUM_BITS> {
         assert_eq!(cpu_chip.count_range.len(), Self::num_rows());
         assert_eq!(cpu_chip.count_xor.len(), Self::num_rows());
         let count = Arc::new(DeviceBuffer::<F>::with_capacity(
-            NUM_BITWISE_OP_LOOKUP_COLS * Self::num_rows(),
+            NUM_BITWISE_OP_LOOKUP_MULT_COLS * Self::num_rows(),
         ));
         count.fill_zero().unwrap();
         Self {
@@ -53,8 +56,9 @@ impl<const NUM_BITS: usize> Default for BitwiseOperationLookupChipGPU<NUM_BITS> 
 
 impl<RA, const NUM_BITS: usize> Chip<RA, GpuBackend> for BitwiseOperationLookupChipGPU<NUM_BITS> {
     fn generate_proving_ctx(&self, _: RA) -> AirProvingContext<GpuBackend> {
+        let num_cols = BitwiseOperationLookupCols::<F, NUM_BITS>::width();
         debug_assert_eq!(
-            Self::num_rows() * NUM_BITWISE_OP_LOOKUP_COLS,
+            NUM_BITWISE_OP_LOOKUP_MULT_COLS * Self::num_rows(),
             self.count.len()
         );
         let cpu_count = self.cpu_chip.as_ref().map(|cpu_chip| {
@@ -69,12 +73,16 @@ impl<RA, const NUM_BITS: usize> Chip<RA, GpuBackend> for BitwiseOperationLookupC
         });
         // ATTENTION: we create a new buffer to copy `count` into because this chip is stateful and
         // `count` will be reused.
-        let trace = DeviceMatrix::<F>::with_capacity(Self::num_rows(), NUM_BITWISE_OP_LOOKUP_COLS);
+        let trace = DeviceMatrix::<F>::with_capacity(Self::num_rows(), num_cols);
         unsafe {
             tracegen(&self.count, &cpu_count, trace.buffer(), NUM_BITS as u32).unwrap();
         }
         // Zero the internal count buffer because this chip is stateful and may be used again.
         self.count.fill_zero().unwrap();
         AirProvingContext::simple_no_pis(trace)
+    }
+
+    fn constant_trace_height(&self) -> Option<usize> {
+        Some(Self::num_rows())
     }
 }

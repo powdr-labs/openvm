@@ -202,7 +202,7 @@ pub trait VmConfig<SC>:
     + AsRef<SystemConfig>
     + AsMut<SystemConfig>
 where
-    SC: StarkGenericConfig,
+    SC: StarkProtocolConfig,
 {
 }
 ```
@@ -221,7 +221,7 @@ pub trait VmExecutionConfig<F> {
 Finally, `VmConfig` should also implement the `VmCircuitConfig` trait which provides the AIRs for all chips in the VM. The `AirInventory` contains all AIRs required for constraining the execution trace of each chip.
 
 ```rust
-pub trait VmCircuitConfig<SC: StarkGenericConfig> {
+pub trait VmCircuitConfig<SC: StarkProtocolConfig> {
     fn create_airs(&self) -> Result<AirInventory<SC>, AirInventoryError>;
 }
 ```
@@ -236,7 +236,7 @@ Key generation is computed from the `VmConfig` describing the VM. The `VmConfig`
 which in turn provides the list of AIRs that are used in the proving and verification process.
 
 ```rust
-pub trait VmCircuitConfig<SC: StarkGenericConfig> {
+pub trait VmCircuitConfig<SC: StarkProtocolConfig> {
     fn create_airs(&self) -> Result<AirInventory<SC>, AirInventoryError>;
 }
 ```
@@ -369,7 +369,7 @@ where
     fn start_offset(&self) -> usize;
 
     fn start_offset_expr(&self) -> AB::Expr {
-        AB::Expr::from_canonical_usize(self.start_offset())
+        AB::Expr::from_usize(self.start_offset())
     }
 
     fn expr_to_global_expr(&self, local_expr: impl Into<AB::Expr>) -> AB::Expr {
@@ -377,7 +377,7 @@ where
     }
 
     fn opcode_to_global_expr(&self, local_opcode: impl LocalOpcode) -> AB::Expr {
-        self.expr_to_global_expr(AB::Expr::from_canonical_usize(local_opcode.local_usize()))
+        self.expr_to_global_expr(AB::Expr::from_usize(local_opcode.local_usize()))
     }
 }
 

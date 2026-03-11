@@ -9,9 +9,9 @@ mod aot {
     use openvm_circuit::{
         arch::{
             execution_mode::{metered::memory_ctx::MemoryCtx, MeteredCtx},
-            AotError, SystemConfig, VmExecState, ADDR_SPACE_OFFSET,
+            AotError, SystemConfig, VmExecState, ADDR_SPACE_OFFSET, CONST_BLOCK_SIZE,
         },
-        system::memory::{merkle::public_values::PUBLIC_VALUES_AS, online::GuestMemory, CHUNK},
+        system::memory::{merkle::public_values::PUBLIC_VALUES_AS, online::GuestMemory},
     };
     use openvm_instructions::riscv::{RV32_MEMORY_AS, RV32_REGISTER_AS};
 
@@ -24,7 +24,7 @@ mod aot {
 
     pub(crate) fn gpr_to_rv32_register(gpr: &str, rv32_reg: u8) -> String {
         let xmm_map_reg = rv32_reg / 2;
-        if rv32_reg % 2 == 0 {
+        if rv32_reg.is_multiple_of(2) {
             format!("   pinsrd xmm{xmm_map_reg}, {gpr}, 0\n")
         } else {
             format!("   pinsrd xmm{xmm_map_reg}, {gpr}, 1\n")
@@ -71,7 +71,7 @@ mod aot {
             return (override_reg.to_string(), "".to_string());
         }
         let xmm_map_reg = rv32_reg / 2;
-        if rv32_reg % 2 == 0 {
+        if rv32_reg.is_multiple_of(2) {
             (
                 gpr.to_string(),
                 format!("   pextrd {gpr}, xmm{xmm_map_reg}, 0\n"),
@@ -93,7 +93,7 @@ mod aot {
             return format!("   mov {override_reg}, {gpr}\n");
         }
         let xmm_map_reg = rv32_reg / 2;
-        if rv32_reg % 2 == 0 {
+        if rv32_reg.is_multiple_of(2) {
             format!("   pinsrd xmm{xmm_map_reg}, {gpr}, 0\n")
         } else {
             format!("   pinsrd xmm{xmm_map_reg}, {gpr}, 1\n")
@@ -212,8 +212,15 @@ mod aot {
         //     let end_page_id = ((end_block_id - 1) >> PAGE_BITS) + 1;
 
         //     for page_id in start_page_id..end_page_id {
+        //          // Append page_id to page_indices_since_checkpoint
+        //          let len = self.page_indices_since_checkpoint_len;
+        //          // SAFETY: len is within bounds, and we extend length by 1 after writing.
+        //          unsafe {
+        //              *self.page_indices_since_checkpoint.as_mut_ptr().add(len) = page_id;
+        //          }
+        //          self.page_indices_since_checkpoint_len = len + 1;
+        //
         //         if self.page_indices.insert(page_id as usize) {
-        //             self.page_access_count += 1;
         //             // SAFETY: address_space passed is usually a hardcoded constant or derived
         // from an             // Instruction where it is bounds checked before passing
         //             unsafe {
@@ -244,12 +251,12 @@ mod aot {
         // Therefore the loop only iterates once for `page_id = start_page_id`.
 
         let initial_block_size: usize = config.initial_block_size();
-        if initial_block_size != CHUNK {
+        if initial_block_size != CONST_BLOCK_SIZE {
             return Err(AotError::Other(format!(
-                "initial_block_size must be {CHUNK}, got {initial_block_size}"
+                "initial_block_size must be {CONST_BLOCK_SIZE}, got {initial_block_size}"
             )));
         }
-        let chunk_bits = CHUNK.ilog2();
+        let chunk_bits = CONST_BLOCK_SIZE.ilog2();
         let as_offset = ((address_space - ADDR_SPACE_OFFSET) as u64)
             << (config.memory_config.memory_dimensions().address_height);
 
@@ -266,11 +273,33 @@ mod aot {
             + offset_of!(MeteredCtx, memory_ctx);
         let page_indices_ptr_offset =
             memory_ctx_offset + offset_of!(MemoryCtx<DEFAULT_PAGE_BITS>, page_indices);
-        let page_access_count_offset =
-            memory_ctx_offset + offset_of!(MemoryCtx<DEFAULT_PAGE_BITS>, page_access_count);
         let addr_space_access_count_ptr_offset =
             memory_ctx_offset + offset_of!(MemoryCtx<DEFAULT_PAGE_BITS>, addr_space_access_count);
+        let page_indices_since_checkpoint_ptr_offset = memory_ctx_offset
+            + offset_of!(MemoryCtx<DEFAULT_PAGE_BITS>, page_indices_since_checkpoint);
+        let page_indices_since_checkpoint_len_offset = memory_ctx_offset
+            + offset_of!(
+                MemoryCtx<DEFAULT_PAGE_BITS>,
+                page_indices_since_checkpoint_len
+            );
         let inserted_label = format!(".asm_execute_pc_{pc}_inserted");
+
+        // Append page_id to page_indices_since_checkpoint
+        asm_str += &format!(
+            "    mov {reg1}, [{REG_EXEC_STATE_PTR} + {page_indices_since_checkpoint_len_offset}]\n"
+        );
+        asm_str += &format!(
+            "    mov {reg2}, [{REG_EXEC_STATE_PTR} + {page_indices_since_checkpoint_ptr_offset}]\n"
+        );
+        let ptr_reg_32 = convert_x86_reg(ptr_reg, Width::W32).ok_or_else(|| {
+            AotError::Other(format!("unsupported ptr_reg for 32-bit store: {ptr_reg}"))
+        })?;
+        asm_str += &format!("    mov dword ptr [{reg2} + {reg1} * 4], {ptr_reg_32}\n");
+        asm_str += &format!("    add {reg1}, 1\n");
+        asm_str += &format!(
+            "    mov [{REG_EXEC_STATE_PTR} + {page_indices_since_checkpoint_len_offset}], {reg1}\n"
+        );
+
         // The next section is the implementation of `BitSet::insert` in ASM.
         // pub fn insert(&mut self, index: usize) -> bool {
         //     let word_index = index >> 6;
@@ -307,11 +336,6 @@ mod aot {
         // `*word += mask`
         asm_str += &format!("    add {ptr_reg}, {reg2}\n");
         asm_str += &format!("    mov [{reg1}], {ptr_reg}\n");
-        // reg1 = &self.page_access_count`
-        asm_str +=
-            &format!("    lea {reg1}, [{REG_EXEC_STATE_PTR} + {page_access_count_offset}]\n");
-        // self.page_access_count += 1;
-        asm_str += &format!("    add dword ptr [{reg1}], 1\n");
         // reg1 = &addr_space_access_count.as_ptr()
         asm_str += &format!(
             "    lea {reg1}, [{REG_EXEC_STATE_PTR} + {addr_space_access_count_ptr_offset}]\n"

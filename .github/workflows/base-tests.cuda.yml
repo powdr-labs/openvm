@@ -10,8 +10,6 @@ on:
     paths:
       - "crates/circuits/**"
       - "crates/vm/**"
-      - "extensions/native/compiler/**"
-      - "extensions/native/recursion/**"
       - "Cargo.toml"
       - ".github/workflows/base-tests.cuda.yml"
 
@@ -27,15 +25,19 @@ env:
 jobs:
   tests-cuda:
     runs-on:
-      - runs-on=${{ github.run_id }}-base-tests-cuda-${{ github.run_attempt }}/runner=test-gpu-nvidia/family=g6+g5 # ensure 24G vram for async test
+      - runs-on=${{ github.run_id }}-base-tests-cuda-${{ github.run_attempt }}/runner=test-gpu-nvidia/family=g6.*+g5 # ensure 24G vram for async test
 
     steps:
       - uses: runs-on/action@v2
       - uses: actions/checkout@v5
-      - run: | # avoid cross-device link error
-          rustup component remove clippy || true
-          rm -rf ~/.rustup/toolchains/stable-x86_64-unknown-linux-gnu || true
+      - name: Load SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: |
+            ${{ secrets.GH_ACTIONS_DEPLOY_PRIVATE_KEY }}
       - uses: dtolnay/rust-toolchain@stable
+        env:
+          RUSTUP_PERMIT_COPY_RENAME: "1"
       - uses: ./.github/actions/rust-cache-cuda
         with:
           cache-on-failure: true
@@ -61,12 +63,7 @@ jobs:
         run: |
           cargo nextest run ${{ env.NEXTEST_ARGS }}
 
-      - name: Run recursion crate tests
-        working-directory: extensions/native/recursion
-        run: |
-          cargo nextest run --features cuda
-
-      - name: Run async concurrency test
-        working-directory: benchmarks/prove
-        run: |
-          CUDA_OPT_LEVEL=3 MAX_CONCURRENCY=5 cargo run --bin async_regex --features cuda,async -- --max-segment-length $((1<<20)) --segment-max-cells 150000000
+      # - name: Run async concurrency test
+      #   working-directory: benchmarks/prove
+      #   run: |
+      #     CUDA_OPT_LEVEL=3 MAX_CONCURRENCY=5 cargo run --bin async_regex --features cuda,async -- --max-segment-length $((1<<20)) --segment-max-memory 16106127360

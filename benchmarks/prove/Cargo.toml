@@ -15,9 +15,6 @@ openvm-sdk.workspace = true
 openvm-stark-backend.workspace = true
 openvm-stark-sdk.workspace = true
 openvm-transpiler.workspace = true
-openvm-native-circuit.workspace = true
-openvm-native-compiler.workspace = true
-openvm-native-recursion = { workspace = true, features = ["test-utils"] }
 
 clap = { workspace = true, features = ["derive", "env"] }
 eyre.workspace = true
@@ -47,11 +44,9 @@ parallel = ["openvm-sdk/parallel"]
 mimalloc = ["openvm-sdk/mimalloc"]
 jemalloc = ["openvm-sdk/jemalloc"]
 jemalloc-prof = ["openvm-sdk/jemalloc-prof"]
-nightly-features = ["openvm-sdk/nightly-features"]
 
 cuda = [
     "openvm-circuit/cuda",
-    "openvm-native-circuit/cuda",
     "openvm-sdk/cuda",
 ]
 

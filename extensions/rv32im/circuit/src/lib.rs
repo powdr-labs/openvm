@@ -5,16 +5,14 @@
 use openvm_circuit::{
     arch::{
         AirInventory, ChipInventoryError, InitFileGenerator, MatrixRecordArena, SystemConfig,
-        VmBuilder, VmChipComplex, VmProverExtension,
+        VmBuilder, VmChipComplex, VmField, VmProverExtension,
     },
     system::{SystemChipInventory, SystemCpuBuilder, SystemExecutor},
 };
 use openvm_circuit_derive::{Executor, MeteredExecutor, PreflightExecutor, VmConfig};
 use openvm_stark_backend::{
-    config::{StarkGenericConfig, Val},
-    engine::StarkEngine,
-    p3_field::PrimeField32,
-    prover::cpu::{CpuBackend, CpuDevice},
+    prover::{CpuBackend, CpuDevice},
+    StarkEngine, StarkProtocolConfig, Val,
 };
 use serde::{Deserialize, Serialize};
 
@@ -55,9 +53,9 @@ pub use extension::*;
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "cuda")] {
+        use openvm_cuda_backend::{GpuBackend as GpuBackend, BabyBearPoseidon2GpuEngine as GpuBabyBearPoseidon2Engine};
         use openvm_circuit::arch::DenseRecordArena;
         use openvm_circuit::system::cuda::{extensions::SystemGpuBuilder, SystemChipInventoryGPU};
-        use openvm_cuda_backend::{engine::GpuBabyBearPoseidon2Engine, prover_backend::GpuBackend};
         use openvm_stark_sdk::config::baby_bear_poseidon2::BabyBearPoseidon2Config;
         pub(crate) mod cuda_abi;
         pub use self::{
@@ -153,11 +151,12 @@ impl Rv32ImConfig {
 #[derive(Clone)]
 pub struct Rv32ICpuBuilder;
 
-impl<E, SC> VmBuilder<E> for Rv32ICpuBuilder
+impl<SC, E> VmBuilder<E> for Rv32ICpuBuilder
 where
-    SC: StarkGenericConfig,
+    SC: StarkProtocolConfig,
     E: StarkEngine<SC = SC, PB = CpuBackend<SC>, PD = CpuDevice<SC>>,
-    Val<SC>: PrimeField32,
+    Val<SC>: VmField,
+    SC::EF: Ord,
 {
     type VmConfig = Rv32IConfig;
     type SystemChipInventory = SystemChipInventory<SC>;
@@ -183,11 +182,12 @@ where
 #[derive(Clone)]
 pub struct Rv32ImCpuBuilder;
 
-impl<E, SC> VmBuilder<E> for Rv32ImCpuBuilder
+impl<SC, E> VmBuilder<E> for Rv32ImCpuBuilder
 where
-    SC: StarkGenericConfig,
+    SC: StarkProtocolConfig,
     E: StarkEngine<SC = SC, PB = CpuBackend<SC>, PD = CpuDevice<SC>>,
-    Val<SC>: PrimeField32,
+    Val<SC>: VmField,
+    SC::EF: Ord,
 {
     type VmConfig = Rv32ImConfig;
     type SystemChipInventory = SystemChipInventory<SC>;

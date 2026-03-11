@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use derivative::Derivative;
-// use dummy::{compute_root_proof_heights, dummy_internal_proof_riscv_app_vm};
 use openvm_circuit::{
     arch::{AirInventoryError, SystemConfig, VirtualMachine, VirtualMachineError, VmCircuitConfig},
     system::memory::dimensions::MemoryDimensions,
@@ -9,12 +8,11 @@ use openvm_circuit::{
 use openvm_continuations::verifier::{
     internal::InternalVmVerifierConfig, leaf::LeafVmVerifierConfig, root::RootVmVerifierConfig,
 };
-use openvm_native_circuit::{NativeConfig, NativeCpuBuilder};
+use openvm_native_circuit::{NativeConfig, NativeCpuBuilder, NATIVE_MAX_TRACE_HEIGHTS};
 use openvm_native_compiler::ir::DIGEST_SIZE;
 use openvm_stark_backend::{
-    config::Val,
-    engine::StarkEngine,
-    p3_field::{FieldExtensionAlgebra, PrimeField32, TwoAdicField},
+    p3_field::{BasedVectorSpace, PrimeField32, TwoAdicField},
+    StarkEngine, Val,
 };
 use openvm_stark_sdk::{
     config::{
@@ -23,9 +21,7 @@ use openvm_stark_sdk::{
     },
     engine::StarkFriEngine,
     openvm_stark_backend::{
-        config::{Com, StarkGenericConfig},
-        keygen::types::MultiStarkVerifyingKey,
-        proof::Proof,
+        keygen::types::MultiStarkVerifyingKey, proof::Proof, Com, StarkProtocolConfig,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -206,7 +202,7 @@ where
 ///
 /// `next_log_blowup` refers to the `log_blowup` of the next verifier in the chain; this determines
 /// a maximum trace height.
-fn check_recursive_verifier_size<SC: StarkGenericConfig>(
+fn check_recursive_verifier_size<SC: StarkProtocolConfig>(
     vk: &MultiStarkVerifyingKey<SC>,
     fri_params: FriParameters,
     next_log_blowup: usize,
@@ -246,7 +242,7 @@ fn check_recursive_verifier_size<SC: StarkGenericConfig>(
             after_challenge_rounds.resize(widths.len(), (0, 0, 2));
         }
         for (i, &width) in widths.iter().enumerate() {
-            after_challenge_rounds[i].0 += SC::Challenge::D * width;
+            after_challenge_rounds[i].0 += SC::Challenge::DIMENSION * width;
             after_challenge_rounds[i].1 += 1;
         }
     }
@@ -255,7 +251,7 @@ fn check_recursive_verifier_size<SC: StarkGenericConfig>(
     let quotient_round = (
         vk.per_air
             .iter()
-            .map(|vk| SC::Challenge::D * vk.quotient_degree as usize)
+            .map(|vk| SC::Challenge::DIMENSION * vk.quotient_degree as usize)
             .sum(),
         vk.per_air.len(),
         1,
@@ -274,12 +270,13 @@ fn check_recursive_verifier_size<SC: StarkGenericConfig>(
         tracing::warn!("recursive verifier size may be too large; FriReducedOpening height ({fri_reduced_opening_trace_height}) > {}", 1 << (Val::<SC>::TWO_ADICITY - next_log_blowup));
     }
     // Second check: static check for log up soundness constraints using FriReducedOpening trace
-    // height as proxy
-    if fri_reduced_opening_trace_height as u32 >= Val::<SC>::ORDER_U32 / 200 {
+    // height as proxy.
+    let native_max_height: u32 = *NATIVE_MAX_TRACE_HEIGHTS.iter().max().unwrap();
+    if fri_reduced_opening_trace_height as u32 > native_max_height {
         tracing::warn!(
             "recursive verifier size may violate log up soundness constraints; {} > {}",
-            200 * fri_reduced_opening_trace_height,
-            Val::<SC>::ORDER_U32
+            fri_reduced_opening_trace_height,
+            native_max_height
         );
     }
 }

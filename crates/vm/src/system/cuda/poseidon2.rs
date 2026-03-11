@@ -3,17 +3,15 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 
 use openvm_circuit::{
-    system::poseidon2::columns::Poseidon2PeripheryCols, utils::next_power_of_two_or_zero,
+    primitives::Chip, system::poseidon2::columns::Poseidon2PeripheryCols,
+    utils::next_power_of_two_or_zero,
 };
-use openvm_cuda_backend::{base::DeviceMatrix, prelude::F, prover_backend::GpuBackend};
+use openvm_cuda_backend::{base::DeviceMatrix, prelude::F, GpuBackend};
 use openvm_cuda_common::{
     copy::{MemCopyD2H, MemCopyH2D},
     d_buffer::DeviceBuffer,
 };
-use openvm_stark_backend::{
-    prover::{hal::MatrixDimensions, types::AirProvingContext},
-    Chip,
-};
+use openvm_stark_backend::prover::{AirProvingContext, MatrixDimensions};
 
 use crate::cuda_abi::poseidon2;
 
@@ -21,8 +19,6 @@ use crate::cuda_abi::poseidon2;
 pub struct SharedBuffer<T> {
     pub buffer: Arc<DeviceBuffer<T>>,
     pub idx: Arc<DeviceBuffer<u32>>,
-    #[cfg(feature = "metrics")]
-    pub(crate) current_trace_height: Arc<AtomicUsize>,
 }
 
 pub struct Poseidon2ChipGPU<const SBOX_REGISTERS: usize> {
@@ -48,8 +44,6 @@ impl<const SBOX_REGISTERS: usize> Poseidon2ChipGPU<SBOX_REGISTERS> {
         SharedBuffer {
             buffer: self.records.clone(),
             idx: self.idx.clone(),
-            #[cfg(feature = "metrics")]
-            current_trace_height: self.current_trace_height.clone(),
         }
     }
 

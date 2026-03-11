@@ -1,17 +1,20 @@
 use std::{iter, sync::Arc};
 
 use openvm_stark_backend::{
-    interaction::BusIndex, p3_field::FieldAlgebra, p3_matrix::dense::RowMajorMatrix,
-    p3_maybe_rayon::prelude::*, utils::disable_debug_builder, verifier::VerificationError, AirRef,
+    any_air_arc_vec,
+    interaction::BusIndex,
+    p3_field::PrimeCharacteristicRing,
+    p3_matrix::dense::RowMajorMatrix,
+    p3_maybe_rayon::prelude::*,
+    prover::{AirProvingContext, ColMajorMatrix},
+    test_utils::dummy_airs::interaction::dummy_interaction_air::DummyInteractionAir,
+    utils::disable_debug_builder,
+    AirRef, StarkEngine, StarkTestError,
 };
-use openvm_stark_sdk::{
-    any_rap_arc_vec, config::baby_bear_blake3::BabyBearBlake3Engine,
-    dummy_airs::interaction::dummy_interaction_air::DummyInteractionAir, engine::StarkFriEngine,
-    p3_baby_bear::BabyBear, utils::create_seeded_rng,
-};
+use openvm_stark_sdk::{config::baby_bear_poseidon2::*, utils::create_seeded_rng};
 use rand::Rng;
 
-use crate::xor::XorLookupChip;
+use crate::{utils::test_engine_small, xor::XorLookupChip};
 
 const BYTE_XOR_BUS: BusIndex = 10;
 
@@ -33,8 +36,8 @@ fn test_xor_limbs_chip() {
         .map(|_| {
             (0..XOR_REQUESTS)
                 .map(|_| {
-                    let x = rng.gen::<u32>() % MAX_INPUT;
-                    let y = rng.gen::<u32>() % MAX_INPUT;
+                    let x = rng.random::<u32>() % MAX_INPUT;
+                    let y = rng.random::<u32>() % MAX_INPUT;
 
                     (1, vec![x, y])
                 })
@@ -58,12 +61,12 @@ fn test_xor_limbs_chip() {
                         let z = xor_chip.request(x, y);
                         iter::once(count).chain(fields).chain(iter::once(z))
                     })
-                    .map(FieldAlgebra::from_wrapped_u32)
+                    .map(PrimeCharacteristicRing::from_u32)
                     .collect(),
                 4,
             )
         })
-        .collect::<Vec<RowMajorMatrix<BabyBear>>>();
+        .collect::<Vec<RowMajorMatrix<F>>>();
 
     let xor_trace = xor_chip.generate_trace();
 
@@ -73,12 +76,18 @@ fn test_xor_limbs_chip() {
     }
     all_chips.push(Arc::new(xor_chip.air));
 
-    let all_traces = requesters_traces
+    let all_traces_vec: Vec<_> = requesters_traces
         .into_iter()
         .chain(iter::once(xor_trace))
-        .collect::<Vec<RowMajorMatrix<BabyBear>>>();
+        .collect();
+    let all_traces = all_traces_vec
+        .iter()
+        .map(ColMajorMatrix::from_row_major)
+        .map(AirProvingContext::simple_no_pis)
+        .collect::<Vec<_>>();
 
-    BabyBearBlake3Engine::run_simple_test_no_pis_fast(all_chips, all_traces)
+    test_engine_small()
+        .run_test(all_chips, all_traces)
         .expect("Verification failed");
 }
 
@@ -96,8 +105,8 @@ fn negative_test_xor_limbs_chip() {
 
     let pairs = (0..XOR_REQUESTS)
         .map(|_| {
-            let x = rng.gen::<u32>() % MAX_INPUT;
-            let y = rng.gen::<u32>() % MAX_INPUT;
+            let x = rng.random::<u32>() % MAX_INPUT;
+            let y = rng.random::<u32>() % MAX_INPUT;
 
             (1, vec![x, y])
         })
@@ -122,21 +131,20 @@ fn negative_test_xor_limbs_chip() {
                     iter::once(count).chain(fields).chain(iter::once(z))
                 }
             })
-            .map(FieldAlgebra::from_wrapped_u32)
+            .map(F::from_u32)
             .collect(),
         4,
     );
 
     let xor_trace = xor_chip.generate_trace();
 
+    let traces = [requester_trace, xor_trace]
+        .iter()
+        .map(ColMajorMatrix::from_row_major)
+        .map(AirProvingContext::simple_no_pis)
+        .collect::<Vec<_>>();
+
     disable_debug_builder();
-    let result = BabyBearBlake3Engine::run_simple_test_no_pis_fast(
-        any_rap_arc_vec![requester, xor_chip.air],
-        vec![requester_trace, xor_trace],
-    );
-    assert_eq!(
-        result.err(),
-        Some(VerificationError::ChallengePhaseError),
-        "Expected verification to fail, but it passed"
-    );
+    let result = test_engine_small().run_test(any_air_arc_vec![requester, xor_chip.air], traces);
+    assert!(matches!(result, Err(StarkTestError::Prover(_))));
 }

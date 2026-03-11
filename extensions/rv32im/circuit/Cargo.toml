@@ -49,7 +49,6 @@ aot = ["openvm-circuit/aot", "openvm-circuit-derive/aot"]
 mimalloc = ["openvm-circuit/mimalloc"]
 jemalloc = ["openvm-circuit/jemalloc"]
 jemalloc-prof = ["openvm-circuit/jemalloc-prof"]
-nightly-features = ["openvm-circuit/nightly-features"]
 
 cuda = [
     "dep:openvm-stark-sdk",
@@ -66,4 +65,3 @@ touchemall = [
     "openvm-cuda-backend/touchemall",
     "openvm-cuda-common/touchemall",
 ]
-legacy-v1-3-mem-align = []

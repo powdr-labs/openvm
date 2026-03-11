@@ -7,18 +7,18 @@ on:
   pull_request:
     branches: ["**"]
     paths:
-      - "crates/circuits/**"
-      - "crates/vm/**"
-      - "crates/toolchain/**"
+#     - "crates/circuits/**"
+#     - "crates/vm/**"
+#     - "crates/toolchain/**"
       - "extensions/**"
-      - "Cargo.toml"
+#     - "Cargo.toml"
       - ".github/workflows/extension-tests.cuda.yml"
   workflow_dispatch:
     inputs:
       machine_type:
         description: "Runner machine type (e.g. test-gpu-nvidia/cpu=8+32)"
         required: false
-        default: test-gpu-nvidia/cpu=8+32
+        default: test-gpu-nvidia/family=g6+g6e
 
 concurrency:
   group: ${{ github.workflow_ref }}-extension-tests-cuda-${{ github.event.pull_request.number || github.sha }}
@@ -34,14 +34,19 @@ jobs:
     strategy:
       matrix:
         extensions: # group extensions on the same runner based on test time
-          - "rv32im native"
-          - "keccak256 sha256 bigint algebra ecc pairing"
+          - "rv32im"
+          - "keccak256 sha2 bigint algebra ecc pairing"
     runs-on:
-      - runs-on=${{ github.run_id }}-extension-tests-cuda-${{ github.run_attempt }}-${{ strategy.job-index }}/runner=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.machine_type || 'test-gpu-nvidia/cpu=8+32' }}
+      - runs-on=${{ github.run_id }}-extension-tests-cuda-${{ github.run_attempt }}-${{ strategy.job-index }}/runner=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.machine_type || 'test-gpu-nvidia/family=g6.*+g6e' }}
 
     steps:
       - uses: runs-on/action@v2
       - uses: actions/checkout@v5
+      - name: Load SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: |
+            ${{ secrets.GH_ACTIONS_DEPLOY_PRIVATE_KEY }}
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -53,12 +58,10 @@ jobs:
               - ".github/workflows/extension-tests.cuda.yml"
             rv32im:
               - "extensions/rv32im/**"
-            native:
-              - "extensions/native/**"
             keccak256:
               - "extensions/keccak256/**"
-            sha256:
-              - "extensions/sha256/**"
+            sha2:
+              - "extensions/sha2/**"
             bigint:
               - "extensions/bigint/**"
             algebra:
@@ -78,7 +81,7 @@ jobs:
           # Check if any extension in the current matrix group changed
           ANY_EXT_CHANGED=false
           for ext in ${{ matrix.extensions }}; do
-            ext_changed=$(echo $FILTER_OUTPUTS | jq -r .$ext)
+            ext_changed=$(echo $FILTER_OUTPUTS | jq -r --arg ext "$ext" '.[$ext]')
             if [[ "$ext_changed" == "true" ]]; then
               ANY_EXT_CHANGED=true
               break
@@ -91,10 +94,9 @@ jobs:
             exit 0
           fi
 
-      - run: | # avoid cross-device link error
-          rustup component remove clippy || true
-          rm -rf ~/.rustup/toolchains/stable-x86_64-unknown-linux-gnu || true
       - uses: dtolnay/rust-toolchain@stable
+        env:
+          RUSTUP_PERMIT_COPY_RENAME: "1"
       - uses: ./.github/actions/rust-cache-cuda
         with:
           cache-on-failure: true
@@ -114,7 +116,7 @@ jobs:
           COMMON_CHANGED=$(echo $FILTER_OUTPUTS | jq -r .common)
 
           for ext in ${{ matrix.extensions }}; do
-            ext_changed=$(echo $FILTER_OUTPUTS | jq -r .$ext)
+            ext_changed=$(echo $FILTER_OUTPUTS | jq -r --arg ext "$ext" '.[$ext]')
             if [[ "$COMMON_CHANGED" == "true" || "$ext_changed" == "true" ]]; then
               echo "::group::Running tests for $ext"
 

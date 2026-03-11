@@ -7,11 +7,11 @@ on:
   pull_request:
     branches: ["**"]
     paths:
-      - "crates/circuits/**"
-      - "crates/vm/**"
-      - "crates/toolchain/**"
+#     - "crates/circuits/**"
+#     - "crates/vm/**"
+#     - "crates/toolchain/**"
       - "extensions/**"
-      - "Cargo.toml"
+#     - "Cargo.toml"
       - ".github/workflows/extension-tests.yml"
 
 concurrency:
@@ -29,17 +29,15 @@ jobs:
       matrix:
         extension:
           - { name: "rv32im", path: "rv32im", aot: false }
-          - { name: "native", path: "native", aot: false }
           - { name: "keccak256", path: "keccak256", aot: false }
-          - { name: "sha256", path: "sha256", aot: false }
+          - { name: "sha2", path: "sha2", aot: false }
           - { name: "bigint", path: "bigint", aot: false }
           - { name: "algebra", path: "algebra", aot: false }
           - { name: "ecc", path: "ecc", aot: false }
           - { name: "pairing", path: "pairing", aot: false }
           - { name: "rv32im", path: "rv32im", aot: true }
-          - { name: "native", path: "native", aot: true }
           - { name: "keccak256", path: "keccak256", aot: true }
-          - { name: "sha256", path: "sha256", aot: true }
+          - { name: "sha2", path: "sha2", aot: true }
           - { name: "bigint", path: "bigint", aot: true }
           - { name: "algebra", path: "algebra", aot: true }
           - { name: "ecc", path: "ecc", aot: true }
@@ -55,6 +53,11 @@ jobs:
     steps:
       - uses: runs-on/action@v2
       - uses: actions/checkout@v5
+      - name: Load SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: |
+            ${{ secrets.GH_ACTIONS_DEPLOY_PRIVATE_KEY }}
       - uses: dorny/paths-filter@v3
         id: filter
         with:

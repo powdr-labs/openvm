@@ -24,6 +24,7 @@ openvm-cuda-common = { workspace = true, optional = true }
 
 num-bigint = { workspace = true, features = ["serde"] }
 num-traits = { workspace = true }
+once_cell = { workspace = true }
 rand = { workspace = true }
 derive_more = { workspace = true, features = ["from", "deref", "deref_mut"] }
 strum = { workspace = true }

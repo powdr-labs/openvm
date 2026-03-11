@@ -18,7 +18,7 @@ pub mod utils;
 
 pub use phantom::*;
 
-pub const NATIVE_AS: u32 = 4;
+pub const DEFERRAL_AS: u32 = 4;
 
 pub trait LocalOpcode {
     const CLASS_OFFSET: usize;
@@ -59,7 +59,7 @@ impl VmOpcode {
 
     /// Convert the VmOpcode into a field element
     pub fn to_field<F: Field>(&self) -> F {
-        F::from_canonical_usize(self.as_usize())
+        F::from_usize(self.as_usize())
     }
 }
 
@@ -81,15 +81,6 @@ impl std::fmt::Display for VmOpcode {
 pub enum SystemOpcode {
     TERMINATE,
     PHANTOM,
-}
-
-#[derive(
-    Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, EnumCount, EnumIter, FromRepr, LocalOpcode,
-)]
-#[opcode_offset = 0x020]
-#[repr(usize)]
-pub enum PublishOpcode {
-    PUBLISH,
 }
 
 // =================================================================================================

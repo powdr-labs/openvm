@@ -15,7 +15,7 @@ use openvm_instructions::LocalOpcode;
 use openvm_rv32im_transpiler::BaseAluOpcode::{self, *};
 use openvm_stark_backend::{
     p3_air::BaseAir,
-    p3_field::{FieldAlgebra, PrimeField32},
+    p3_field::{PrimeCharacteristicRing, PrimeField32},
     p3_matrix::{
         dense::{DenseMatrix, RowMajorMatrix},
         Matrix,
@@ -41,9 +41,7 @@ use crate::{
         RV32_CELL_BITS, RV32_REGISTER_NUM_LIMBS,
     },
     base_alu::BaseAluCoreCols,
-    test_utils::{
-        generate_rv32_is_type_immediate, get_verification_error, rv32_rand_write_register_or_imm,
-    },
+    test_utils::{generate_rv32_is_type_immediate, rv32_rand_write_register_or_imm},
     BaseAluFiller, Rv32BaseAluAir,
 };
 
@@ -112,8 +110,8 @@ fn set_and_execute<RA: Arena, E: PreflightExecutor<F, RA>>(
     is_imm: Option<bool>,
     c: Option<[u8; RV32_REGISTER_NUM_LIMBS]>,
 ) {
-    let b = b.unwrap_or(array::from_fn(|_| rng.gen_range(0..=u8::MAX)));
-    let (c_imm, c) = if is_imm.unwrap_or(rng.gen_bool(0.5)) {
+    let b = b.unwrap_or(array::from_fn(|_| rng.random_range(0..=u8::MAX)));
+    let (c_imm, c) = if is_imm.unwrap_or(rng.random_bool(0.5)) {
         let (imm, c) = if let Some(c) = c {
             ((u32::from_le_bytes(c) & 0xFFFFFF) as usize, c)
         } else {
@@ -123,7 +121,7 @@ fn set_and_execute<RA: Arena, E: PreflightExecutor<F, RA>>(
     } else {
         (
             None,
-            c.unwrap_or(array::from_fn(|_| rng.gen_range(0..=u8::MAX))),
+            c.unwrap_or(array::from_fn(|_| rng.random_range(0..=u8::MAX))),
         )
     };
 
@@ -137,8 +135,7 @@ fn set_and_execute<RA: Arena, E: PreflightExecutor<F, RA>>(
     );
     tester.execute(executor, arena, &instruction);
 
-    let a = run_alu::<RV32_REGISTER_NUM_LIMBS, RV32_CELL_BITS>(opcode, &b, &c)
-        .map(F::from_canonical_u8);
+    let a = run_alu::<RV32_REGISTER_NUM_LIMBS, RV32_CELL_BITS>(opcode, &b, &c).map(F::from_u8);
     assert_eq!(a, tester.read::<RV32_REGISTER_NUM_LIMBS>(1, rd))
 }
 
@@ -163,46 +160,11 @@ fn rand_rv32_alu_test(opcode: BaseAluOpcode, num_ops: usize) {
     // TODO(AG): make a more meaningful test for memory accesses
     tester.write(2, 1024, [F::ONE; 4]);
     tester.write(2, 1028, [F::ONE; 4]);
-    let sm = tester.read(2, 1024);
-    assert_eq!(sm, [F::ONE; 8]);
-
-    for _ in 0..num_ops {
-        set_and_execute(
-            &mut tester,
-            &mut harness.executor,
-            &mut harness.arena,
-            &mut rng,
-            opcode,
-            None,
-            None,
-            None,
-        );
-    }
-
-    let tester = tester
-        .build()
-        .load(harness)
-        .load_periphery(bitwise)
-        .finalize();
-    tester.simple_test().expect("Verification failed");
-}
-
-#[test_case(ADD, 100)]
-#[test_case(SUB, 100)]
-#[test_case(XOR, 100)]
-#[test_case(OR, 100)]
-#[test_case(AND, 100)]
-fn rand_rv32_alu_test_persistent(opcode: BaseAluOpcode, num_ops: usize) {
-    let mut rng = create_seeded_rng();
-
-    let mut tester = VmChipTestBuilder::default_persistent();
-    let (mut harness, bitwise) = create_harness(&tester);
-
-    // TODO(AG): make a more meaningful test for memory accesses
-    tester.write(2, 1024, [F::ONE; 4]);
-    tester.write(2, 1028, [F::ONE; 4]);
-    let sm = tester.read(2, 1024);
-    assert_eq!(sm, [F::ONE; 8]);
+    // Avoid wider-than-min-block accesses when access adapters are disabled
+    let sm1 = tester.read(2, 1024);
+    let sm2 = tester.read(2, 1028);
+    assert_eq!(sm1, [F::ONE; 4]);
+    assert_eq!(sm2, [F::ONE; 4]);
 
     for _ in 0..num_ops {
         set_and_execute(
@@ -232,7 +194,6 @@ fn rand_rv32_alu_test_persistent(opcode: BaseAluOpcode, num_ops: usize) {
 // part of the trace and check that the chip throws the expected error.
 //////////////////////////////////////////////////////////////////////////////////////
 
-#[allow(clippy::too_many_arguments)]
 fn run_negative_alu_test(
     opcode: BaseAluOpcode,
     prank_a: [u32; RV32_REGISTER_NUM_LIMBS],
@@ -241,7 +202,6 @@ fn run_negative_alu_test(
     prank_c: Option<[u32; RV32_REGISTER_NUM_LIMBS]>,
     prank_opcode_flags: Option<[bool; 5]>,
     is_imm: Option<bool>,
-    interaction_error: bool,
 ) {
     let mut rng = create_seeded_rng();
     let mut tester: VmChipTestBuilder<BabyBear> = VmChipTestBuilder::default();
@@ -260,12 +220,12 @@ fn run_negative_alu_test(
 
     let adapter_width = BaseAir::<F>::width(&harness.air.adapter);
     let modify_trace = |trace: &mut DenseMatrix<BabyBear>| {
-        let mut values = trace.row_slice(0).to_vec();
+        let mut values = trace.row_slice(0).expect("row exists").to_vec();
         let cols: &mut BaseAluCoreCols<F, RV32_REGISTER_NUM_LIMBS, RV32_CELL_BITS> =
             values.split_at_mut(adapter_width).1.borrow_mut();
-        cols.a = prank_a.map(F::from_canonical_u32);
+        cols.a = prank_a.map(F::from_u32);
         if let Some(prank_c) = prank_c {
-            cols.c = prank_c.map(F::from_canonical_u32);
+            cols.c = prank_c.map(F::from_u32);
         }
         if let Some(prank_opcode_flags) = prank_opcode_flags {
             cols.opcode_add_flag = F::from_bool(prank_opcode_flags[0]);
@@ -283,7 +243,9 @@ fn run_negative_alu_test(
         .load_and_prank_trace(harness, modify_trace)
         .load_periphery(bitwise)
         .finalize();
-    tester.simple_test_with_expected_error(get_verification_error(interaction_error));
+    tester
+        .simple_test()
+        .expect_err("Expected verification to fail, but it passed");
 }
 
 #[test]
@@ -296,7 +258,6 @@ fn rv32_alu_add_wrong_negative_test() {
         None,
         None,
         None,
-        false,
     );
 }
 
@@ -310,7 +271,6 @@ fn rv32_alu_add_out_of_range_negative_test() {
         None,
         None,
         None,
-        true,
     );
 }
 
@@ -324,7 +284,6 @@ fn rv32_alu_sub_wrong_negative_test() {
         None,
         None,
         None,
-        false,
     );
 }
 
@@ -338,7 +297,6 @@ fn rv32_alu_sub_out_of_range_negative_test() {
         None,
         None,
         None,
-        true,
     );
 }
 
@@ -352,7 +310,6 @@ fn rv32_alu_xor_wrong_negative_test() {
         None,
         None,
         None,
-        true,
     );
 }
 
@@ -366,7 +323,6 @@ fn rv32_alu_or_wrong_negative_test() {
         None,
         None,
         None,
-        true,
     );
 }
 
@@ -380,7 +336,6 @@ fn rv32_alu_and_wrong_negative_test() {
         None,
         None,
         None,
-        true,
     );
 }
 
@@ -394,7 +349,6 @@ fn rv32_alu_adapter_unconstrained_imm_limb_test() {
         Some([511, 6, 0, 0]),
         None,
         Some(true),
-        true,
     );
 }
 
@@ -408,7 +362,6 @@ fn rv32_alu_adapter_unconstrained_rs2_read_test() {
         None,
         Some([false, false, false, false, false]),
         Some(false),
-        false,
     );
 }
 

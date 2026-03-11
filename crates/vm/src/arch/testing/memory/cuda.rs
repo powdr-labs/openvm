@@ -10,13 +10,16 @@ use openvm_circuit::{
         online::TracingMemory,
     },
 };
-use openvm_circuit_primitives::var_range::{VariableRangeCheckerBus, VariableRangeCheckerChipGPU};
-use openvm_cuda_backend::{base::DeviceMatrix, prover_backend::GpuBackend, types::F};
+use openvm_circuit_primitives::{
+    var_range::{VariableRangeCheckerBus, VariableRangeCheckerChipGPU},
+    Chip,
+};
+use openvm_cuda_backend::{base::DeviceMatrix, prelude::F, GpuBackend};
 use openvm_cuda_common::copy::MemCopyH2D;
 use openvm_stark_backend::{
-    p3_field::{FieldAlgebra, PrimeField32},
-    prover::types::AirProvingContext,
-    Chip, ChipUsageGetter,
+    p3_air::BaseAir,
+    p3_field::{PrimeCharacteristicRing, PrimeField32},
+    prover::AirProvingContext,
 };
 
 use crate::{
@@ -37,30 +40,7 @@ pub struct DeviceMemoryTester {
 }
 
 impl DeviceMemoryTester {
-    pub fn volatile(
-        memory: TracingMemory,
-        mem_bus: MemoryBus,
-        mem_config: MemoryConfig,
-        range_checker: Arc<VariableRangeCheckerChipGPU>,
-    ) -> Self {
-        let mut chip_for_block = HashMap::new();
-        for log_block_size in 0..6 {
-            let block_size = 1 << log_block_size;
-            chip_for_block.insert(block_size, FixedSizeMemoryTester::new(mem_bus, block_size));
-        }
-        let range_bus = range_checker.cpu_chip.as_ref().unwrap().bus();
-        Self {
-            chip_for_block,
-            memory,
-            inventory: MemoryInventoryGPU::volatile(mem_config.clone(), range_checker),
-            hasher_chip: None,
-            config: mem_config,
-            mem_bus,
-            range_bus,
-        }
-    }
-
-    pub fn persistent(
+    pub fn new(
         memory: TracingMemory,
         mem_bus: MemoryBus,
         mem_config: MemoryConfig,
@@ -77,11 +57,8 @@ impl DeviceMemoryTester {
             1 << 20, // probably enough for our tests
             sbox_regs,
         ));
-        let mut inventory = MemoryInventoryGPU::persistent(
-            mem_config.clone(),
-            range_checker,
-            poseidon2_periphery.clone(),
-        );
+        let mut inventory =
+            MemoryInventoryGPU::new(mem_config.clone(), poseidon2_periphery.clone());
         inventory.set_initial_memory(&memory.data.memory);
         Self {
             chip_for_block,
@@ -100,13 +77,8 @@ impl DeviceMemoryTester {
 
     pub fn read<const N: usize>(&mut self, addr_space: usize, ptr: usize) -> [F; N] {
         let t = self.memory.timestamp();
-        let (t_prev, data) = if addr_space <= 3 {
-            let (t_prev, data) =
-                unsafe { self.memory.read::<u8, N, 4>(addr_space as u32, ptr as u32) };
-            (t_prev, data.map(F::from_canonical_u8))
-        } else {
-            unsafe { self.memory.read::<F, N, 1>(addr_space as u32, ptr as u32) }
-        };
+        let (t_prev, data) = unsafe { self.memory.read::<u8, N, 4>(addr_space as u32, ptr as u32) };
+        let data = data.map(F::from_u8);
         self.chip_for_block.get_mut(&N).unwrap().receive(
             addr_space as u32,
             ptr as u32,
@@ -122,21 +94,14 @@ impl DeviceMemoryTester {
 
     pub fn write<const N: usize>(&mut self, addr_space: usize, ptr: usize, data: [F; N]) {
         let t = self.memory.timestamp();
-        let (t_prev, data_prev) = if addr_space <= 3 {
-            let (t_prev, data_prev) = unsafe {
-                self.memory.write::<u8, N, 4>(
-                    addr_space as u32,
-                    ptr as u32,
-                    data.map(|x| x.as_canonical_u32() as u8),
-                )
-            };
-            (t_prev, data_prev.map(F::from_canonical_u8))
-        } else {
-            unsafe {
-                self.memory
-                    .write::<F, N, 1>(addr_space as u32, ptr as u32, data)
-            }
+        let (t_prev, data_prev) = unsafe {
+            self.memory.write::<u8, N, 4>(
+                addr_space as u32,
+                ptr as u32,
+                data.map(|x| x.as_canonical_u32() as u8),
+            )
         };
+        let data_prev = data_prev.map(F::from_u8);
         self.chip_for_block.get_mut(&N).unwrap().receive(
             addr_space as u32,
             ptr as u32,
@@ -170,24 +135,10 @@ impl FixedSizeMemoryTester {
     }
 }
 
-impl ChipUsageGetter for FixedSizeMemoryTester {
-    fn air_name(&self) -> String {
-        self.0.air_name()
-    }
-
-    fn current_trace_height(&self) -> usize {
-        self.0.current_trace_height()
-    }
-
-    fn trace_width(&self) -> usize {
-        self.0.trace_width()
-    }
-}
-
 impl<RA> Chip<RA, GpuBackend> for FixedSizeMemoryTester {
     fn generate_proving_ctx(&self, _: RA) -> AirProvingContext<GpuBackend> {
-        let height = self.0.current_trace_height().next_power_of_two();
-        let width = self.0.trace_width();
+        let width = BaseAir::<F>::width(&self.0.air);
+        let height = (self.0.trace.len() / width).next_power_of_two();
 
         let mut records = self.0.trace.clone();
         records.resize(height * width, F::ZERO);

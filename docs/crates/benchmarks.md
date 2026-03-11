@@ -48,7 +48,7 @@ This can then be fed into `bench_from_exe` which will generate a proof of the ex
 
 #### Providing Inputs
 
-Inputs must be directly provided to the `bench_from_exe` function: the `input_stream: Vec<Vec<F>>` is a vector of vectors, where `input_stream[i]` will be what is provided to the guest program on the `i`-th call of `openvm::io::read_vec()`. Currently you must manually convert from `u8` to `F` using `FieldAlgebra::from_canonical_u8`.
+Inputs must be directly provided to the `bench_from_exe` function: the `input_stream: Vec<Vec<F>>` is a vector of vectors, where `input_stream[i]` will be what is provided to the guest program on the `i`-th call of `openvm::io::read_vec()`. Currently you must manually convert from `u8` to `F` using `PrimeCharacteristicRing::from_u8`.
 
 You can find an example of passing in a single `Vec<u8>` input in [base64_json](../../benchmarks/prove/src/bin/base64_json.rs).
 
@@ -111,6 +111,22 @@ openvm-prof --json-paths $OUTPUT_PATH
 
 This will generate a markdown file to the same path as $OUTPUT_PATH but with a `.md` extension. The `--json-paths` argument can take multiple files, comma separated.
 There is also an optional `--prev-json-paths` argument to compare the metrics with a previous run.
+
+### Instruction Count Profiling
+
+To generate detailed instruction count metrics in the markdown output, run the benchmark with the `perf-metrics` feature enabled:
+
+```bash
+OUTPUT_PATH="metrics.json" GUEST_SYMBOLS_PATH="guest.syms" cargo run --release --bin <benchmark_name> --features perf-metrics
+```
+
+Then process the metrics with `openvm-prof`:
+
+```bash
+openvm-prof --json-paths metrics.json
+```
+
+The generated markdown file will include an instruction count table aggregated by segment, showing the frequency of each instruction type executed during the benchmark run. This provides detailed insights into instruction-level performance characteristics.
 
 ### Circuit Flamegraphs
 

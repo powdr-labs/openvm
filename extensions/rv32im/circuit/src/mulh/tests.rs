@@ -44,7 +44,7 @@ use openvm_rv32im_transpiler::BaseAluOpcode::ADD;
 use openvm_rv32im_transpiler::MulHOpcode::{self, *};
 use openvm_stark_backend::{
     p3_air::BaseAir,
-    p3_field::FieldAlgebra,
+    p3_field::PrimeCharacteristicRing,
     p3_matrix::{
         dense::{DenseMatrix, RowMajorMatrix},
         Matrix,
@@ -52,11 +52,9 @@ use openvm_stark_backend::{
     utils::disable_debug_builder,
 };
 #[cfg(feature = "aot")]
-use openvm_stark_sdk::config::baby_bear_poseidon2::BabyBearPoseidon2Engine;
+use openvm_stark_backend::{StarkEngine, SystemParams};
 #[cfg(feature = "aot")]
-use openvm_stark_sdk::config::FriParameters;
-#[cfg(feature = "aot")]
-use openvm_stark_sdk::engine::StarkFriEngine;
+use openvm_stark_sdk::config::baby_bear_poseidon2::{BabyBearPoseidon2CpuEngine, DuplexSponge};
 use openvm_stark_sdk::{p3_baby_bear::BabyBear, utils::create_seeded_rng};
 use rand::rngs::StdRng;
 #[cfg(feature = "aot")]
@@ -78,7 +76,6 @@ use crate::{
         RV32_REGISTER_NUM_LIMBS,
     },
     mulh::{MulHCoreCols, Rv32MulHChip},
-    test_utils::get_verification_error,
     MulHCoreAir, MulHFiller, Rv32MulHAir, Rv32MulHExecutor,
 };
 #[cfg(feature = "aot")]
@@ -171,8 +168,8 @@ fn set_and_execute<RA: Arena, E: PreflightExecutor<F, RA>>(
     let rs2 = gen_pointer(rng, 4);
     let rd = gen_pointer(rng, 4);
 
-    tester.write::<RV32_REGISTER_NUM_LIMBS>(1, rs1, b.map(F::from_canonical_u32));
-    tester.write::<RV32_REGISTER_NUM_LIMBS>(1, rs2, c.map(F::from_canonical_u32));
+    tester.write::<RV32_REGISTER_NUM_LIMBS>(1, rs1, b.map(F::from_u32));
+    tester.write::<RV32_REGISTER_NUM_LIMBS>(1, rs2, c.map(F::from_u32));
 
     tester.execute(
         executor,
@@ -182,7 +179,7 @@ fn set_and_execute<RA: Arena, E: PreflightExecutor<F, RA>>(
 
     let (a, _, _, _, _) = run_mulh::<RV32_REGISTER_NUM_LIMBS, RV32_CELL_BITS>(opcode, &b, &c);
     assert_eq!(
-        a.map(F::from_canonical_u32),
+        a.map(F::from_u32),
         tester.read::<RV32_REGISTER_NUM_LIMBS>(1, rd)
     );
 }
@@ -230,7 +227,6 @@ fn run_rv32_mulh_rand_test(opcode: MulHOpcode, num_ops: usize) {
 // part of the trace and check that the chip throws the expected error.
 //////////////////////////////////////////////////////////////////////////////////////
 
-#[allow(clippy::too_many_arguments)]
 fn run_negative_mulh_test(
     opcode: MulHOpcode,
     prank_a: [u32; RV32_REGISTER_NUM_LIMBS],
@@ -239,7 +235,6 @@ fn run_negative_mulh_test(
     prank_a_mul: [u32; RV32_REGISTER_NUM_LIMBS],
     prank_b_ext: u32,
     prank_c_ext: u32,
-    interaction_error: bool,
 ) {
     let mut rng = create_seeded_rng();
     let mut tester = VmChipTestBuilder::default();
@@ -257,13 +252,13 @@ fn run_negative_mulh_test(
 
     let adapter_width = BaseAir::<F>::width(&harness.air.adapter);
     let modify_trace = |trace: &mut DenseMatrix<BabyBear>| {
-        let mut values = trace.row_slice(0).to_vec();
+        let mut values = trace.row_slice(0).expect("row exists").to_vec();
         let cols: &mut MulHCoreCols<F, RV32_REGISTER_NUM_LIMBS, RV32_CELL_BITS> =
             values.split_at_mut(adapter_width).1.borrow_mut();
-        cols.a = prank_a.map(F::from_canonical_u32);
-        cols.a_mul = prank_a_mul.map(F::from_canonical_u32);
-        cols.b_ext = F::from_canonical_u32(prank_b_ext);
-        cols.c_ext = F::from_canonical_u32(prank_c_ext);
+        cols.a = prank_a.map(F::from_u32);
+        cols.a_mul = prank_a_mul.map(F::from_u32);
+        cols.b_ext = F::from_u32(prank_b_ext);
+        cols.c_ext = F::from_u32(prank_c_ext);
         *trace = RowMajorMatrix::new(values, trace.width());
     };
 
@@ -274,7 +269,9 @@ fn run_negative_mulh_test(
         .load_periphery(bitwise)
         .load_periphery(range_tuple)
         .finalize();
-    tester.simple_test_with_expected_error(get_verification_error(interaction_error));
+    tester
+        .simple_test()
+        .expect_err("Expected verification to fail, but it passed");
 }
 
 #[test]
@@ -287,7 +284,6 @@ fn rv32_mulh_wrong_a_mul_negative_test() {
         [63, 247, 125, 234],
         0,
         255,
-        true,
     );
 }
 
@@ -301,7 +297,6 @@ fn rv32_mulh_wrong_a_negative_test() {
         [63, 247, 125, 232],
         0,
         255,
-        true,
     );
 }
 
@@ -315,7 +310,6 @@ fn rv32_mulh_wrong_ext_negative_test() {
         [0, 0, 0, 0],
         0,
         0,
-        true,
     );
 }
 
@@ -329,7 +323,6 @@ fn rv32_mulh_invalid_ext_negative_test() {
         [0, 0, 0, 0],
         1,
         0,
-        false,
     );
 }
 
@@ -343,7 +336,6 @@ fn rv32_mulhsu_wrong_a_mul_negative_test() {
         [63, 247, 125, 105],
         255,
         0,
-        true,
     );
 }
 
@@ -357,7 +349,6 @@ fn rv32_mulhsu_wrong_a_negative_test() {
         [63, 247, 125, 104],
         255,
         0,
-        true,
     );
 }
 
@@ -371,7 +362,6 @@ fn rv32_mulhsu_wrong_b_ext_negative_test() {
         [0, 0, 0, 0],
         0,
         0,
-        true,
     );
 }
 
@@ -385,7 +375,6 @@ fn rv32_mulhsu_wrong_c_ext_negative_test() {
         [0, 0, 0, 0],
         255,
         255,
-        false,
     );
 }
 
@@ -399,7 +388,6 @@ fn rv32_mulhu_wrong_a_mul_negative_test() {
         [63, 247, 125, 234],
         0,
         0,
-        true,
     );
 }
 
@@ -413,7 +401,6 @@ fn rv32_mulhu_wrong_a_negative_test() {
         [63, 247, 125, 232],
         0,
         0,
-        true,
     );
 }
 
@@ -427,7 +414,6 @@ fn rv32_mulhu_wrong_ext_negative_test() {
         [0, 0, 0, 0],
         255,
         0,
-        false,
     );
 }
 
@@ -549,7 +535,7 @@ fn run_mul_program(instructions: Vec<Instruction<F>>) -> (VmState<F>, VmState<F>
     assert_eq!(tree1.root(), tree2.root(), "Memory states differ");
 
     // Also test metered execution (interpreter and AOT) produce identical final state
-    let engine = BabyBearPoseidon2Engine::new(FriParameters::new_for_testing(3));
+    let engine = BabyBearPoseidon2CpuEngine::<DuplexSponge>::new(SystemParams::new_for_testing(20));
     let (vm, _) =
         VirtualMachine::new_with_keygen(engine, Rv32ImBuilder, config.clone()).expect("vm init");
     let executor_idx_to_air_idx = vm.executor_idx_to_air_idx();
@@ -706,7 +692,7 @@ fn test_aot_mulh_randomized() {
     let mut expected = HashMap::new();
 
     for &offset in &offsets {
-        let value_i32 = rng.gen_range(-(1i32 << 11)..(1i32 << 11));
+        let value_i32 = rng.random_range(-(1i32 << 11)..(1i32 << 11));
         let imm_field = (value_i32 as u32) & 0x00FF_FFFF;
         instructions.push(add_immediate(offset, imm_field));
         expected.insert(offset, value_i32 as u32);

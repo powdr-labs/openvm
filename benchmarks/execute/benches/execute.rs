@@ -30,8 +30,6 @@ use openvm_ecc_circuit::{EccCpuProverExt, WeierstrassExtension, WeierstrassExten
 use openvm_ecc_transpiler::EccTranspilerExtension;
 use openvm_keccak256_circuit::{Keccak256, Keccak256CpuProverExt, Keccak256Executor};
 use openvm_keccak256_transpiler::Keccak256TranspilerExtension;
-use openvm_native_circuit::NativeCpuBuilder;
-use openvm_native_recursion::hints::Hintable;
 use openvm_pairing_circuit::{
     PairingCurve, PairingExtension, PairingExtensionExecutor, PairingProverExt,
 };
@@ -47,21 +45,17 @@ use openvm_sdk::{
     commit::VmCommittedExe,
     config::{AggregationConfig, DEFAULT_NUM_CHILDREN_INTERNAL, DEFAULT_NUM_CHILDREN_LEAF},
 };
-use openvm_sha256_circuit::{Sha256, Sha256Executor, Sha2CpuProverExt};
-use openvm_sha256_transpiler::Sha256TranspilerExtension;
+use openvm_sha2_circuit::{Sha2, Sha2CpuProverExt, Sha2Executor};
+use openvm_sha2_transpiler::Sha2TranspilerExtension;
 use openvm_stark_sdk::{
     config::{baby_bear_poseidon2::BabyBearPoseidon2Engine, FriParameters},
     engine::{StarkEngine, StarkFriEngine},
     openvm_stark_backend::{
         self,
-        config::{StarkGenericConfig, Val},
         keygen::types::MultiStarkProvingKey,
-        p3_field::PrimeField32,
         proof::Proof,
-        prover::{
-            cpu::{CpuBackend, CpuDevice},
-            hal::DeviceDataTransporter,
-        },
+        prover::{CpuBackend, CpuDevice, DeviceDataTransporter},
+        StarkProtocolConfig, Val,
     },
     p3_baby_bear::BabyBear,
 };
@@ -96,9 +90,6 @@ static SUCCESSFUL_EXECUTIONS: OnceLock<Mutex<HashSet<String>>> = OnceLock::new()
 // Cachce for AOT instances, that is only initialized once, across all threads
 // Arc (atomically referenced counted pointer) is used to store the instance, so multiple threads
 // can share the same instance Mutex is used to protect the cache from concurrent access
-// HashMap is used to store the instances, keyed by the program name
-#[allow(dead_code)]
-type NativeVm = VirtualMachine<BabyBearPoseidon2Engine, NativeCpuBuilder>;
 
 fn report_program_success(mode: &str, program: &str) {
     let successes = SUCCESSFUL_EXECUTIONS.get_or_init(|| Mutex::new(HashSet::new()));
@@ -144,7 +135,7 @@ pub struct ExecuteConfig {
     #[extension]
     pub keccak: Keccak256,
     #[extension]
-    pub sha256: Sha256,
+    pub sha2: Sha2,
     #[extension]
     pub modular: ModularExtension,
     #[extension]
@@ -165,7 +156,7 @@ impl Default for ExecuteConfig {
             io: Rv32Io,
             bigint: Int256::default(),
             keccak: Keccak256,
-            sha256: Sha256,
+            sha2: Sha2,
             modular: ModularExtension::new(vec![
                 bn_config.modulus.clone(),
                 bn_config.scalar.clone(),
@@ -193,9 +184,9 @@ impl InitFileGenerator for ExecuteConfig {
 pub struct ExecuteBuilder;
 impl<E, SC> VmBuilder<E> for ExecuteBuilder
 where
-    SC: StarkGenericConfig,
+    SC: StarkProtocolConfig,
     E: StarkEngine<SC = SC, PB = CpuBackend<SC>, PD = CpuDevice<SC>>,
-    Val<SC>: PrimeField32,
+    Val<SC>: VmField,
 {
     type VmConfig = ExecuteConfig;
     type SystemChipInventory = SystemChipInventory<SC>;
@@ -225,7 +216,7 @@ where
             &config.keccak,
             inventory,
         )?;
-        VmProverExtension::<E, _, _>::extend_prover(&Sha2CpuProverExt, &config.sha256, inventory)?;
+        VmProverExtension::<E, _, _>::extend_prover(&Sha2CpuProverExt, &config.sha2, inventory)?;
         VmProverExtension::<E, _, _>::extend_prover(
             &AlgebraCpuProverExt,
             &config.modular,
@@ -253,7 +244,7 @@ fn create_default_transpiler() -> Transpiler<BabyBear> {
         .with_extension(Rv32MTranspilerExtension)
         .with_extension(Int256TranspilerExtension)
         .with_extension(Keccak256TranspilerExtension)
-        .with_extension(Sha256TranspilerExtension)
+        .with_extension(Sha2TranspilerExtension)
         .with_extension(ModularTranspilerExtension)
         .with_extension(Fp2TranspilerExtension)
         .with_extension(EccTranspilerExtension)

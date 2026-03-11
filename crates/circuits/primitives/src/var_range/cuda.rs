@@ -1,12 +1,13 @@
 use std::sync::{atomic::Ordering, Arc};
 
-use openvm_cuda_backend::{base::DeviceMatrix, prover_backend::GpuBackend, types::F};
+use openvm_cuda_backend::{base::DeviceMatrix, prelude::F, GpuBackend};
 use openvm_cuda_common::{copy::MemCopyH2D as _, d_buffer::DeviceBuffer};
-use openvm_stark_backend::{prover::types::AirProvingContext, Chip};
+use openvm_stark_backend::prover::AirProvingContext;
 
 use crate::{
     cuda_abi::var_range::tracegen,
     var_range::{VariableRangeCheckerBus, VariableRangeCheckerChip, NUM_VARIABLE_RANGE_COLS},
+    Chip,
 };
 
 pub struct VariableRangeCheckerChipGPU {
@@ -58,5 +59,9 @@ impl<RA> Chip<RA, GpuBackend> for VariableRangeCheckerChipGPU {
         // Zero the internal count buffer because this chip is stateful and may be used again.
         self.count.fill_zero().unwrap();
         AirProvingContext::simple_no_pis(trace)
+    }
+
+    fn constant_trace_height(&self) -> Option<usize> {
+        Some(self.count.len())
     }
 }

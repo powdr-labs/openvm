@@ -1,14 +1,19 @@
 use std::{iter, sync::Arc};
 
 use list::ListChip;
-use openvm_stark_backend::{p3_matrix::dense::RowMajorMatrix, p3_maybe_rayon::prelude::*, AirRef};
-use openvm_stark_sdk::{
-    config::baby_bear_blake3::BabyBearBlake3Engine, engine::StarkFriEngine, p3_baby_bear::BabyBear,
-    utils::create_seeded_rng,
+use openvm_stark_backend::{
+    p3_matrix::dense::RowMajorMatrix,
+    p3_maybe_rayon::prelude::*,
+    prover::{AirProvingContext, ColMajorMatrix},
+    AirRef, StarkEngine,
 };
+use openvm_stark_sdk::{config::baby_bear_poseidon2::*, utils::create_seeded_rng};
 use rand::Rng;
 
-use crate::range::{bus::RangeCheckBus, RangeCheckerChip};
+use crate::{
+    range::{bus::RangeCheckBus, RangeCheckerChip},
+    utils::test_engine_small,
+};
 
 /// List chip for testing
 pub mod list;
@@ -33,7 +38,7 @@ fn test_list_range_checker() {
     let lists_vals = (0..num_lists)
         .map(|_| {
             (0..LIST_LEN)
-                .map(|_| rng.gen::<u32>() % MAX)
+                .map(|_| rng.random::<u32>() % MAX)
                 .collect::<Vec<u32>>()
         })
         .collect::<Vec<Vec<u32>>>();
@@ -47,7 +52,7 @@ fn test_list_range_checker() {
     let lists_traces = lists
         .par_iter()
         .map(|list| list.generate_trace())
-        .collect::<Vec<RowMajorMatrix<BabyBear>>>();
+        .collect::<Vec<RowMajorMatrix<F>>>();
 
     let range_trace = range_checker.generate_trace();
 
@@ -57,11 +62,17 @@ fn test_list_range_checker() {
     }
     all_chips.push(Arc::new(range_checker.air));
 
-    let all_traces = lists_traces
+    let all_traces_vec: Vec<_> = lists_traces
         .into_iter()
         .chain(iter::once(range_trace))
-        .collect::<Vec<RowMajorMatrix<BabyBear>>>();
+        .collect();
+    let all_traces = all_traces_vec
+        .iter()
+        .map(ColMajorMatrix::from_row_major)
+        .map(AirProvingContext::simple_no_pis)
+        .collect::<Vec<_>>();
 
-    BabyBearBlake3Engine::run_simple_test_no_pis_fast(all_chips, all_traces)
+    test_engine_small()
+        .run_test(all_chips, all_traces)
         .expect("Verification failed");
 }

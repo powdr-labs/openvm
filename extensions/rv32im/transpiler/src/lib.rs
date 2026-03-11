@@ -9,6 +9,7 @@ use openvm_rv32im_guest::{
     NATIVE_STOREW_FUNCT3, NATIVE_STOREW_FUNCT7, PHANTOM_FUNCT3, REVEAL_FUNCT3, RV32M_FUNCT7,
     RV32_ALU_OPCODE, SYSTEM_OPCODE, TERMINATE_FUNCT3,
 };
+pub use openvm_rv32im_guest::{MAX_HINT_BUFFER_WORDS, MAX_HINT_BUFFER_WORDS_BITS};
 use openvm_stark_backend::p3_field::PrimeField32;
 use openvm_transpiler::{
     util::{nop, unimp},
@@ -64,9 +65,7 @@ impl<F: PrimeField32> TranspilerExtension<F> for Rv32ITranspilerExtension {
                 let dec_insn = IType::new(instruction_u32);
                 Some(Instruction {
                     opcode: SystemOpcode::TERMINATE.global_opcode(),
-                    c: F::from_canonical_u8(
-                        dec_insn.imm.try_into().expect("exit code must be byte"),
-                    ),
+                    c: F::from_u8(dec_insn.imm.try_into().expect("exit code must be byte")),
                     ..Default::default()
                 })
             }
@@ -81,20 +80,20 @@ impl<F: PrimeField32> TranspilerExtension<F> for Rv32ITranspilerExtension {
                     ),
                     PhantomImm::HintRandom => Instruction::phantom(
                         PhantomDiscriminant(Rv32Phantom::HintRandom as u16),
-                        F::from_canonical_usize(RV32_REGISTER_NUM_LIMBS * dec_insn.rd),
+                        F::from_usize(RV32_REGISTER_NUM_LIMBS * dec_insn.rd),
                         F::ZERO,
                         0,
                     ),
                     PhantomImm::PrintStr => Instruction::phantom(
                         PhantomDiscriminant(Rv32Phantom::PrintStr as u16),
-                        F::from_canonical_usize(RV32_REGISTER_NUM_LIMBS * dec_insn.rd),
-                        F::from_canonical_usize(RV32_REGISTER_NUM_LIMBS * dec_insn.rs1),
+                        F::from_usize(RV32_REGISTER_NUM_LIMBS * dec_insn.rd),
+                        F::from_usize(RV32_REGISTER_NUM_LIMBS * dec_insn.rs1),
                         0,
                     ),
                     PhantomImm::HintLoadByKey => Instruction::phantom(
                         PhantomDiscriminant(Rv32Phantom::HintLoadByKey as u16),
-                        F::from_canonical_usize(RV32_REGISTER_NUM_LIMBS * dec_insn.rd),
-                        F::from_canonical_usize(RV32_REGISTER_NUM_LIMBS * dec_insn.rs1),
+                        F::from_usize(RV32_REGISTER_NUM_LIMBS * dec_insn.rd),
+                        F::from_usize(RV32_REGISTER_NUM_LIMBS * dec_insn.rs1),
                         0,
                     ),
                 })

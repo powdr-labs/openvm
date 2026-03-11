@@ -4,7 +4,7 @@ use clap::Parser;
 use eyre::Result;
 use openvm_circuit::arch::{
     execution_mode::metered::segment_ctx::{
-        SegmentationLimits, DEFAULT_MAX_CELLS, DEFAULT_MAX_TRACE_HEIGHT_BITS,
+        SegmentationConfig, SegmentationLimits, DEFAULT_MAX_MEMORY, DEFAULT_MAX_TRACE_HEIGHT_BITS,
     },
     instructions::exe::VmExe,
 };
@@ -78,6 +78,14 @@ enum ProveSubCommand {
         )]
         app_pk: Option<PathBuf>,
 
+        #[arg(
+            long,
+            action,
+            help = "Path to aggregation proving key, by default will be ~/.openvm/agg.pk",
+            help_heading = "OpenVM Options"
+        )]
+        agg_pk: Option<PathBuf>,
+
         #[command(flatten)]
         run_args: RunArgs,
 
@@ -133,14 +141,14 @@ pub struct SegmentationArgs {
         help_heading = "OpenVM Options"
     )]
     pub segment_max_height_bits: u8,
-    /// Total cells used across all chips for triggering segmentation for continuations in the app
-    /// proof. These thresholds are not exceeded except when they are too small.
+    /// Total memory in bytes used across all chips for triggering segmentation for continuations
+    /// in the app proof. These thresholds are not exceeded except when they are too small.
     #[arg(
         long,
-        default_value_t = DEFAULT_MAX_CELLS,
+        default_value_t = DEFAULT_MAX_MEMORY,
         help_heading = "OpenVM Options"
     )]
-    pub segment_max_cells: usize,
+    pub segment_max_memory: usize,
 }
 
 impl ProveCmd {
@@ -175,6 +183,7 @@ impl ProveCmd {
             }
             ProveSubCommand::Stark {
                 app_pk,
+                agg_pk,
                 proof,
                 run_args,
                 cargo_args,
@@ -184,7 +193,10 @@ impl ProveCmd {
                 let mut app_pk = load_app_pk(app_pk, cargo_args)?;
                 let (exe, target_name) = load_or_build_exe(run_args, cargo_args)?;
 
-                let agg_pk = read_object_from_file(default_agg_stark_pk_path()).map_err(|e| {
+                let agg_pk_path = agg_pk
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from(default_agg_stark_pk_path()));
+                let agg_pk = read_object_from_file(agg_pk_path).map_err(|e| {
                     eyre::eyre!("Failed to read aggregation proving key: {e}\nPlease run 'cargo openvm setup' first")
                 })?;
                 let app_config = get_app_config(&mut app_pk, segmentation_args);
@@ -259,12 +271,11 @@ pub(crate) fn load_app_pk(
     app_pk: &Option<PathBuf>,
     cargo_args: &RunCargoArgs,
 ) -> Result<AppProvingKey<SdkVmConfig>> {
-    let (manifest_path, _) = get_manifest_path_and_dir(&cargo_args.manifest_path)?;
-    let target_dir = get_target_dir(&cargo_args.target_dir, &manifest_path);
-
     let app_pk_path = if let Some(app_pk) = app_pk {
         app_pk.to_path_buf()
     } else {
+        let (manifest_path, _) = get_manifest_path_and_dir(&cargo_args.manifest_path)?;
+        let target_dir = get_target_dir(&cargo_args.target_dir, &manifest_path);
         get_app_pk_path(&target_dir)
     };
 
@@ -306,17 +317,19 @@ fn get_app_config(
         .vm_config
         .system
         .config
-        .set_segmentation_limits((*segmentation_args).into());
+        .set_segmentation_config((*segmentation_args).into());
     app_pk.app_config()
 }
 
-impl From<SegmentationArgs> for SegmentationLimits {
+impl From<SegmentationArgs> for SegmentationConfig {
     fn from(args: SegmentationArgs) -> Self {
-        SegmentationLimits {
-            max_trace_height: 1u32
-                .checked_shl(args.segment_max_height_bits as u32)
-                .expect("segment_max_height_bits too large"),
-            max_cells: args.segment_max_cells,
+        SegmentationConfig {
+            limits: SegmentationLimits::default()
+                .with_max_trace_height(
+                    1u32.checked_shl(args.segment_max_height_bits as u32)
+                        .expect("segment_max_height_bits too large"),
+                )
+                .with_max_memory(args.segment_max_memory),
             ..Default::default()
         }
     }

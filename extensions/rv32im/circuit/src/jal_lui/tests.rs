@@ -15,7 +15,7 @@ use openvm_instructions::{instruction::Instruction, program::PC_BITS, LocalOpcod
 use openvm_rv32im_transpiler::Rv32JalLuiOpcode::{self, *};
 use openvm_stark_backend::{
     p3_air::BaseAir,
-    p3_field::{FieldAlgebra, PrimeField32},
+    p3_field::{PrimeCharacteristicRing, PrimeField32},
     p3_matrix::{
         dense::{DenseMatrix, RowMajorMatrix},
         Matrix,
@@ -42,7 +42,6 @@ use crate::{
         Rv32RdWriteAdapterFiller, RV32_CELL_BITS, RV32_REGISTER_NUM_LIMBS, RV_IS_TYPE_IMM_BITS,
     },
     jal_lui::{Rv32JalLuiCoreCols, ADDITIONAL_BITS},
-    test_utils::get_verification_error,
     Rv32JalLuiAir, Rv32JalLuiFiller,
 };
 
@@ -110,13 +109,13 @@ fn set_and_execute<RA: Arena, E: PreflightExecutor<F, RA>>(
     imm: Option<i32>,
     initial_pc: Option<u32>,
 ) {
-    let imm: i32 = imm.unwrap_or(rng.gen_range(0..(1 << IMM_BITS)));
+    let imm: i32 = imm.unwrap_or(rng.random_range(0..(1 << IMM_BITS)));
     let imm = match opcode {
         JAL => ((imm >> 1) << 2) - (1 << IMM_BITS),
         LUI => imm,
     };
 
-    let a = rng.gen_range((opcode == LUI) as usize..32) << 2;
+    let a = rng.random_range((opcode == LUI) as usize..32) << 2;
     let needs_write = a != 0 || opcode == LUI;
 
     tester.execute_with_pc(
@@ -132,7 +131,7 @@ fn set_and_execute<RA: Arena, E: PreflightExecutor<F, RA>>(
             needs_write as isize,
             0,
         ),
-        initial_pc.unwrap_or(rng.gen_range(imm.unsigned_abs()..(1 << PC_BITS))),
+        initial_pc.unwrap_or(rng.random_range(imm.unsigned_abs()..(1 << PC_BITS))),
     );
     let initial_pc = tester.last_from_pc().as_canonical_u32();
     let final_pc = tester.last_to_pc().as_canonical_u32();
@@ -141,7 +140,7 @@ fn set_and_execute<RA: Arena, E: PreflightExecutor<F, RA>>(
     let rd_data = if needs_write { rd_data } else { [0; 4] };
 
     assert_eq!(next_pc, final_pc);
-    assert_eq!(rd_data.map(F::from_canonical_u8), tester.read::<4>(1, a));
+    assert_eq!(rd_data.map(F::from_u8), tester.read::<4>(1, a));
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -193,13 +192,11 @@ struct JalLuiPrankValues {
     pub needs_write: Option<bool>,
 }
 
-#[allow(clippy::too_many_arguments)]
 fn run_negative_jal_lui_test(
     opcode: Rv32JalLuiOpcode,
     initial_imm: Option<i32>,
     initial_pc: Option<u32>,
     prank_vals: JalLuiPrankValues,
-    interaction_error: bool,
 ) {
     let mut rng = create_seeded_rng();
     let mut tester = VmChipTestBuilder::default();
@@ -217,19 +214,19 @@ fn run_negative_jal_lui_test(
 
     let adapter_width = BaseAir::<F>::width(&harness.air.adapter);
     let modify_trace = |trace: &mut DenseMatrix<BabyBear>| {
-        let mut trace_row = trace.row_slice(0).to_vec();
+        let mut trace_row = trace.row_slice(0).expect("row exists").to_vec();
         let (adapter_row, core_row) = trace_row.split_at_mut(adapter_width);
         let adapter_cols: &mut Rv32CondRdWriteAdapterCols<F> = adapter_row.borrow_mut();
         let core_cols: &mut Rv32JalLuiCoreCols<F> = core_row.borrow_mut();
 
         if let Some(data) = prank_vals.rd_data {
-            core_cols.rd_data = data.map(F::from_canonical_u32);
+            core_cols.rd_data = data.map(F::from_u32);
         }
         if let Some(imm) = prank_vals.imm {
             core_cols.imm = if imm < 0 {
-                F::NEG_ONE * F::from_canonical_u32((-imm) as u32)
+                F::NEG_ONE * F::from_u32((-imm) as u32)
             } else {
-                F::from_canonical_u32(imm as u32)
+                F::from_u32(imm as u32)
             };
         }
         if let Some(is_jal) = prank_vals.is_jal {
@@ -251,7 +248,9 @@ fn run_negative_jal_lui_test(
         .load_and_prank_trace(harness, modify_trace)
         .load_periphery(bitwise)
         .finalize();
-    tester.simple_test_with_expected_error(get_verification_error(interaction_error));
+    tester
+        .simple_test()
+        .expect_err("Expected verification to fail, but it passed");
 }
 
 #[test]
@@ -265,7 +264,6 @@ fn opcode_flag_negative_test() {
             is_lui: Some(true),
             ..Default::default()
         },
-        false,
     );
     run_negative_jal_lui_test(
         JAL,
@@ -277,7 +275,6 @@ fn opcode_flag_negative_test() {
             needs_write: Some(false),
             ..Default::default()
         },
-        true,
     );
     run_negative_jal_lui_test(
         LUI,
@@ -288,7 +285,6 @@ fn opcode_flag_negative_test() {
             is_lui: Some(false),
             ..Default::default()
         },
-        false,
     );
 }
 
@@ -302,7 +298,6 @@ fn overflow_negative_tests() {
             rd_data: Some([LIMB_MAX, LIMB_MAX, LIMB_MAX, LIMB_MAX]),
             ..Default::default()
         },
-        false,
     );
     run_negative_jal_lui_test(
         LUI,
@@ -312,7 +307,6 @@ fn overflow_negative_tests() {
             rd_data: Some([LIMB_MAX, LIMB_MAX, LIMB_MAX, LIMB_MAX]),
             ..Default::default()
         },
-        false,
     );
     run_negative_jal_lui_test(
         LUI,
@@ -322,7 +316,6 @@ fn overflow_negative_tests() {
             rd_data: Some([0, LIMB_MAX, LIMB_MAX, LIMB_MAX + 1]),
             ..Default::default()
         },
-        false,
     );
     run_negative_jal_lui_test(
         LUI,
@@ -332,7 +325,6 @@ fn overflow_negative_tests() {
             imm: Some(-1),
             ..Default::default()
         },
-        false,
     );
     run_negative_jal_lui_test(
         LUI,
@@ -342,7 +334,6 @@ fn overflow_negative_tests() {
             imm: Some(-28),
             ..Default::default()
         },
-        false,
     );
     run_negative_jal_lui_test(
         JAL,
@@ -352,7 +343,6 @@ fn overflow_negative_tests() {
             rd_data: Some([F::NEG_ONE.as_canonical_u32(), 1, 0, 0]),
             ..Default::default()
         },
-        true,
     );
 }
 

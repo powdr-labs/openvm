@@ -116,7 +116,7 @@ on:
 
 env:
   S3_METRICS_PATH: s3://openvm-public-data-sandbox-us-east-1/benchmark/github/metrics
-  S3_FLAMEGRAPHS_PATH: s3://openvm-public-data-sandbox-us-east-1/benchmark/github/flamegraphs
+  S3_PUBLIC_PATH_BASE: s3://openvm-public-data-sandbox-us-east-1/benchmark/github
   FEATURE_FLAGS: "metrics,parallel,tco"
   INPUT_ARGS: ""
   CARGO_NET_GIT_FETCH_WITH_CLI: "true"
@@ -157,7 +157,7 @@ jobs:
         run: |
           ALLOCATOR=${{ inputs.memory_allocator || github.event.inputs.memory_allocator }}
           if [[ ! "${{ inputs.instance_type || github.event.inputs.instance_type }}" =~ ^g ]]; then
-            FEATURE_FLAGS=${FEATURE_FLAGS},nightly-features
+            FEATURE_FLAGS=${FEATURE_FLAGS}
             if [[ "${{ inputs.e2e_bench }}" == "true" ]]; then
               FEATURE_FLAGS=${FEATURE_FLAGS},evm
             fi
@@ -184,7 +184,7 @@ jobs:
           if [[ "${E2E_BENCH}" == "true" ]]; then
             ROOT_ARG="--root_log_blowup ${{ inputs.root_log_blowup }}"
             INTERNAL_ARG="--internal_log_blowup ${{ inputs.internal_log_blowup }}"
-            bash ./extensions/native/recursion/trusted_setup_s3.sh
+            bash ./scripts/trusted_setup_s3.sh
             PARAMS_DIR=$HOME/.openvm/params
             PARAMS_ARG="--kzg-params-dir $PARAMS_DIR"
             echo "INPUT_ARGS=${ROOT_ARG} ${INTERNAL_ARG} ${PARAMS_ARG} ${INPUT_ARGS}" >> $GITHUB_ENV
@@ -262,7 +262,7 @@ jobs:
               echo "No guest symbols found, generating flamegraphs without symbols"
               python3 ci/scripts/metric_unify/flamegraph.py $METRIC_PATH
             fi
-            s5cmd cp '.bench_metrics/flamegraphs/*.svg' "${{ env.S3_FLAMEGRAPHS_PATH }}/${METRIC_NAME}-${current_sha}/"
+            s5cmd cp '.bench_metrics/flamegraphs/*.svg' "${{ env.S3_PUBLIC_PATH_BASE }}/flamegraphs/${current_sha}/"
             echo "UPLOAD_FLAMEGRAPHS=1" >> $GITHUB_ENV
           fi
 

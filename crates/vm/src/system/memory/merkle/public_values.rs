@@ -1,5 +1,11 @@
+use std::io::{self, Write};
+
 use itertools::Itertools;
-use openvm_stark_backend::{p3_field::PrimeField32, p3_util::log2_strict_usize};
+use openvm_stark_backend::{
+    codec::{DecodableConfig, EncodableConfig},
+    p3_util::log2_strict_usize,
+};
+use p3_field::Field;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::instrument;
@@ -42,7 +48,7 @@ pub enum UserPublicValuesProofError {
     FinalMemoryRootMismatch,
 }
 
-impl<const CHUNK: usize, F: PrimeField32> UserPublicValuesProof<CHUNK, F> {
+impl<const CHUNK: usize, F: Field> UserPublicValuesProof<CHUNK, F> {
     /// Computes the proof of the public values from the final memory state and the Merkle top
     /// sub-tree of address space roots. This function will re-compute the empty merkle roots of
     /// each height `0..=address_height` internally.
@@ -60,7 +66,7 @@ impl<const CHUNK: usize, F: PrimeField32> UserPublicValuesProof<CHUNK, F> {
     ) -> Self {
         let public_values = extract_public_values(num_public_values, final_memory)
             .iter()
-            .map(|&x| F::from_canonical_u8(x))
+            .map(|&x| F::from_u8(x))
             .collect_vec();
         let public_values_commit = hasher.merkle_root(&public_values);
         let proof = compute_merkle_proof_to_user_public_values_root(
@@ -122,9 +128,32 @@ impl<const CHUNK: usize, F: PrimeField32> UserPublicValuesProof<CHUNK, F> {
 
         Ok(())
     }
+
+    pub fn encode<SC: EncodableConfig<F = F, Digest = [F; CHUNK]>, W: Write>(
+        &self,
+        writer: &mut W,
+    ) -> io::Result<()> {
+        SC::encode_digest_slice(&self.proof, writer)?;
+        SC::encode_base_field_slice(&self.public_values, writer)?;
+        SC::encode_digest(&self.public_values_commit, writer)?;
+        Ok(())
+    }
+
+    pub fn decode<SC: DecodableConfig<F = F, Digest = [F; CHUNK]>, R: io::Read>(
+        reader: &mut R,
+    ) -> io::Result<Self> {
+        let proof = SC::decode_digest_vec(reader)?;
+        let public_values = SC::decode_base_field_vec(reader)?;
+        let public_values_commit = SC::decode_digest(reader)?;
+        Ok(Self {
+            proof,
+            public_values,
+            public_values_commit,
+        })
+    }
 }
 
-fn compute_merkle_proof_to_user_public_values_root<const CHUNK: usize, F: PrimeField32>(
+fn compute_merkle_proof_to_user_public_values_root<const CHUNK: usize, F: Field>(
     memory_dimensions: MemoryDimensions,
     num_public_values: usize,
     hasher: &(impl Hasher<CHUNK, F> + Sync),
@@ -198,7 +227,7 @@ pub fn extract_public_values(num_public_values: usize, final_memory: &MemoryImag
 
 #[cfg(test)]
 mod tests {
-    use openvm_stark_backend::p3_field::FieldAlgebra;
+    use openvm_stark_backend::p3_field::PrimeCharacteristicRing;
     use openvm_stark_sdk::p3_baby_bear::BabyBear;
 
     use super::UserPublicValuesProof;
@@ -214,7 +243,7 @@ mod tests {
     type F = BabyBear;
     #[test]
     fn test_public_value_happy_path() {
-        let mut vm_config = SystemConfig::default().without_continuations();
+        let mut vm_config = SystemConfig::default();
         let addr_space_height = 4;
         vm_config.memory_config.addr_space_height = addr_space_height;
         vm_config.memory_config.pointer_max_bits = 5;

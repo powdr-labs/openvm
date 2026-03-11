@@ -12,7 +12,7 @@ use openvm_instructions::{instruction::Instruction, LocalOpcode};
 use openvm_rv32im_transpiler::Rv32LoadStoreOpcode::{self, *};
 use openvm_stark_backend::{
     p3_air::BaseAir,
-    p3_field::FieldAlgebra,
+    p3_field::PrimeCharacteristicRing,
     p3_matrix::{
         dense::{DenseMatrix, RowMajorMatrix},
         Matrix,
@@ -40,7 +40,6 @@ use crate::{
         RV32_REGISTER_NUM_LIMBS,
     },
     load_sign_extend::LoadSignExtendCoreCols,
-    test_utils::get_verification_error,
     LoadSignExtendFiller, Rv32LoadSignExtendAir, Rv32LoadSignExtendChip,
     Rv32LoadSignExtendExecutor,
 };
@@ -109,8 +108,8 @@ fn set_and_execute<RA: Arena, E: PreflightExecutor<F, RA>>(
     imm: Option<u32>,
     imm_sign: Option<u32>,
 ) {
-    let imm = imm.unwrap_or(rng.gen_range(0..(1 << IMM_BITS)));
-    let imm_sign = imm_sign.unwrap_or(rng.gen_range(0..2));
+    let imm = imm.unwrap_or(rng.random_range(0..(1 << IMM_BITS)));
+    let imm_sign = imm_sign.unwrap_or(rng.random_range(0..2));
     let imm_ext = imm + imm_sign * (0xffff0000);
 
     let alignment = match opcode {
@@ -119,28 +118,28 @@ fn set_and_execute<RA: Arena, E: PreflightExecutor<F, RA>>(
         _ => unreachable!(),
     };
 
-    let ptr_val: u32 = rng.gen_range(0..(1 << (tester.address_bits() - alignment))) << alignment;
+    let ptr_val: u32 = rng.random_range(0..(1 << (tester.address_bits() - alignment))) << alignment;
     let rs1 = rs1.unwrap_or(ptr_val.wrapping_sub(imm_ext).to_le_bytes());
     let ptr_val = imm_ext.wrapping_add(u32::from_le_bytes(rs1));
     let a = gen_pointer(rng, 4);
     let b = gen_pointer(rng, 4);
 
     let shift_amount = ptr_val % 4;
-    tester.write(1, b, rs1.map(F::from_canonical_u8));
+    tester.write(1, b, rs1.map(F::from_u8));
 
     let some_prev_data: [F; RV32_REGISTER_NUM_LIMBS] = if a != 0 {
-        array::from_fn(|_| F::from_canonical_u8(rng.gen()))
+        array::from_fn(|_| F::from_u8(rng.random()))
     } else {
         [F::ZERO; RV32_REGISTER_NUM_LIMBS]
     };
     let read_data: [u8; RV32_REGISTER_NUM_LIMBS] =
-        read_data.unwrap_or(array::from_fn(|_| rng.gen()));
+        read_data.unwrap_or(array::from_fn(|_| rng.random()));
 
     tester.write(1, a, some_prev_data);
     tester.write(
         2,
         (ptr_val - shift_amount) as usize,
-        read_data.map(F::from_canonical_u8),
+        read_data.map(F::from_u8),
     );
 
     tester.execute(
@@ -162,7 +161,7 @@ fn set_and_execute<RA: Arena, E: PreflightExecutor<F, RA>>(
 
     let write_data = run_write_data_sign_extend(opcode, read_data, shift_amount as usize);
     if a != 0 {
-        assert_eq!(write_data.map(F::from_canonical_u8), tester.read::<4>(1, a));
+        assert_eq!(write_data.map(F::from_u8), tester.read::<4>(1, a));
     } else {
         assert_eq!([F::ZERO; 4], tester.read::<4>(1, a));
     }
@@ -213,7 +212,6 @@ struct LoadSignExtPrankValues {
     opcode_flags: Option<[bool; 3]>,
 }
 
-#[allow(clippy::too_many_arguments)]
 fn run_negative_load_sign_extend_test(
     opcode: Rv32LoadStoreOpcode,
     read_data: Option<[u8; RV32_REGISTER_NUM_LIMBS]>,
@@ -221,7 +219,6 @@ fn run_negative_load_sign_extend_test(
     imm: Option<u32>,
     imm_sign: Option<u32>,
     prank_vals: LoadSignExtPrankValues,
-    interaction_error: bool,
 ) {
     let mut rng = create_seeded_rng();
     let mut tester = VmChipTestBuilder::default();
@@ -241,19 +238,19 @@ fn run_negative_load_sign_extend_test(
 
     let adapter_width = BaseAir::<F>::width(&harness.air.adapter);
     let modify_trace = |trace: &mut DenseMatrix<BabyBear>| {
-        let mut trace_row = trace.row_slice(0).to_vec();
+        let mut trace_row = trace.row_slice(0).expect("row exists").to_vec();
         let (_, core_row) = trace_row.split_at_mut(adapter_width);
 
         let core_cols: &mut LoadSignExtendCoreCols<F, RV32_REGISTER_NUM_LIMBS> =
             core_row.borrow_mut();
         if let Some(shifted_read_data) = read_data {
-            core_cols.shifted_read_data = shifted_read_data.map(F::from_canonical_u8);
+            core_cols.shifted_read_data = shifted_read_data.map(F::from_u8);
         }
         if let Some(data_most_sig_bit) = prank_vals.data_most_sig_bit {
-            core_cols.data_most_sig_bit = F::from_canonical_u32(data_most_sig_bit);
+            core_cols.data_most_sig_bit = F::from_u32(data_most_sig_bit);
         }
         if let Some(shift_most_sig_bit) = prank_vals.shift_most_sig_bit {
-            core_cols.shift_most_sig_bit = F::from_canonical_u32(shift_most_sig_bit);
+            core_cols.shift_most_sig_bit = F::from_u32(shift_most_sig_bit);
         }
         if let Some(opcode_flags) = prank_vals.opcode_flags {
             core_cols.opcode_loadb_flag0 = F::from_bool(opcode_flags[0]);
@@ -269,7 +266,9 @@ fn run_negative_load_sign_extend_test(
         .build()
         .load_and_prank_trace(harness, modify_trace)
         .finalize();
-    tester.simple_test_with_expected_error(get_verification_error(interaction_error));
+    tester
+        .simple_test()
+        .expect_err("Expected verification to fail, but it passed");
 }
 
 #[test]
@@ -284,7 +283,6 @@ fn loadstore_negative_tests() {
             data_most_sig_bit: Some(0),
             ..Default::default()
         },
-        true,
     );
 
     run_negative_load_sign_extend_test(
@@ -297,7 +295,6 @@ fn loadstore_negative_tests() {
             shift_most_sig_bit: Some(0),
             ..Default::default()
         },
-        true,
     );
 
     run_negative_load_sign_extend_test(
@@ -310,7 +307,6 @@ fn loadstore_negative_tests() {
             opcode_flags: Some([true, false, false]),
             ..Default::default()
         },
-        true,
     );
 }
 

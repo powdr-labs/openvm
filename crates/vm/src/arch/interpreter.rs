@@ -153,11 +153,17 @@ where
             .map(
                 |(i, (inst_opt, pre_compute))| -> Result<Handler<F, Ctx>, StaticProgramError> {
                     if let Some((inst, _)) = inst_opt {
-                        // Recover the pc_index using the base_index offset. This is guaranteed not to underflow because the first `base_index` entries are `None`, so we would not be in this branch.
+                        // Recover the pc_index using the base_index offset. This is guaranteed not
+                        // to underflow because the first `base_index` entries are `None`, so we
+                        // would not be in this branch.
                         let pc_idx = i - base_index;
 
                         // If an apc exists at this pc index, override the instruction
-                        let inst = program.apc_by_pc_index.get(&pc_idx).map(|(inst, _)| inst).unwrap_or(inst);
+                        let inst = program
+                            .apc_by_pc_index
+                            .get(&pc_idx)
+                            .map(|(inst, _)| inst)
+                            .unwrap_or(inst);
 
                         let pc = program.pc_base + pc_idx as u32 * DEFAULT_PC_STEP;
                         if get_system_opcode_handler::<F, Ctx>(inst, pre_compute).is_some() {
@@ -279,12 +285,17 @@ where
             .map(
                 |(i, (inst_opt, pre_compute))| -> Result<Handler<F, Ctx>, StaticProgramError> {
                     if let Some((inst, _)) = inst_opt {
-
-                        // Recover the pc_index using the base_index offset. This is guaranteed not to underflow because the first `base_index` entries are `None`, so we would not be in this branch.
+                        // Recover the pc_index using the base_index offset. This is guaranteed not
+                        // to underflow because the first `base_index` entries are `None`, so we
+                        // would not be in this branch.
                         let pc_idx = i - base_index;
 
                         // If an apc exists at this pc index, override the instruction
-                        let inst = program.apc_by_pc_index.get(&pc_idx).map(|(inst, _)| inst).unwrap_or(inst);
+                        let inst = program
+                            .apc_by_pc_index
+                            .get(&pc_idx)
+                            .map(|(inst, _)| inst)
+                            .unwrap_or(inst);
 
                         let pc = program.pc_base + pc_idx as u32 * DEFAULT_PC_STEP;
                         if get_system_opcode_handler::<F, Ctx>(inst, pre_compute).is_some() {
@@ -684,10 +695,10 @@ pub fn get_pre_compute_max_size<F, E: Executor<F>>(
             }
         })
         .chain(program.apc_by_pc_index.values().map(|(inst, _)| {
-                inventory
-                    .get_executor(inst.opcode)
-                    .map(|executor| executor.pre_compute_size())
-                    .unwrap()
+            inventory
+                .get_executor(inst.opcode)
+                .map(|executor| executor.pre_compute_size())
+                .unwrap()
         }))
         .max()
         .unwrap()
@@ -716,10 +727,10 @@ pub fn get_metered_pre_compute_max_size<F, E: MeteredExecutor<F>>(
             }
         })
         .chain(program.apc_by_pc_index.values().map(|(inst, _)| {
-                inventory
-                    .get_executor(inst.opcode)
-                    .map(|executor| executor.metered_pre_compute_size())
-                    .unwrap()
+            inventory
+                .get_executor(inst.opcode)
+                .map(|executor| executor.metered_pre_compute_size())
+                .unwrap()
         }))
         .max()
         .unwrap()
@@ -761,10 +772,16 @@ where
             // `PreComputeInstruction`s.
             let buf: &mut [u8] = unsafe { &mut *(*buf as *mut [u8]) };
             let pre_inst = if let Some((inst, _)) = inst_opt {
-                // Recover the pc_index using the base_index offset. This is guaranteed not to underflow because the first `base_index` entries are `None`, so we would not be in this branch.
+                // Recover the pc_index using the base_index offset. This is guaranteed not to
+                // underflow because the first `base_index` entries are `None`, so we would not be
+                // in this branch.
                 let pc_index = i - base_index;
                 // If an apc exists at this pc index, override the instruction
-                let inst = program.apc_by_pc_index.get(&pc_index).map(|(inst, _)| inst).unwrap_or(inst);
+                let inst = program
+                    .apc_by_pc_index
+                    .get(&pc_index)
+                    .map(|(inst, _)| inst)
+                    .unwrap_or(inst);
                 tracing::trace!("get_pre_compute_instruction {inst:?}");
                 let pc = i as u32 * DEFAULT_PC_STEP;
                 if let Some(handler) = get_system_opcode_handler(inst, buf) {
@@ -824,10 +841,16 @@ where
             // `PreComputeInstruction`s.
             let buf: &mut [u8] = unsafe { &mut *(*buf as *mut [u8]) };
             let pre_inst = if let Some((inst, _)) = inst_opt {
-                // Recover the pc_index using the base_index offset. This is guaranteed not to underflow because the first `base_index` entries are `None`, so we would not be in this branch.
+                // Recover the pc_index using the base_index offset. This is guaranteed not to
+                // underflow because the first `base_index` entries are `None`, so we would not be
+                // in this branch.
                 let pc_index = i - base_index;
                 // If an apc exists at this pc index, override the instruction
-                let inst = program.apc_by_pc_index.get(&pc_index).map(|(inst, _)| inst).unwrap_or(inst);
+                let inst = program
+                    .apc_by_pc_index
+                    .get(&pc_index)
+                    .map(|(inst, _)| inst)
+                    .unwrap_or(inst);
                 tracing::trace!("get_metered_pre_compute_instruction {inst:?}");
                 let pc = program.pc_base + i as u32 * DEFAULT_PC_STEP;
                 if let Some(handler) = get_system_opcode_handler(inst, buf) {
@@ -888,7 +911,9 @@ fn check_exit_code(exit_code: Result<Option<u32>, ExecutionError>) -> Result<(),
 }
 
 /// Same as [check_exit_code] but errors if program did not terminate.
-fn check_termination(exit_code: Result<Option<u32>, ExecutionError>) -> Result<(), ExecutionError> {
+pub(super) fn check_termination(
+    exit_code: Result<Option<u32>, ExecutionError>,
+) -> Result<(), ExecutionError> {
     let did_terminate = matches!(exit_code.as_ref(), Ok(Some(_)));
     check_exit_code(exit_code)?;
     match did_terminate {

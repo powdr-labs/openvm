@@ -33,13 +33,12 @@ use openvm_rv32im_circuit::{
 use openvm_rv32im_transpiler::{
     Rv32ITranspilerExtension, Rv32IoTranspilerExtension, Rv32MTranspilerExtension,
 };
-use openvm_sha256_circuit::{Sha256, Sha256Executor, Sha2CpuProverExt};
-use openvm_sha256_transpiler::Sha256TranspilerExtension;
+use openvm_sha2_circuit::{Sha2, Sha2CpuProverExt, Sha2Executor};
+use openvm_sha2_transpiler::Sha2TranspilerExtension;
 use openvm_stark_backend::{
-    config::{StarkGenericConfig, Val},
-    engine::StarkEngine,
-    p3_field::{Field, PrimeField32},
-    prover::cpu::{CpuBackend, CpuDevice},
+    p3_field::Field,
+    prover::{CpuBackend, CpuDevice},
+    StarkEngine, StarkProtocolConfig, Val,
 };
 use openvm_transpiler::transpiler::Transpiler;
 use serde::{Deserialize, Serialize};
@@ -55,7 +54,7 @@ cfg_if::cfg_if! {
         use openvm_keccak256_circuit::Keccak256GpuProverExt;
         use openvm_native_circuit::NativeGpuProverExt;
         use openvm_rv32im_circuit::Rv32ImGpuProverExt;
-        use openvm_sha256_circuit::Sha256GpuProverExt;
+        use openvm_sha2_circuit::Sha2GpuProverExt;
         pub use SdkVmGpuBuilder as SdkVmBuilder;
     } else {
         pub use SdkVmCpuBuilder as SdkVmBuilder;
@@ -81,7 +80,7 @@ pub struct SdkVmConfig {
     pub rv32i: Option<UnitStruct>,
     pub io: Option<UnitStruct>,
     pub keccak: Option<UnitStruct>,
-    pub sha256: Option<UnitStruct>,
+    pub sha2: Option<UnitStruct>,
     pub native: Option<UnitStruct>,
     pub castf: Option<UnitStruct>,
 
@@ -118,7 +117,7 @@ impl SdkVmConfig {
             .rv32m(Default::default())
             .io(Default::default())
             .keccak(Default::default())
-            .sha256(Default::default())
+            .sha2(Default::default())
             .bigint(Default::default())
             .modular(ModularExtension::new(vec![
                 bn_config.modulus.clone(),
@@ -199,8 +198,8 @@ impl TranspilerConfig<F> for SdkVmConfig {
         if self.keccak.is_some() {
             transpiler = transpiler.with_extension(Keccak256TranspilerExtension);
         }
-        if self.sha256.is_some() {
-            transpiler = transpiler.with_extension(Sha256TranspilerExtension);
+        if self.sha2.is_some() {
+            transpiler = transpiler.with_extension(Sha2TranspilerExtension);
         }
         if self.native.is_some() {
             transpiler = transpiler.with_extension(LongFormTranspilerExtension);
@@ -269,7 +268,7 @@ impl SdkVmConfig {
         let rv32i = config.rv32i.map(|_| Rv32I);
         let io = config.io.map(|_| Rv32Io);
         let keccak = config.keccak.map(|_| Keccak256);
-        let sha256 = config.sha256.map(|_| Sha256);
+        let sha2 = config.sha2.map(|_| Sha2);
         let native = config.native.map(|_| Native);
         let castf = config.castf.map(|_| CastFExtension);
         let rv32m = config.rv32m;
@@ -284,7 +283,7 @@ impl SdkVmConfig {
             rv32i,
             io,
             keccak,
-            sha256,
+            sha2,
             native,
             castf,
             rv32m,
@@ -315,8 +314,8 @@ pub struct SdkVmConfigInner {
     pub io: Option<Rv32Io>,
     #[extension(executor = "Keccak256Executor")]
     pub keccak: Option<Keccak256>,
-    #[extension(executor = "Sha256Executor")]
-    pub sha256: Option<Sha256>,
+    #[extension(executor = "Sha2Executor")]
+    pub sha2: Option<Sha2>,
     #[extension(executor = "NativeExecutor<F>")]
     pub native: Option<Native>,
     #[extension(executor = "CastFExtensionExecutor")]
@@ -352,7 +351,7 @@ where
     }
 }
 
-impl<SC: StarkGenericConfig> VmCircuitConfig<SC> for SdkVmConfig
+impl<SC: StarkProtocolConfig> VmCircuitConfig<SC> for SdkVmConfig
 where
     SdkVmConfigInner: VmCircuitConfig<SC>,
 {
@@ -363,9 +362,9 @@ where
 
 impl<E, SC> VmBuilder<E> for SdkVmCpuBuilder
 where
-    SC: StarkGenericConfig,
+    SC: StarkProtocolConfig,
     E: StarkEngine<SC = SC, PB = CpuBackend<SC>, PD = CpuDevice<SC>>,
-    Val<SC>: PrimeField32,
+    Val<SC>: VmField,
 {
     type VmConfig = SdkVmConfig;
     type SystemChipInventory = SystemChipInventory<SC>;
@@ -392,8 +391,8 @@ where
         if let Some(keccak) = &config.keccak {
             VmProverExtension::<E, _, _>::extend_prover(&Keccak256CpuProverExt, keccak, inventory)?;
         }
-        if let Some(sha256) = &config.sha256 {
-            VmProverExtension::<E, _, _>::extend_prover(&Sha2CpuProverExt, sha256, inventory)?;
+        if let Some(sha2) = &config.sha2 {
+            VmProverExtension::<E, _, _>::extend_prover(&Sha2CpuProverExt, sha2, inventory)?;
         }
         if let Some(native) = &config.native {
             VmProverExtension::<E, _, _>::extend_prover(&NativeCpuProverExt, native, inventory)?;
@@ -456,8 +455,8 @@ impl VmBuilder<GpuBabyBearPoseidon2Engine> for SdkVmGpuBuilder {
         if let Some(keccak) = &config.keccak {
             VmProverExtension::<E, _, _>::extend_prover(&Keccak256GpuProverExt, keccak, inventory)?;
         }
-        if let Some(sha256) = &config.sha256 {
-            VmProverExtension::<E, _, _>::extend_prover(&Sha256GpuProverExt, sha256, inventory)?;
+        if let Some(sha2) = &config.sha2 {
+            VmProverExtension::<E, _, _>::extend_prover(&Sha2GpuProverExt, sha2, inventory)?;
         }
         if let Some(native) = &config.native {
             VmProverExtension::<E, _, _>::extend_prover(&NativeGpuProverExt, native, inventory)?;
@@ -566,8 +565,8 @@ impl From<Keccak256> for UnitStruct {
     }
 }
 
-impl From<Sha256> for UnitStruct {
-    fn from(_: Sha256) -> Self {
+impl From<Sha2> for UnitStruct {
+    fn from(_: Sha2) -> Self {
         UnitStruct {}
     }
 }
@@ -592,7 +591,7 @@ struct SdkVmConfigWithDefaultDeser {
     pub rv32i: Option<UnitStruct>,
     pub io: Option<UnitStruct>,
     pub keccak: Option<UnitStruct>,
-    pub sha256: Option<UnitStruct>,
+    pub sha2: Option<UnitStruct>,
     pub native: Option<UnitStruct>,
     pub castf: Option<UnitStruct>,
 
@@ -611,7 +610,7 @@ impl From<SdkVmConfigWithDefaultDeser> for SdkVmConfig {
             rv32i: config.rv32i,
             io: config.io,
             keccak: config.keccak,
-            sha256: config.sha256,
+            sha2: config.sha2,
             native: config.native,
             castf: config.castf,
             rv32m: config.rv32m,

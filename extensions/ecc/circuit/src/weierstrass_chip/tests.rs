@@ -7,7 +7,7 @@ use openvm_circuit::arch::{
     testing::{
         memory::gen_pointer, TestBuilder, TestChipHarness, VmChipTestBuilder, BITWISE_OP_LOOKUP_BUS,
     },
-    Arena, MatrixRecordArena, PreflightExecutor,
+    Arena, MatrixRecordArena, PreflightExecutor, CONST_BLOCK_SIZE,
 };
 use openvm_circuit_primitives::{
     bigint::utils::{secp256k1_coord_prime, secp256r1_coord_prime},
@@ -26,12 +26,12 @@ use openvm_mod_circuit_builder::{
     test_utils::generate_random_biguint, utils::biguint_to_limbs_vec, ExprBuilderConfig,
 };
 use openvm_pairing_guest::bls12_381::BLS12_381_MODULUS;
-use openvm_stark_backend::p3_field::FieldAlgebra;
+use openvm_stark_backend::p3_field::PrimeCharacteristicRing;
 use openvm_stark_sdk::{p3_baby_bear::BabyBear, utils::create_seeded_rng};
 use rand::{rngs::StdRng, Rng};
 #[cfg(feature = "cuda")]
 use {
-    crate::{EccRecord, WeierstrassAddNeChipGpu},
+    crate::extension::HybridWeierstrassChip,
     openvm_circuit::arch::testing::{
         default_bitwise_lookup_bus, default_var_range_checker_bus, GpuChipTestBuilder,
         GpuTestChipHarness,
@@ -41,7 +41,8 @@ use {
 
 use crate::{
     get_ec_addne_air, get_ec_addne_chip, get_ec_addne_step, get_ec_double_air, get_ec_double_chip,
-    get_ec_double_step, EcDoubleExecutor, WeierstrassAir, WeierstrassChip,
+    get_ec_double_step, EcDoubleExecutor, WeierstrassAir, WeierstrassChip, ECC_BLOCKS_32,
+    ECC_BLOCKS_48, NUM_LIMBS_32, NUM_LIMBS_48,
 };
 
 const LIMB_BITS: usize = 8;
@@ -110,15 +111,6 @@ mod ec_addne_tests {
         WeierstrassChip<F, 2, BLOCKS, BLOCK_SIZE>,
     >;
 
-    #[cfg(feature = "cuda")]
-    type GpuHarness<const BLOCKS: usize, const BLOCK_SIZE: usize> = GpuTestChipHarness<
-        F,
-        EcAddNeExecutor<BLOCKS, BLOCK_SIZE>,
-        WeierstrassAir<2, BLOCKS, BLOCK_SIZE>,
-        WeierstrassAddNeChipGpu<BLOCKS, BLOCK_SIZE>,
-        WeierstrassChip<F, 2, BLOCKS, BLOCK_SIZE>,
-    >;
-
     fn create_harness<const BLOCKS: usize, const BLOCK_SIZE: usize>(
         tester: &VmChipTestBuilder<F>,
         config: ExprBuilderConfig,
@@ -164,6 +156,15 @@ mod ec_addne_tests {
     }
 
     #[cfg(feature = "cuda")]
+    type GpuHarness<const BLOCKS: usize, const BLOCK_SIZE: usize> = GpuTestChipHarness<
+        F,
+        EcAddNeExecutor<BLOCKS, BLOCK_SIZE>,
+        WeierstrassAir<2, BLOCKS, BLOCK_SIZE>,
+        HybridWeierstrassChip<F, 2, BLOCKS, BLOCK_SIZE>,
+        WeierstrassChip<F, 2, BLOCKS, BLOCK_SIZE>,
+    >;
+
+    #[cfg(feature = "cuda")]
     fn create_cuda_harness<const BLOCKS: usize, const BLOCK_SIZE: usize>(
         tester: &GpuChipTestBuilder,
         config: ExprBuilderConfig,
@@ -200,16 +201,16 @@ mod ec_addne_tests {
             dummy_bitwise_chip,
             tester.address_bits(),
         );
-        let gpu_chip = WeierstrassAddNeChipGpu::new(
-            tester.range_checker(),
-            tester.bitwise_op_lookup(),
-            config,
-            offset,
-            tester.address_bits() as u32,
-            tester.timestamp_max_bits() as u32,
-        );
 
-        GpuTestChipHarness::with_capacity(executor, air, gpu_chip, cpu_chip, MAX_INS_CAPACITY)
+        let hybrid_chip = HybridWeierstrassChip::new(get_ec_addne_chip(
+            config,
+            tester.cpu_memory_helper(),
+            tester.cpu_range_checker(),
+            tester.cpu_bitwise_op_lookup(),
+            tester.address_bits(),
+        ));
+
+        GpuTestChipHarness::with_capacity(executor, air, hybrid_chip, cpu_chip, MAX_INS_CAPACITY)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -245,7 +246,7 @@ mod ec_addne_tests {
             let y1 = y1 % modulus;
             let x2 = x2 % modulus;
             let y2 = y2 % modulus;
-            if rng.gen_bool(0.5) {
+            if rng.random_bool(0.5) {
                 (x1, y1, x2, y2, Rv32WeierstrassOpcode::EC_ADD_NE as usize)
             } else {
                 (x2, y2, x1, y1, Rv32WeierstrassOpcode::EC_ADD_NE as usize)
@@ -268,34 +269,34 @@ mod ec_addne_tests {
         tester.write::<RV32_REGISTER_NUM_LIMBS>(
             ptr_as,
             rs1_ptr,
-            p1_base_addr.to_le_bytes().map(F::from_canonical_u8),
+            p1_base_addr.to_le_bytes().map(F::from_u8),
         );
         tester.write::<RV32_REGISTER_NUM_LIMBS>(
             ptr_as,
             rs2_ptr,
-            p2_base_addr.to_le_bytes().map(F::from_canonical_u8),
+            p2_base_addr.to_le_bytes().map(F::from_u8),
         );
         tester.write::<RV32_REGISTER_NUM_LIMBS>(
             ptr_as,
             rd_ptr,
-            result_base_addr.to_le_bytes().map(F::from_canonical_u8),
+            result_base_addr.to_le_bytes().map(F::from_u8),
         );
 
         let x1_limbs: Vec<F> = biguint_to_limbs_vec(&x1, NUM_LIMBS)
             .into_iter()
-            .map(F::from_canonical_u8)
+            .map(F::from_u8)
             .collect();
         let x2_limbs: Vec<F> = biguint_to_limbs_vec(&x2, NUM_LIMBS)
             .into_iter()
-            .map(F::from_canonical_u8)
+            .map(F::from_u8)
             .collect();
         let y1_limbs: Vec<F> = biguint_to_limbs_vec(&y1, NUM_LIMBS)
             .into_iter()
-            .map(F::from_canonical_u8)
+            .map(F::from_u8)
             .collect();
         let y2_limbs: Vec<F> = biguint_to_limbs_vec(&y2, NUM_LIMBS)
             .into_iter()
-            .map(F::from_canonical_u8)
+            .map(F::from_u8)
             .collect();
 
         for i in (0..NUM_LIMBS).step_by(BLOCK_SIZE) {
@@ -396,16 +397,16 @@ mod ec_addne_tests {
     }
 
     #[test]
-    fn test_ec_addne_2x32() {
-        run_ec_addne_test::<2, 32, 32>(
+    fn test_ec_addne_32limb() {
+        run_ec_addne_test::<{ ECC_BLOCKS_32 }, { CONST_BLOCK_SIZE }, { NUM_LIMBS_32 }>(
             Rv32WeierstrassOpcode::CLASS_OFFSET,
             secp256k1_coord_prime(),
         );
     }
 
     #[test]
-    fn test_ec_addne_6x16() {
-        run_ec_addne_test::<6, 16, 48>(
+    fn test_ec_addne_48limb() {
+        run_ec_addne_test::<{ ECC_BLOCKS_48 }, { CONST_BLOCK_SIZE }, { NUM_LIMBS_48 }>(
             Rv32WeierstrassOpcode::CLASS_OFFSET,
             BLS12_381_MODULUS.clone(),
         );
@@ -416,6 +417,8 @@ mod ec_addne_tests {
         offset: usize,
         modulus: BigUint,
     ) {
+        use crate::EccRecord;
+
         let mut rng = create_seeded_rng();
 
         let mut tester =
@@ -484,7 +487,7 @@ mod ec_addne_tests {
     #[cfg(feature = "cuda")]
     #[test]
     fn test_weierstrass_addne_cuda_2x32() {
-        run_cuda_ec_addne::<2, 32, 32>(
+        run_cuda_ec_addne::<ECC_BLOCKS_32, CONST_BLOCK_SIZE, NUM_LIMBS_32>(
             Rv32WeierstrassOpcode::CLASS_OFFSET,
             secp256k1_coord_prime(),
         );
@@ -493,7 +496,7 @@ mod ec_addne_tests {
     #[cfg(feature = "cuda")]
     #[test]
     fn test_weierstrass_addne_cuda_6x16() {
-        run_cuda_ec_addne::<6, 16, 48>(
+        run_cuda_ec_addne::<ECC_BLOCKS_48, CONST_BLOCK_SIZE, NUM_LIMBS_48>(
             Rv32WeierstrassOpcode::CLASS_OFFSET,
             BLS12_381_MODULUS.clone(),
         );
@@ -509,11 +512,11 @@ mod ec_addne_tests {
         let tester: VmChipTestBuilder<F> = VmChipTestBuilder::default();
         let config = ExprBuilderConfig {
             modulus: secp256k1_coord_prime(),
-            num_limbs: 32,
+            num_limbs: NUM_LIMBS_32,
             limb_bits: LIMB_BITS,
         };
 
-        let executor = get_ec_addne_step::<2, 32>(
+        let executor = get_ec_addne_step::<{ ECC_BLOCKS_32 }, { CONST_BLOCK_SIZE }>(
             config,
             tester.range_checker().bus(),
             tester.address_bits(),
@@ -523,9 +526,7 @@ mod ec_addne_tests {
         let (p1_x, p1_y) = SampleEcPoints[0].clone();
         let (p2_x, p2_y) = SampleEcPoints[1].clone();
         assert_eq!(executor.expr.builder.num_variables, 3); // lambda, x3, y3
-        let r = executor
-            .expr
-            .execute(vec![p1_x, p1_y, p2_x, p2_y], vec![true]);
+        let r = executor.expr.execute(&[p1_x, p1_y, p2_x, p2_y], &[true]);
 
         assert_eq!(r.len(), 3); // lambda, x3, y3
         assert_eq!(r[1], SampleEcPoints[2].0);
@@ -534,9 +535,7 @@ mod ec_addne_tests {
         let (p1_x, p1_y) = SampleEcPoints[2].clone();
         let (p2_x, p2_y) = SampleEcPoints[3].clone();
         assert_eq!(executor.expr.builder.num_variables, 3); // lambda, x3, y3
-        let r = executor
-            .expr
-            .execute(vec![p1_x, p1_y, p2_x, p2_y], vec![true]);
+        let r = executor.expr.execute(&[p1_x, p1_y, p2_x, p2_y], &[true]);
 
         assert_eq!(r.len(), 3); // lambda, x3, y3
         assert_eq!(r[1], SampleEcPoints[4].0);
@@ -553,18 +552,6 @@ mod ec_double_tests {
         WeierstrassAir<1, BLOCKS, BLOCK_SIZE>,
         WeierstrassChip<F, 1, BLOCKS, BLOCK_SIZE>,
         MatrixRecordArena<F>,
-    >;
-
-    #[cfg(feature = "cuda")]
-    use crate::WeierstrassDoubleChipGpu;
-
-    #[cfg(feature = "cuda")]
-    type GpuHarness<const BLOCKS: usize, const BLOCK_SIZE: usize> = GpuTestChipHarness<
-        F,
-        EcDoubleExecutor<BLOCKS, BLOCK_SIZE>,
-        WeierstrassAir<1, BLOCKS, BLOCK_SIZE>,
-        WeierstrassDoubleChipGpu<BLOCKS, BLOCK_SIZE>,
-        WeierstrassChip<F, 1, BLOCKS, BLOCK_SIZE>,
     >;
 
     fn create_harness<const BLOCKS: usize, const BLOCK_SIZE: usize>(
@@ -614,6 +601,15 @@ mod ec_double_tests {
     }
 
     #[cfg(feature = "cuda")]
+    type GpuHarness<const BLOCKS: usize, const BLOCK_SIZE: usize> = GpuTestChipHarness<
+        F,
+        EcDoubleExecutor<BLOCKS, BLOCK_SIZE>,
+        WeierstrassAir<1, BLOCKS, BLOCK_SIZE>,
+        HybridWeierstrassChip<F, 1, BLOCKS, BLOCK_SIZE>,
+        WeierstrassChip<F, 1, BLOCKS, BLOCK_SIZE>,
+    >;
+
+    #[cfg(feature = "cuda")]
     fn create_cuda_harness<const BLOCKS: usize, const BLOCK_SIZE: usize>(
         tester: &GpuChipTestBuilder,
         config: ExprBuilderConfig,
@@ -655,17 +651,16 @@ mod ec_double_tests {
             tester.address_bits(),
             a_biguint.clone(),
         );
-        let gpu_chip = WeierstrassDoubleChipGpu::new(
-            tester.range_checker(),
-            tester.bitwise_op_lookup(),
+        let hybrid_chip = HybridWeierstrassChip::new(get_ec_double_chip(
             config,
-            offset,
+            tester.cpu_memory_helper(),
+            tester.cpu_range_checker(),
+            tester.cpu_bitwise_op_lookup(),
+            tester.address_bits(),
             a_biguint,
-            tester.address_bits() as u32,
-            tester.timestamp_max_bits() as u32,
-        );
+        ));
 
-        GpuTestChipHarness::with_capacity(executor, air, gpu_chip, cpu_chip, MAX_INS_CAPACITY)
+        GpuTestChipHarness::with_capacity(executor, air, hybrid_chip, cpu_chip, MAX_INS_CAPACITY)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -718,21 +713,21 @@ mod ec_double_tests {
         tester.write::<RV32_REGISTER_NUM_LIMBS>(
             ptr_as,
             rs1_ptr,
-            p1_base_addr.to_le_bytes().map(F::from_canonical_u8),
+            p1_base_addr.to_le_bytes().map(F::from_u8),
         );
         tester.write::<RV32_REGISTER_NUM_LIMBS>(
             ptr_as,
             rd_ptr,
-            result_base_addr.to_le_bytes().map(F::from_canonical_u8),
+            result_base_addr.to_le_bytes().map(F::from_u8),
         );
 
         let x1_limbs: Vec<F> = biguint_to_limbs_vec(&x1, NUM_LIMBS)
             .into_iter()
-            .map(F::from_canonical_u8)
+            .map(F::from_u8)
             .collect();
         let y1_limbs: Vec<F> = biguint_to_limbs_vec(&y1, NUM_LIMBS)
             .into_iter()
-            .map(F::from_canonical_u8)
+            .map(F::from_u8)
             .collect();
 
         for i in (0..NUM_LIMBS).step_by(BLOCK_SIZE) {
@@ -854,8 +849,8 @@ mod ec_double_tests {
     }
 
     #[test]
-    fn test_ec_double_2x32() {
-        run_ec_double_test::<2, 32, 32>(
+    fn test_ec_double_32limb() {
+        run_ec_double_test::<{ ECC_BLOCKS_32 }, { CONST_BLOCK_SIZE }, { NUM_LIMBS_32 }>(
             Rv32WeierstrassOpcode::CLASS_OFFSET,
             secp256k1_coord_prime(),
             50,
@@ -864,11 +859,11 @@ mod ec_double_tests {
     }
 
     #[test]
-    fn test_ec_double_2x32_nonzero_a_1() {
+    fn test_ec_double_32limb_nonzero_a() {
         let coeff_a = (-secp256r1::Fp::from(3)).to_bytes();
         let a = BigUint::from_bytes_le(&coeff_a);
 
-        run_ec_double_test::<2, 32, 32>(
+        run_ec_double_test::<{ ECC_BLOCKS_32 }, { CONST_BLOCK_SIZE }, { NUM_LIMBS_32 }>(
             Rv32WeierstrassOpcode::CLASS_OFFSET,
             secp256r1_coord_prime(),
             50,
@@ -877,8 +872,8 @@ mod ec_double_tests {
     }
 
     #[test]
-    fn test_ec_double_6x16() {
-        run_ec_double_test::<6, 16, 48>(
+    fn test_ec_double_48limb() {
+        run_ec_double_test::<{ ECC_BLOCKS_48 }, { CONST_BLOCK_SIZE }, { NUM_LIMBS_48 }>(
             Rv32WeierstrassOpcode::CLASS_OFFSET,
             BLS12_381_MODULUS.clone(),
             50,
@@ -897,6 +892,8 @@ mod ec_double_tests {
         num_ops: usize,
         a: BigUint,
     ) {
+        use crate::EccRecord;
+
         let mut rng = create_seeded_rng();
 
         let mut tester =
@@ -911,6 +908,7 @@ mod ec_double_tests {
         let mut harness =
             create_cuda_harness::<BLOCKS, BLOCK_SIZE>(&tester, config, offset, a.clone());
 
+        // Run some operations
         for i in 0..num_ops {
             set_and_execute_ec_double::<BLOCKS, BLOCK_SIZE, NUM_LIMBS, _>(
                 &mut tester,
@@ -996,7 +994,7 @@ mod ec_double_tests {
     #[cfg(feature = "cuda")]
     #[test]
     fn test_ec_double_cuda_2x32() {
-        run_ec_double_cuda_test::<2, 32, 32>(
+        run_ec_double_cuda_test::<ECC_BLOCKS_32, CONST_BLOCK_SIZE, NUM_LIMBS_32>(
             Rv32WeierstrassOpcode::CLASS_OFFSET,
             secp256k1_coord_prime(),
             50,
@@ -1010,7 +1008,7 @@ mod ec_double_tests {
         let coeff_a = (-secp256r1::Fp::from(3)).to_bytes();
         let a = BigUint::from_bytes_le(&coeff_a);
 
-        run_ec_double_cuda_test::<2, 32, 32>(
+        run_ec_double_cuda_test::<ECC_BLOCKS_32, CONST_BLOCK_SIZE, NUM_LIMBS_32>(
             Rv32WeierstrassOpcode::CLASS_OFFSET,
             secp256r1_coord_prime(),
             50,
@@ -1021,7 +1019,7 @@ mod ec_double_tests {
     #[cfg(feature = "cuda")]
     #[test]
     fn test_ec_double_cuda_6x16() {
-        run_ec_double_cuda_test::<6, 16, 48>(
+        run_ec_double_cuda_test::<ECC_BLOCKS_48, CONST_BLOCK_SIZE, NUM_LIMBS_48>(
             Rv32WeierstrassOpcode::CLASS_OFFSET,
             BLS12_381_MODULUS.clone(),
             50,
@@ -1039,11 +1037,11 @@ mod ec_double_tests {
         let tester: VmChipTestBuilder<F> = VmChipTestBuilder::default();
         let config = ExprBuilderConfig {
             modulus: secp256k1_coord_prime(),
-            num_limbs: 32,
+            num_limbs: NUM_LIMBS_32,
             limb_bits: LIMB_BITS,
         };
 
-        let executor = get_ec_double_step::<2, 32>(
+        let executor = get_ec_double_step::<{ ECC_BLOCKS_32 }, { CONST_BLOCK_SIZE }>(
             config,
             tester.range_checker().bus(),
             tester.address_bits(),
@@ -1055,7 +1053,7 @@ mod ec_double_tests {
 
         assert_eq!(executor.expr.builder.num_variables, 3); // lambda, x3, y3
 
-        let r = executor.expr.execute(vec![p1_x, p1_y], vec![true]);
+        let r = executor.expr.execute(&[p1_x, p1_y], &[true]);
         assert_eq!(r.len(), 3); // lambda, x3, y3
         assert_eq!(r[1], SampleEcPoints[3].0);
         assert_eq!(r[2], SampleEcPoints[3].1);
@@ -1066,7 +1064,7 @@ mod ec_double_tests {
         let tester: VmChipTestBuilder<F> = VmChipTestBuilder::default();
         let config = ExprBuilderConfig {
             modulus: secp256r1_coord_prime(),
-            num_limbs: 32,
+            num_limbs: NUM_LIMBS_32,
             limb_bits: LIMB_BITS,
         };
         let a = BigUint::from_str_radix(
@@ -1075,7 +1073,7 @@ mod ec_double_tests {
         )
         .unwrap();
 
-        let executor = get_ec_double_step::<2, 32>(
+        let executor = get_ec_double_step::<{ ECC_BLOCKS_32 }, { CONST_BLOCK_SIZE }>(
             config.clone(),
             tester.range_checker().bus(),
             tester.address_bits(),
@@ -1097,7 +1095,7 @@ mod ec_double_tests {
 
         assert_eq!(executor.expr.builder.num_variables, 3); // lambda, x3, y3
 
-        let r = executor.expr.execute(vec![p1_x, p1_y], vec![true]);
+        let r = executor.expr.execute(&[p1_x, p1_y], &[true]);
         assert_eq!(r.len(), 3); // lambda, x3, y3
         let expected_double_x = BigUint::from_str_radix(
             "7CF27B188D034F7E8A52380304B51AC3C08969E277F21B35A60B48FC47669978",

@@ -8,7 +8,7 @@ use openvm_circuit::{
         },
         ContinuationVmProof, Executor, MatrixRecordArena, MeteredExecutor,
         PreflightExecutionOutput, PreflightExecutor, SingleSegmentVmProver, SystemConfig,
-        VirtualMachine, VirtualMachineError, VmBuilder, VmExecutionConfig, PUBLIC_VALUES_AIR_ID,
+        VirtualMachine, VirtualMachineError, VmBuilder, VmExecutionConfig,
     },
     system::program::trace::VmCommittedExe,
     utils::next_power_of_two_or_zero,
@@ -24,23 +24,20 @@ use openvm_native_recursion::hints::Hintable;
 use openvm_rv32im_circuit::{Rv32ImConfig, Rv32ImCpuBuilder};
 use openvm_stark_backend::{
     p3_matrix::dense::RowMajorMatrix,
-    prover::{
-        cpu::CpuBackend,
-        types::{AirProvingContext, ProvingContext},
-    },
+    prover::{AirProvingContext, CpuBackend, ProvingContext},
 };
 use openvm_stark_sdk::{
     config::{
         baby_bear_poseidon2::BabyBearPoseidon2Engine,
         baby_bear_poseidon2_root::{BabyBearPoseidon2RootConfig, BabyBearPoseidon2RootEngine},
-        fri_params::standard_fri_params_with_100_bits_conjectured_security,
         FriParameters,
     },
     engine::StarkFriEngine,
-    openvm_stark_backend::{p3_field::FieldAlgebra, proof::Proof},
+    openvm_stark_backend::{p3_field::PrimeCharacteristicRing, proof::Proof},
 };
 
 use crate::{
+    config::DEFAULT_APP_LOG_BLOWUP,
     prover::vm::{new_local_prover, types::VmProvingKey},
     F, SC,
 };
@@ -68,7 +65,6 @@ pub(super) fn compute_root_proof_heights(
     // The following is the same as impl SingleSegmentVmProver for VmLocalProver except we stop
     // after tracegen:
     let mut trace_heights = NATIVE_MAX_TRACE_HEIGHTS.to_vec();
-    trace_heights[PUBLIC_VALUES_AIR_ID] = num_public_values as u32;
     let state = root_vm.create_initial_state(&root_committed_exe.exe, root_input.write());
     let cached_program_trace = root_vm.transport_committed_exe_to_device(root_committed_exe);
     root_vm.load_program(cached_program_trace);
@@ -120,16 +116,15 @@ pub(super) fn dummy_internal_proof_riscv_app_vm(
     internal_exe: Arc<VmCommittedExe<SC>>,
     num_public_values: usize,
 ) -> Result<Proof<SC>, VirtualMachineError> {
-    let fri_params = standard_fri_params_with_100_bits_conjectured_security(1);
-    let leaf_proof = dummy_leaf_proof_riscv_app_vm(leaf_vm_pk, num_public_values, fri_params)?;
+    let leaf_proof = dummy_leaf_proof_riscv_app_vm(leaf_vm_pk, num_public_values)?;
     dummy_internal_proof(internal_vm_pk, internal_exe, leaf_proof)
 }
 
 pub(super) fn dummy_leaf_proof_riscv_app_vm(
     leaf_vm_pk: Arc<VmProvingKey<SC, NativeConfig>>,
     num_public_values: usize,
-    app_fri_params: FriParameters,
 ) -> Result<Proof<SC>, VirtualMachineError> {
+    let app_fri_params = FriParameters::standard_with_100_bits_security(DEFAULT_APP_LOG_BLOWUP);
     let app_vm_pk = Arc::new(dummy_riscv_app_vm_pk(num_public_values, app_fri_params)?);
     let app_proof = dummy_app_proof(Rv32ImCpuBuilder, app_vm_pk.clone())?;
     dummy_leaf_proof(leaf_vm_pk, app_vm_pk, &app_proof)
@@ -190,7 +185,8 @@ fn dummy_app_proof<VB, VC>(
 where
     VB: VmBuilder<BabyBearPoseidon2Engine, VmConfig = VC, RecordArena = MatrixRecordArena<F>>,
     VC: VmExecutionConfig<F>,
-    <VC as VmExecutionConfig<F>>::Executor: Executor<F> + MeteredExecutor<F> + PreflightExecutor<F>,
+    <VC as VmExecutionConfig<F>>::Executor:
+        Executor<F> + MeteredExecutor<F> + PreflightExecutor<F, MatrixRecordArena<F>>,
 {
     let dummy_exe = Arc::new(VmExe::new(dummy_app_program()));
     let mut app_prover =

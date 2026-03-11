@@ -1,5 +1,13 @@
 #include "fp.h"
 #include "launcher.cuh"
+#include "primitives/trace_access.h"
+
+template <typename T> struct VariableRangeCols {
+    T value;
+    T max_bits;
+    T two_to_max_bits;
+    T mult;
+};
 
 __global__ void range_checker_tracegen(
     const uint32_t *count,
@@ -9,7 +17,17 @@ __global__ void range_checker_tracegen(
 ) {
     uint32_t idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < num_bins) {
-        trace[idx] = Fp(count[idx] + (cpu_count ? cpu_count[idx] : 0));
+        uint32_t n = idx + 1;
+        uint32_t max_bits = 31 - __clz(n);
+        uint32_t two_to_max_bits = 1U << max_bits;
+        uint32_t value = n - two_to_max_bits;
+        uint32_t mult_val = count[idx] + (cpu_count ? cpu_count[idx] : 0);
+
+        RowSlice row(trace + idx, num_bins);
+        COL_WRITE_VALUE(row, VariableRangeCols, value, value);
+        COL_WRITE_VALUE(row, VariableRangeCols, max_bits, max_bits);
+        COL_WRITE_VALUE(row, VariableRangeCols, two_to_max_bits, two_to_max_bits);
+        COL_WRITE_VALUE(row, VariableRangeCols, mult, mult_val);
     }
 }
 

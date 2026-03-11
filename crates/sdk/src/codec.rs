@@ -9,12 +9,12 @@ use openvm_continuations::verifier::{
 use openvm_native_compiler::ir::DIGEST_SIZE;
 use openvm_native_recursion::hints::{InnerBatchOpening, InnerFriProof, InnerQueryProof};
 use openvm_stark_backend::{
-    config::{Com, PcsProof},
     interaction::{fri_log_up::FriLogUpPartialProof, RapPhaseSeqKind},
     p3_field::{
-        extension::BinomialExtensionField, FieldAlgebra, FieldExtensionAlgebra, PrimeField32,
+        extension::BinomialExtensionField, BasedVectorSpace, PrimeCharacteristicRing, PrimeField32,
     },
     proof::{AdjacentOpenedValues, AirProofData, Commitments, OpenedValues, OpeningProof, Proof},
+    Com,
 };
 use p3_fri::CommitPhaseProofStep;
 
@@ -23,8 +23,8 @@ use super::{F, SC};
 type Challenge = BinomialExtensionField<F, 4>;
 
 /// Codec version should change only when proof system or proof format changes.
-/// It does correspond to the main openvm version (which may change more frequently).
-const CODEC_VERSION: u32 = 1;
+/// It does not correspond to the main openvm version (which may change more frequently).
+const CODEC_VERSION: u32 = 2;
 
 /// Hardware and language independent encoding.
 /// Uses the Writer pattern for more efficient encoding without intermediate buffers.
@@ -92,7 +92,7 @@ impl Encode for Proof<SC> {
     /// Encode a proof using FRI as the PCS with `BabyBearPoseidon2Config`.
     /// The Merkle tree hashes have digest `[F; 8]`.
     /// ```
-    /// pub struct Proof<SC: StarkGenericConfig> {
+    /// pub struct Proof<SC: StarkProtocolConfig> {
     ///     pub commitments: Commitments<Com<SC>>,
     ///     pub opening: OpeningProof<PcsProof<SC>, SC::Challenge>,
     ///     pub per_air: Vec<AirProofData<Val<SC>, SC::Challenge>>,
@@ -128,13 +128,11 @@ impl Encode for Proof<SC> {
 //     pub values: OpenedValues<Challenge>,
 // }
 // ```
-fn encode_opening_proof<W: Write>(
-    opening: &OpeningProof<PcsProof<SC>, Challenge>,
-    writer: &mut W,
-) -> Result<()> {
+fn encode_opening_proof<W: Write>(opening: &OpeningProof<SC>, writer: &mut W) -> Result<()> {
     // Encode FRI proof
     opening.proof.encode(writer)?;
     encode_opened_values(&opening.values, writer)?;
+    opening.deep_pow_witness.encode(writer)?;
     Ok(())
 }
 
@@ -203,16 +201,18 @@ impl Encode for InnerFriProof {
     /// ```
     /// pub struct FriProof<Challenge, M: Mmcs<Challenge>> {
     ///     pub commit_phase_commits: Vec<M::Commitment>,
+    ///     pub commit_pow_witnesses: Vec<F>,
     ///     pub query_proofs: Vec<QueryProof<Challenge, M, Vec<BatchOpening<F>>>>,
     ///     pub final_poly: Vec<Challenge>,
-    ///     pub pow_witness: F,
+    ///     pub query_pow_witness: F,
     /// }
     /// ```
     fn encode<W: Write>(&self, writer: &mut W) -> Result<()> {
         encode_commitments(&self.commit_phase_commits, writer)?;
+        encode_slice(&self.commit_pow_witnesses, writer)?;
         encode_slice(&self.query_proofs, writer)?;
         encode_slice(&self.final_poly, writer)?;
-        self.pow_witness.encode(writer)?;
+        self.query_pow_witness.encode(writer)?;
         Ok(())
     }
 }
@@ -271,7 +271,7 @@ impl Encode for Option<FriLogUpPartialProof<F>> {
 
 impl Encode for Challenge {
     fn encode<W: Write>(&self, writer: &mut W) -> Result<()> {
-        let base_slice: &[F] = self.as_base_slice();
+        let base_slice: &[F] = self.as_basis_coefficients_slice();
         // Fixed length slice, so don't encode length
         for val in base_slice {
             val.encode(writer)?;
@@ -437,12 +437,17 @@ fn decode_commitments<R: Read>(reader: &mut R) -> Result<Vec<Com<SC>>> {
     Ok(coms)
 }
 
-fn decode_opening_proof<R: Read>(reader: &mut R) -> Result<OpeningProof<PcsProof<SC>, Challenge>> {
+fn decode_opening_proof<R: Read>(reader: &mut R) -> Result<OpeningProof<SC>> {
     // Decode FRI proof
     let proof = InnerFriProof::decode(reader)?;
     let values = decode_opened_values(reader)?;
+    let deep_pow_witness = F::decode(reader)?;
 
-    Ok(OpeningProof { proof, values })
+    Ok(OpeningProof {
+        proof,
+        values,
+        deep_pow_witness,
+    })
 }
 
 fn decode_opened_values<R: Read>(reader: &mut R) -> Result<OpenedValues<Challenge>> {
@@ -513,15 +518,17 @@ impl Decode for AirProofData<F, Challenge> {
 impl Decode for InnerFriProof {
     fn decode<R: Read>(reader: &mut R) -> Result<Self> {
         let commit_phase_commits = decode_commitments(reader)?;
+        let commit_pow_witnesses = decode_vec(reader)?;
         let query_proofs = decode_vec(reader)?;
         let final_poly = decode_vec(reader)?;
-        let pow_witness = F::decode(reader)?;
+        let query_pow_witness = F::decode(reader)?;
 
         Ok(InnerFriProof {
             commit_phase_commits,
+            commit_pow_witnesses,
             query_proofs,
             final_poly,
-            pow_witness,
+            query_pow_witness,
         })
     }
 }
@@ -578,7 +585,7 @@ impl Decode for Option<FriLogUpPartialProof<F>> {
         }
 
         // Reconstruct the field element from the u32 value
-        let logup_pow_witness = F::from_canonical_u32(value);
+        let logup_pow_witness = F::from_u32(value);
         Ok(Some(FriLogUpPartialProof { logup_pow_witness }))
     }
 }
@@ -592,7 +599,7 @@ impl Decode for Challenge {
         }
 
         // Construct the extension field from base elements
-        Ok(Challenge::from_base_slice(&base_elements))
+        Ok(Challenge::from_basis_coefficients_slice(&base_elements).unwrap())
     }
 }
 
@@ -624,7 +631,7 @@ impl Decode for F {
         reader.read_exact(&mut bytes)?;
 
         let value = u32::from_le_bytes(bytes);
-        Ok(F::from_canonical_u32(value))
+        Ok(F::from_u32(value))
     }
 }
 

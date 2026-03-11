@@ -32,9 +32,9 @@ use openvm_stark_backend::{
     p3_field::{Field, FieldAlgebra, PrimeField32},
     rap::{BaseAirWithPublicValues, ColumnsAir},
 };
+use struct_reflection::{StructReflection, StructReflectionHelper};
 
 use crate::modular_chip::VmModularIsEqualExecutor;
-use struct_reflection::{StructReflection, StructReflectionHelper};
 // Given two numbers b and c, we want to prove that a) b == c or b != c, depending on
 // result of cmp_result and b) b, c < N for some modulus N that is passed into the AIR
 // at runtime (i.e. when chip is instantiated).

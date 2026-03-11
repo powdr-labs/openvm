@@ -1,14 +1,15 @@
+use std::sync::Arc;
+
 use openvm_poseidon2_air::Poseidon2Config;
 use openvm_stark_backend::{
     interaction::LookupBus,
-    p3_field::{FieldAlgebra, PrimeField32},
+    p3_field::{PrimeCharacteristicRing, PrimeField32},
+    test_utils::dummy_airs::interaction::dummy_interaction_air::{
+        DummyInteractionChip, DummyInteractionData,
+    },
     AirRef,
 };
-use openvm_stark_sdk::{
-    dummy_airs::interaction::dummy_interaction_air::{DummyInteractionChip, DummyInteractionData},
-    p3_baby_bear::BabyBear,
-    utils::create_seeded_rng,
-};
+use openvm_stark_sdk::{p3_baby_bear::BabyBear, utils::create_seeded_rng};
 use rand::RngCore;
 
 use crate::{
@@ -23,11 +24,7 @@ use crate::{
 };
 
 fn create_test_chip() -> (AirRef<TestSC>, Poseidon2PeripheryChip<BabyBear>) {
-    let chip = Poseidon2PeripheryChip::<BabyBear>::new(
-        Poseidon2Config::default(),
-        POSEIDON2_DIRECT_BUS,
-        3,
-    );
+    let chip = Poseidon2PeripheryChip::<BabyBear>::new(Poseidon2Config::default(), 3);
     let air = new_poseidon2_periphery_air::<TestSC>(
         Poseidon2Config::default(),
         LookupBus::new(POSEIDON2_DIRECT_BUS),
@@ -46,8 +43,8 @@ fn poseidon2_periphery_direct_test() {
         [BabyBear; PERIPHERY_POSEIDON2_CHUNK_SIZE],
     ); NUM_OPS] = std::array::from_fn(|_| {
         (
-            std::array::from_fn(|_| BabyBear::from_canonical_u32(rng.next_u32() % (1 << 30))),
-            std::array::from_fn(|_| BabyBear::from_canonical_u32(rng.next_u32() % (1 << 30))),
+            std::array::from_fn(|_| BabyBear::from_u32(rng.next_u32() % (1 << 30))),
+            std::array::from_fn(|_| BabyBear::from_u32(rng.next_u32() % (1 << 30))),
         )
     });
     let (air, chip) = create_test_chip();
@@ -77,11 +74,10 @@ fn poseidon2_periphery_direct_test() {
 
     // engine generation
     let tester = VmChipTestBuilder::default();
-    let tester = tester
-        .build()
-        .load_periphery((dummy_interaction_chip.air, dummy_interaction_chip))
-        .load_periphery_ref((air, chip))
-        .finalize();
+    let dummy_ctx = dummy_interaction_chip.generate_proving_ctx();
+    let dummy_air = Arc::new(dummy_interaction_chip.air) as AirRef<TestSC>;
+    let mut tester = tester.build().load_periphery_ref((air, chip)).finalize();
+    tester.air_ctxs.push((dummy_air, dummy_ctx));
     tester.simple_test().expect("Verification failed");
 }
 
@@ -94,8 +90,8 @@ fn poseidon2_periphery_duplicate_hashes_test() {
         [BabyBear; PERIPHERY_POSEIDON2_CHUNK_SIZE],
     ); NUM_OPS] = std::array::from_fn(|_| {
         (
-            std::array::from_fn(|_| BabyBear::from_canonical_u32(rng.next_u32() % (1 << 30))),
-            std::array::from_fn(|_| BabyBear::from_canonical_u32(rng.next_u32() % (1 << 30))),
+            std::array::from_fn(|_| BabyBear::from_u32(rng.next_u32() % (1 << 30))),
+            std::array::from_fn(|_| BabyBear::from_u32(rng.next_u32() % (1 << 30))),
         )
     });
     let counts: [u32; NUM_OPS] = std::array::from_fn(|_| rng.next_u32() % 20);
@@ -104,7 +100,7 @@ fn poseidon2_periphery_duplicate_hashes_test() {
 
     let outs: [[BabyBear; PERIPHERY_POSEIDON2_CHUNK_SIZE]; NUM_OPS] = std::array::from_fn(|i| {
         for _ in 0..counts[i] {
-            chip.compress_and_record(&hashes[i].0, &hashes[i].1);
+            let _ = chip.compress_and_record(&hashes[i].0, &hashes[i].1);
         }
         chip.compress(&hashes[i].0, &hashes[i].1)
     });
@@ -131,9 +127,8 @@ fn poseidon2_periphery_duplicate_hashes_test() {
 
     // engine generation
     let tester = VmChipTestBuilder::default();
-    tester
-        .build()
-        .load_periphery_ref((air, chip))
-        .load_periphery((dummy_interaction_chip.air, dummy_interaction_chip))
-        .finalize();
+    let dummy_ctx = dummy_interaction_chip.generate_proving_ctx();
+    let dummy_air = Arc::new(dummy_interaction_chip.air) as AirRef<TestSC>;
+    let mut tester = tester.build().load_periphery_ref((air, chip)).finalize();
+    tester.air_ctxs.push((dummy_air, dummy_ctx));
 }

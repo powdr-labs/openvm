@@ -7,15 +7,13 @@ use std::{
 
 use openvm_stark_backend::{
     interaction::{PermutationCheckBus, PermutationInteractionType},
-    p3_field::FieldAlgebra,
+    p3_field::PrimeCharacteristicRing,
     p3_matrix::dense::RowMajorMatrix,
-    prover::types::AirProvingContext,
+    prover::{AirProvingContext, ColMajorMatrix, StridedColMajorMatrixView},
+    test_utils::dummy_airs::interaction::dummy_interaction_air::DummyInteractionAir,
+    StarkEngine,
 };
-use openvm_stark_sdk::{
-    config::baby_bear_poseidon2::BabyBearPoseidon2Engine,
-    dummy_airs::interaction::dummy_interaction_air::DummyInteractionAir, engine::StarkFriEngine,
-    p3_baby_bear::BabyBear, utils::create_seeded_rng,
-};
+use openvm_stark_sdk::{p3_baby_bear::BabyBear, utils::create_seeded_rng};
 use rand::RngCore;
 
 use crate::{
@@ -31,6 +29,7 @@ use crate::{
         online::{GuestMemory, LinearMemory},
         AddressMap, MemoryImage,
     },
+    utils::test_cpu_engine,
 };
 
 mod util;
@@ -116,9 +115,9 @@ fn test(
         });
         dummy_interaction_trace_rows.extend([
             expand_direction,
-            BabyBear::from_canonical_usize(height),
-            BabyBear::from_canonical_u32(as_label),
-            BabyBear::from_canonical_u32(address_label),
+            BabyBear::from_usize(height),
+            BabyBear::from_u32(as_label),
+            BabyBear::from_u32(address_label),
         ]);
         dummy_interaction_trace_rows.extend(hash);
     };
@@ -160,21 +159,23 @@ fn test(
         dummy_interaction_trace_rows,
         dummy_interaction_air.field_width() + 1,
     );
-    let dummy_interaction_api = AirProvingContext::simple_no_pis(Arc::new(dummy_interaction_trace));
+    let dummy_interaction_api =
+        AirProvingContext::simple_no_pis(ColMajorMatrix::from_row_major(&dummy_interaction_trace));
 
-    BabyBearPoseidon2Engine::run_test_fast(
-        vec![
-            Arc::new(chip.air),
-            Arc::new(dummy_interaction_air),
-            Arc::new(hash_test_chip.air()),
-        ],
-        vec![
-            chip_api,
-            dummy_interaction_api,
-            hash_test_chip.generate_proving_ctx(),
-        ],
-    )
-    .expect("Verification failed");
+    test_cpu_engine()
+        .run_test(
+            vec![
+                Arc::new(chip.air),
+                Arc::new(dummy_interaction_air),
+                Arc::new(hash_test_chip.air()),
+            ],
+            vec![
+                chip_api,
+                dummy_interaction_api,
+                hash_test_chip.generate_proving_ctx(),
+            ],
+        )
+        .expect("Verification failed");
 }
 
 fn random_test(
@@ -208,7 +209,6 @@ fn random_test(
         height + 3,
         20,
         17,
-        32,
     );
 
     let mut initial_memory = GuestMemory::new(AddressMap::from_mem_config(&mem_config));
@@ -229,7 +229,7 @@ fn random_test(
 
             if is_initial && num_initial_addresses != 0 {
                 num_initial_addresses -= 1;
-                let value = BabyBear::from_canonical_u32(next_u32() % max_value);
+                let value = BabyBear::from_u32(next_u32() % max_value);
                 unsafe {
                     initial_memory.write(address_space, pointer, [value]);
                     final_memory.write(address_space, pointer, [value]);
@@ -239,7 +239,7 @@ fn random_test(
                 num_touched_addresses -= 1;
                 touched_labels.insert((address_space, label));
                 if value_changes || !is_initial {
-                    let value = BabyBear::from_canonical_u32(next_u32() % max_value);
+                    let value = BabyBear::from_u32(next_u32() % max_value);
                     unsafe {
                         final_memory.write(address_space, pointer, [value]);
                     }
@@ -301,7 +301,6 @@ fn expand_test_no_accesses() {
         height + 3,
         20,
         17,
-        32,
     );
     let md = mem_config.memory_dimensions();
 
@@ -315,15 +314,15 @@ fn expand_test_no_accesses() {
 
     chip.finalize(&memory, &BTreeMap::new(), &hash_test_chip);
     let trace = chip.generate_proving_ctx();
-    BabyBearPoseidon2Engine::run_test_fast(
-        vec![Arc::new(chip.air), Arc::new(hash_test_chip.air())],
-        vec![trace, hash_test_chip.generate_proving_ctx()],
-    )
-    .expect("Empty touched memory doesn't work");
+    test_cpu_engine()
+        .run_test(
+            vec![Arc::new(chip.air), Arc::new(hash_test_chip.air())],
+            vec![trace, hash_test_chip.generate_proving_ctx()],
+        )
+        .expect("Empty touched memory doesn't work");
 }
 
 #[test]
-#[should_panic]
 fn expand_test_negative() {
     let mut hash_test_chip = HashTestChip::new();
     let height = 1;
@@ -350,7 +349,6 @@ fn expand_test_negative() {
         height + 3,
         20,
         17,
-        32,
     );
     let md = mem_config.memory_dimensions();
 
@@ -365,7 +363,8 @@ fn expand_test_negative() {
     chip.finalize(&memory, &BTreeMap::new(), &hash_test_chip);
     let mut chip_ctx = chip.generate_proving_ctx();
     {
-        let mut trace = (*chip_ctx.clone().common_main.unwrap()).clone();
+        let mut trace =
+            StridedColMajorMatrixView::from(chip_ctx.common_main.as_view()).to_row_major_matrix();
         for row in trace.rows_mut() {
             let row: &mut MemoryMerkleCols<_, CHUNK> = row.borrow_mut();
             if row.expand_direction == BabyBear::NEG_ONE {
@@ -373,12 +372,13 @@ fn expand_test_negative() {
                 row.right_direction_different = BabyBear::ZERO;
             }
         }
-        chip_ctx.common_main.replace(Arc::new(trace));
+        chip_ctx.common_main = ColMajorMatrix::from_row_major(&trace);
     }
 
-    BabyBearPoseidon2Engine::run_test_fast(
-        vec![Arc::new(chip.air), Arc::new(hash_test_chip.air())],
-        vec![chip_ctx, hash_test_chip.generate_proving_ctx()],
-    )
-    .expect("We tinkered with the trace and now it doesn't pass");
+    assert!(test_cpu_engine()
+        .run_test(
+            vec![Arc::new(chip.air), Arc::new(hash_test_chip.air())],
+            vec![chip_ctx, hash_test_chip.generate_proving_ctx()],
+        )
+        .is_err());
 }

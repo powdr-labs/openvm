@@ -27,10 +27,9 @@ use openvm_rv32im_transpiler::{
     Rv32LoadStoreOpcode, Rv32Phantom, ShiftOpcode,
 };
 use openvm_stark_backend::{
-    config::{StarkGenericConfig, Val},
-    engine::StarkEngine,
     p3_field::PrimeField32,
-    prover::cpu::{CpuBackend, CpuDevice},
+    prover::{CpuBackend, CpuDevice},
+    StarkEngine, StarkProtocolConfig, Val,
 };
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
@@ -218,7 +217,7 @@ impl<F: PrimeField32> VmExecutionExtension<F> for Rv32I {
     }
 }
 
-impl<SC: StarkGenericConfig> VmCircuitExtension<SC> for Rv32I {
+impl<SC: StarkProtocolConfig> VmCircuitExtension<SC> for Rv32I {
     fn extend_circuit(&self, inventory: &mut AirInventory<SC>) -> Result<(), AirInventoryError> {
         let SystemPort {
             execution_bus,
@@ -320,12 +319,13 @@ impl<SC: StarkGenericConfig> VmCircuitExtension<SC> for Rv32I {
 pub struct Rv32ImCpuProverExt;
 // This implementation is specific to CpuBackend because the lookup chips (VariableRangeChecker,
 // BitwiseOperationLookupChip) are specific to CpuBackend.
-impl<E, SC, RA> VmProverExtension<E, RA, Rv32I> for Rv32ImCpuProverExt
+impl<SC, E, RA> VmProverExtension<E, RA, Rv32I> for Rv32ImCpuProverExt
 where
-    SC: StarkGenericConfig,
+    SC: StarkProtocolConfig,
     E: StarkEngine<SC = SC, PB = CpuBackend<SC>, PD = CpuDevice<SC>>,
     RA: RowMajorMatrixArena<Val<SC>>,
     Val<SC>: PrimeField32,
+    SC::EF: Ord,
 {
     fn extend_prover(
         &self,
@@ -482,7 +482,7 @@ impl<F> VmExecutionExtension<F> for Rv32M {
     }
 }
 
-impl<SC: StarkGenericConfig> VmCircuitExtension<SC> for Rv32M {
+impl<SC: StarkProtocolConfig> VmCircuitExtension<SC> for Rv32M {
     fn extend_circuit(&self, inventory: &mut AirInventory<SC>) -> Result<(), AirInventoryError> {
         let SystemPort {
             execution_bus,
@@ -545,12 +545,13 @@ impl<SC: StarkGenericConfig> VmCircuitExtension<SC> for Rv32M {
 
 // This implementation is specific to CpuBackend because the lookup chips (VariableRangeChecker,
 // BitwiseOperationLookupChip) are specific to CpuBackend.
-impl<E, SC, RA> VmProverExtension<E, RA, Rv32M> for Rv32ImCpuProverExt
+impl<SC, E, RA> VmProverExtension<E, RA, Rv32M> for Rv32ImCpuProverExt
 where
-    SC: StarkGenericConfig,
+    SC: StarkProtocolConfig,
     E: StarkEngine<SC = SC, PB = CpuBackend<SC>, PD = CpuDevice<SC>>,
     RA: RowMajorMatrixArena<Val<SC>>,
     Val<SC>: PrimeField32,
+    SC::EF: Ord,
 {
     fn extend_prover(
         &self,
@@ -651,7 +652,7 @@ impl<F> VmExecutionExtension<F> for Rv32Io {
     }
 }
 
-impl<SC: StarkGenericConfig> VmCircuitExtension<SC> for Rv32Io {
+impl<SC: StarkProtocolConfig> VmCircuitExtension<SC> for Rv32Io {
     fn extend_circuit(&self, inventory: &mut AirInventory<SC>) -> Result<(), AirInventoryError> {
         let SystemPort {
             execution_bus,
@@ -689,12 +690,13 @@ impl<SC: StarkGenericConfig> VmCircuitExtension<SC> for Rv32Io {
 
 // This implementation is specific to CpuBackend because the lookup chips (VariableRangeChecker,
 // BitwiseOperationLookupChip) are specific to CpuBackend.
-impl<E, SC, RA> VmProverExtension<E, RA, Rv32Io> for Rv32ImCpuProverExt
+impl<SC, E, RA> VmProverExtension<E, RA, Rv32Io> for Rv32ImCpuProverExt
 where
-    SC: StarkGenericConfig,
+    SC: StarkProtocolConfig,
     E: StarkEngine<SC = SC, PB = CpuBackend<SC>, PD = CpuDevice<SC>>,
     RA: RowMajorMatrixArena<Val<SC>>,
     Val<SC>: PrimeField32,
+    SC::EF: Ord,
 {
     fn extend_prover(
         &self,
@@ -771,7 +773,7 @@ mod phantom {
                 (hint.len() as u32)
                     .to_le_bytes()
                     .iter()
-                    .map(|b| F::from_canonical_u8(*b)),
+                    .map(|b| F::from_u8(*b)),
             );
             // Extend by 0 for 4 byte alignment
             let capacity = hint.len().div_ceil(4) * 4;
@@ -799,9 +801,9 @@ mod phantom {
 
             let len = read_rv32_register(memory, a) as usize;
             streams.hint_stream.clear();
-            streams.hint_stream.extend(
-                std::iter::repeat_with(|| F::from_canonical_u8(rng.gen::<u8>())).take(len * 4),
-            );
+            streams
+                .hint_stream
+                .extend(std::iter::repeat_with(|| F::from_u8(rng.random::<u8>())).take(len * 4));
             Ok(())
         }
     }
@@ -866,7 +868,7 @@ mod phantom {
             offset += 4;
             let v = (0..v_len)
                 .map(|_| {
-                    let ret = F::from_canonical_u32(extract_u32(value, offset));
+                    let ret = F::from_u32(extract_u32(value, offset));
                     offset += 4;
                     ret
                 })

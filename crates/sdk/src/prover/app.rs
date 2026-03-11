@@ -15,9 +15,7 @@ use openvm_circuit::{
     system::memory::CHUNK,
 };
 use openvm_stark_backend::{
-    config::{Com, Val},
-    keygen::types::MultiStarkVerifyingKey,
-    p3_field::PrimeField32,
+    keygen::types::MultiStarkVerifyingKey, p3_field::PrimeField32, Com, Val,
 };
 use openvm_stark_sdk::{
     config::baby_bear_poseidon2::BabyBearPoseidon2Engine,
@@ -134,7 +132,6 @@ where
             + MeteredExecutor<Val<E::SC>>
             + PreflightExecutor<Val<E::SC>, VB::RecordArena>,
     {
-        assert!(self.vm_config().as_ref().continuation_enabled);
         check_max_constraint_degrees(
             self.vm_config().as_ref(),
             &self.instance.vm.engine.fri_params(),
@@ -358,7 +355,6 @@ mod async_prover {
             self,
             input: StdIn<Val<E::SC>>,
         ) -> eyre::Result<ContinuationVmProof<E::SC>> {
-            assert!(self.vm_config().as_ref().continuation_enabled);
             check_max_constraint_degrees(self.vm_config().as_ref(), &self.fri_params());
             #[cfg(feature = "metrics")]
             metrics::counter!("fri.log_blowup").absolute(self.fri_params().log_blowup as u64);
