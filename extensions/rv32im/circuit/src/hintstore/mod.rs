@@ -16,6 +16,7 @@ use openvm_circuit_primitives::{
     utils::not,
 };
 use openvm_circuit_primitives_derive::{AlignedBorrow, AlignedBytesBorrow};
+use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
 use openvm_instructions::{
     instruction::Instruction,
     program::DEFAULT_PC_STEP,
@@ -52,7 +53,7 @@ mod tests;
 const REM_WORD_NUM_ZERO_LIMBS: usize = 2;
 
 #[repr(C)]
-#[derive(AlignedBorrow, Debug)]
+#[derive(AlignedBorrow, StructReflection, Debug)]
 pub struct Rv32HintStoreCols<T> {
     // common
     pub is_single: T,
@@ -91,7 +92,11 @@ impl<F: Field> BaseAir<F> for Rv32HintStoreAir {
 
 impl<F: Field> BaseAirWithPublicValues<F> for Rv32HintStoreAir {}
 impl<F: Field> PartitionedBaseAir<F> for Rv32HintStoreAir {}
-impl<F: Field> ColumnsAir<F> for Rv32HintStoreAir {}
+impl<F: Field> ColumnsAir<F> for Rv32HintStoreAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        <Rv32HintStoreCols<F> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
+}
 
 impl<AB: InteractionBuilder> Air<AB> for Rv32HintStoreAir {
     fn eval(&self, builder: &mut AB) {

@@ -4,6 +4,7 @@ use std::{
 };
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use crate::{StructReflection, StructReflectionHelper};
 use openvm_stark_backend::{
     any_air_arc_vec,
     p3_air::{Air, BaseAir},
@@ -27,7 +28,7 @@ use super::*;
 use crate::utils::test_engine_small;
 
 #[repr(C)]
-#[derive(AlignedBorrow, Clone, Copy, Debug)]
+#[derive(AlignedBorrow, StructReflection, Clone, Copy, Debug)]
 pub struct IsLtArrayCols<T, const NUM: usize, const AUX_LEN: usize> {
     pub x: [T; NUM],
     pub y: [T; NUM],

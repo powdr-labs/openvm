@@ -13,6 +13,7 @@ use openvm_circuit_primitives::{
     AlignedBytesBorrow,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
 use openvm_instructions::{
     instruction::Instruction,
     program::DEFAULT_PC_STEP,
@@ -36,7 +37,7 @@ use crate::adapters::{LoadStoreInstruction, Rv32LoadStoreAdapterFiller};
 /// this reduces the number of opcode flags needed using this shifted data we can generate the
 /// write_data as if the shift_amount was 0 for loadh and 0 or 1 for loadb
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, AlignedBorrow, StructReflection)]
 pub struct LoadSignExtendCoreCols<T, const NUM_CELLS: usize> {
     /// This chip treats loadb with 0 shift and loadb with 1 shift as different instructions
     pub opcode_loadb_flag0: T,
@@ -68,7 +69,11 @@ impl<F: Field, const NUM_CELLS: usize, const LIMB_BITS: usize> BaseAirWithPublic
     for LoadSignExtendCoreAir<NUM_CELLS, LIMB_BITS>
 {
 }
-impl<F: Field, const NUM_CELLS: usize, const LIMB_BITS: usize> ColumnsAir<F> for LoadSignExtendCoreAir<NUM_CELLS, LIMB_BITS> {}
+impl<F: Field, const NUM_CELLS: usize, const LIMB_BITS: usize> ColumnsAir<F> for LoadSignExtendCoreAir<NUM_CELLS, LIMB_BITS> {
+    fn columns(&self) -> Option<Vec<String>> {
+        <LoadSignExtendCoreCols<F, NUM_CELLS> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
+}
 
 impl<AB, I, const NUM_CELLS: usize, const LIMB_BITS: usize> VmCoreAir<AB, I>
     for LoadSignExtendCoreAir<NUM_CELLS, LIMB_BITS>

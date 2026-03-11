@@ -1,6 +1,7 @@
 use std::borrow::{Borrow, BorrowMut};
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use crate::{StructReflection, StructReflectionHelper};
 use openvm_stark_backend::{
     ColumnsAir,
     any_air_arc_vec,
@@ -30,7 +31,7 @@ use super::{IsEqSubAir, IsEqualIo};
 use crate::{utils::test_engine_small, SubAir, TraceSubRowGenerator};
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct IsEqualCols<T> {
     pub x: T,
     pub y: T,

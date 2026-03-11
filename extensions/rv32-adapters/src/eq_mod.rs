@@ -23,6 +23,7 @@ use openvm_circuit_primitives::{
     AlignedBytesBorrow,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
 use openvm_instructions::{
     instruction::Instruction,
     program::DEFAULT_PC_STEP,
@@ -45,7 +46,7 @@ use openvm_stark_backend::{
 ///   starting from the addresses in `rs[0]` (and `rs[1]` if `R = 2`).
 /// * Writes are to 32-bit register rd.
 #[repr(C)]
-#[derive(AlignedBorrow, Debug)]
+#[derive(AlignedBorrow, StructReflection, Debug)]
 pub struct Rv32IsEqualModAdapterCols<
     T,
     const NUM_READS: usize,
@@ -100,6 +101,9 @@ impl<
     > ColumnsAir<F>
     for Rv32IsEqualModAdapterAir<NUM_READS, BLOCKS_PER_READ, BLOCK_SIZE, TOTAL_READ_SIZE>
 {
+    fn columns(&self) -> Option<Vec<String>> {
+        <Rv32IsEqualModAdapterCols<F, NUM_READS, BLOCKS_PER_READ, BLOCK_SIZE> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
 }
 
 impl<

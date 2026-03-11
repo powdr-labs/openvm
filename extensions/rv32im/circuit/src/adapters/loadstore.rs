@@ -23,6 +23,7 @@ use openvm_circuit_primitives::{
     AlignedBytesBorrow,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
 use openvm_instructions::{
     instruction::Instruction,
     program::DEFAULT_PC_STEP,
@@ -76,7 +77,7 @@ impl<AB: InteractionBuilder> VmAdapterInterface<AB::Expr> for Rv32LoadStoreAdapt
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, AlignedBorrow, StructReflection)]
 pub struct Rv32LoadStoreAdapterCols<T> {
     pub from_state: ExecutionState<T>,
     pub rs1_ptr: T,
@@ -115,7 +116,11 @@ impl<F: Field> BaseAir<F> for Rv32LoadStoreAdapterAir {
         Rv32LoadStoreAdapterCols::<F>::width()
     }
 }
-impl<F: Field> ColumnsAir<F> for Rv32LoadStoreAdapterAir {}
+impl<F: Field> ColumnsAir<F> for Rv32LoadStoreAdapterAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        <Rv32LoadStoreAdapterCols<F> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
+}
 
 impl<AB: InteractionBuilder> VmAdapterAir<AB> for Rv32LoadStoreAdapterAir {
     type Interface = Rv32LoadStoreAdapterAirInterface<AB>;

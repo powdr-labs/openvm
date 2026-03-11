@@ -13,6 +13,7 @@ use openvm_circuit_primitives::{
     AlignedBytesBorrow,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
 use openvm_instructions::{instruction::Instruction, program::DEFAULT_PC_STEP, LocalOpcode};
 use openvm_rv32im_transpiler::MulHOpcode;
 use openvm_stark_backend::{
@@ -24,7 +25,7 @@ use openvm_stark_backend::{
 use strum::IntoEnumIterator;
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct MulHCoreCols<T, const NUM_LIMBS: usize, const LIMB_BITS: usize> {
     pub a: [T; NUM_LIMBS],
     pub b: [T; NUM_LIMBS],
@@ -56,7 +57,11 @@ impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAirWithPublic
     for MulHCoreAir<NUM_LIMBS, LIMB_BITS>
 {
 }
-impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> ColumnsAir<F> for MulHCoreAir<NUM_LIMBS, LIMB_BITS> {}
+impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> ColumnsAir<F> for MulHCoreAir<NUM_LIMBS, LIMB_BITS> {
+    fn columns(&self) -> Option<Vec<String>> {
+        <MulHCoreCols<F, NUM_LIMBS, LIMB_BITS> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
+}
 
 impl<AB, I, const NUM_LIMBS: usize, const LIMB_BITS: usize> VmCoreAir<AB, I>
     for MulHCoreAir<NUM_LIMBS, LIMB_BITS>

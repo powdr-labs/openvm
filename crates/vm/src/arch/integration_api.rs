@@ -1,6 +1,7 @@
 use std::{array::from_fn, borrow::Borrow, marker::PhantomData};
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
 use openvm_instructions::{instruction::Instruction, LocalOpcode};
 use openvm_stark_backend::{
     p3_air::{Air, AirBuilder, BaseAir},
@@ -411,7 +412,7 @@ pub struct DynArray<T>(pub Vec<T>);
 // =================================================================================================
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct MinimalInstruction<T> {
     pub is_valid: T,
     /// Absolute opcode number
@@ -420,7 +421,7 @@ pub struct MinimalInstruction<T> {
 
 // This ProcessedInstruction is used by rv32_rdwrite
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct ImmInstruction<T> {
     pub is_valid: T,
     /// Absolute opcode number
@@ -430,7 +431,7 @@ pub struct ImmInstruction<T> {
 
 // This ProcessedInstruction is used by rv32_jalr
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct SignedImmInstruction<T> {
     pub is_valid: T,
     /// Absolute opcode number

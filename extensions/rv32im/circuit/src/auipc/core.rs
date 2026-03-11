@@ -12,6 +12,7 @@ use openvm_circuit_primitives::{
     AlignedBytesBorrow,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
 use openvm_instructions::{
     instruction::Instruction,
     program::{DEFAULT_PC_STEP, PC_BITS},
@@ -31,7 +32,7 @@ use crate::adapters::{
 };
 
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, AlignedBorrow, StructReflection)]
 pub struct Rv32AuipcCoreCols<T> {
     pub is_valid: T,
     // The limbs of the immediate except the least significant limb since it is always 0
@@ -53,7 +54,11 @@ impl<F: Field> BaseAir<F> for Rv32AuipcCoreAir {
 }
 
 impl<F: Field> BaseAirWithPublicValues<F> for Rv32AuipcCoreAir {}
-impl<F: Field> ColumnsAir<F> for Rv32AuipcCoreAir {}
+impl<F: Field> ColumnsAir<F> for Rv32AuipcCoreAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        <Rv32AuipcCoreCols<F> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
+}
 
 impl<AB, I> VmCoreAir<AB, I> for Rv32AuipcCoreAir
 where

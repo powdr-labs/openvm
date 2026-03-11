@@ -21,6 +21,7 @@ use openvm_circuit_primitives::{
     AlignedBytesBorrow,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
 use openvm_instructions::{
     instruction::Instruction,
     program::DEFAULT_PC_STEP,
@@ -43,7 +44,7 @@ use openvm_stark_backend::{
 ///   starting from the addresses in `rs[0]` (and `rs[1]` if `NUM_READS = 2`).
 /// * No writes are performed (branch operations only compare values).
 #[repr(C)]
-#[derive(AlignedBorrow, Debug)]
+#[derive(AlignedBorrow, StructReflection, Debug)]
 pub struct Rv32VecHeapBranchAdapterCols<
     T,
     const NUM_READS: usize,
@@ -84,6 +85,9 @@ impl<F: Field, const NUM_READS: usize, const BLOCKS_PER_READ: usize, const READ_
 impl<F: Field, const NUM_READS: usize, const BLOCKS_PER_READ: usize, const READ_SIZE: usize>
     ColumnsAir<F> for Rv32VecHeapBranchAdapterAir<NUM_READS, BLOCKS_PER_READ, READ_SIZE>
 {
+    fn columns(&self) -> Option<Vec<String>> {
+        <Rv32VecHeapBranchAdapterCols<F, NUM_READS, BLOCKS_PER_READ, READ_SIZE> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
 }
 
 impl<

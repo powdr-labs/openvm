@@ -11,6 +11,7 @@ use openvm_circuit::{
     },
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
 use openvm_deferral_transpiler::DeferralOpcode;
 use openvm_instructions::{
     program::DEFAULT_PC_STEP,
@@ -39,7 +40,7 @@ use crate::{
 // ========================= CORE ==============================
 
 #[repr(C)]
-#[derive(AlignedBorrow, Clone, Copy, Debug)]
+#[derive(AlignedBorrow, StructReflection, Clone, Copy, Debug)]
 pub struct DeferralCallReads<B, F> {
     // Commit to a specific deferral input, passed in by the user as a pointer
     pub input_commit: [B; COMMIT_NUM_BYTES],
@@ -50,7 +51,7 @@ pub struct DeferralCallReads<B, F> {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow, Clone, Copy, Debug)]
+#[derive(AlignedBorrow, StructReflection, Clone, Copy, Debug)]
 pub struct DeferralCallWrites<B, F> {
     // Output key for raw output + its length in bytes. These bytes are written as one
     // contiguous heap write, with layout [output_commit || output_len_le]. Note output_len
@@ -64,7 +65,7 @@ pub struct DeferralCallWrites<B, F> {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct DeferralCallCoreCols<T> {
     pub is_valid: T,
     pub deferral_idx: T,
@@ -84,7 +85,11 @@ impl<F: Field> BaseAir<F> for DeferralCallCoreAir {
     }
 }
 impl<F: Field> BaseAirWithPublicValues<F> for DeferralCallCoreAir {}
-impl<F: Field> ColumnsAir<F> for DeferralCallCoreAir {}
+impl<F: Field> ColumnsAir<F> for DeferralCallCoreAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        <DeferralCallCoreCols<F> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
+}
 
 impl<AB, I> VmCoreAir<AB, I> for DeferralCallCoreAir
 where
@@ -166,7 +171,7 @@ impl<T> VmAdapterInterface<T> for DeferralCallAdapterInterface {
 }
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct DeferralCallAdapterCols<T> {
     pub from_state: ExecutionState<T>,
     pub rd_ptr: T,
@@ -200,7 +205,11 @@ impl<F: Field> BaseAir<F> for DeferralCallAdapterAir {
         DeferralCallAdapterCols::<F>::width()
     }
 }
-impl<F: Field> ColumnsAir<F> for DeferralCallAdapterAir {}
+impl<F: Field> ColumnsAir<F> for DeferralCallAdapterAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        <DeferralCallAdapterCols<F> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
+}
 
 impl<AB: InteractionBuilder> VmAdapterAir<AB> for DeferralCallAdapterAir {
     type Interface = DeferralCallAdapterInterface;

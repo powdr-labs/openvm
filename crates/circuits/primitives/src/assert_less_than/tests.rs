@@ -5,6 +5,7 @@ use std::{
 
 use derive_new::new;
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use crate::{StructReflection, StructReflectionHelper};
 use openvm_stark_backend::{
     ColumnsAir,
     any_air_arc_vec,
@@ -41,7 +42,7 @@ use crate::{
 // repr(C) is needed to make sure that the compiler does not reorder the fields
 // we assume the order of the fields when using borrow or borrow_mut
 #[repr(C)]
-#[derive(AlignedBorrow, Clone, Copy, Debug, new)]
+#[derive(AlignedBorrow, StructReflection, Clone, Copy, Debug, new)]
 pub struct AssertLessThanCols<T, const AUX_LEN: usize> {
     pub x: T,
     pub y: T,

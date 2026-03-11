@@ -9,6 +9,7 @@ use openvm_circuit::{
 };
 use openvm_circuit_primitives::utils::{and, assert_array_eq, not, or};
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
 use openvm_deferral_transpiler::DeferralOpcode;
 use openvm_instructions::{
     program::DEFAULT_PC_STEP,
@@ -36,7 +37,7 @@ use crate::{
 };
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct DeferralOutputCols<T> {
     // Indicates the status of this row, i.e. if it is valid and where it is in a
     // section of rows that correspond to a single opcode invocation
@@ -91,7 +92,11 @@ impl<F> BaseAir<F> for DeferralOutputAir {
 }
 impl<F> BaseAirWithPublicValues<F> for DeferralOutputAir {}
 impl<F> PartitionedBaseAir<F> for DeferralOutputAir {}
-impl<F> ColumnsAir<F> for DeferralOutputAir {}
+impl<F> ColumnsAir<F> for DeferralOutputAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        <DeferralOutputCols<F> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
+}
 
 impl<AB> Air<AB> for DeferralOutputAir
 where

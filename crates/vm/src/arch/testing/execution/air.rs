@@ -1,6 +1,7 @@
 use std::{borrow::Borrow, mem::size_of};
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
 use openvm_stark_backend::{
     ColumnsAir,
     interaction::InteractionBuilder,
@@ -12,7 +13,7 @@ use openvm_stark_backend::{
 
 use crate::arch::{ExecutionBus, ExecutionState};
 
-#[derive(Clone, Copy, Debug, AlignedBorrow, derive_new::new)]
+#[derive(Clone, Copy, Debug, AlignedBorrow, StructReflection, derive_new::new)]
 #[repr(C)]
 pub struct DummyExecutionInteractionCols<T> {
     /// The receive frequency. To send, set to negative.

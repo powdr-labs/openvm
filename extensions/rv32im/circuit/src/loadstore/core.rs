@@ -8,7 +8,7 @@ use openvm_circuit::{
     arch::*,
     system::memory::{online::TracingMemory, MemoryAuxColsFactory},
 };
-use openvm_circuit_primitives::{AlignedBorrow, AlignedBytesBorrow};
+use openvm_circuit_primitives::{AlignedBorrow, AlignedBytesBorrow, StructReflection, StructReflectionHelper};
 use openvm_instructions::{
     instruction::Instruction, program::DEFAULT_PC_STEP, riscv::RV32_REGISTER_NUM_LIMBS, LocalOpcode,
 };
@@ -48,7 +48,7 @@ use InstructionOpcode::*;
 /// It also handles the shifting in case of not 4 byte aligned instructions
 /// This chips treats each (opcode, shift) pair as a separate instruction
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, AlignedBorrow, StructReflection)]
 pub struct LoadStoreCoreCols<T, const NUM_CELLS: usize> {
     pub flags: [T; 4],
     /// we need to keep the degree of is_valid and is_load to 1
@@ -74,7 +74,11 @@ impl<F: Field, const NUM_CELLS: usize> BaseAir<F> for LoadStoreCoreAir<NUM_CELLS
 }
 
 impl<F: Field, const NUM_CELLS: usize> BaseAirWithPublicValues<F> for LoadStoreCoreAir<NUM_CELLS> {}
-impl<F: Field, const NUM_CELLS: usize> ColumnsAir<F> for LoadStoreCoreAir<NUM_CELLS> {}
+impl<F: Field, const NUM_CELLS: usize> ColumnsAir<F> for LoadStoreCoreAir<NUM_CELLS> {
+    fn columns(&self) -> Option<Vec<String>> {
+        <LoadStoreCoreCols<F, NUM_CELLS> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
+}
 
 impl<AB, I, const NUM_CELLS: usize> VmCoreAir<AB, I> for LoadStoreCoreAir<NUM_CELLS>
 where

@@ -37,7 +37,11 @@ pub struct XorinVmAir {
 
 impl<F> BaseAirWithPublicValues<F> for XorinVmAir {}
 impl<F> PartitionedBaseAir<F> for XorinVmAir {}
-impl<F> ColumnsAir<F> for XorinVmAir {}
+impl<F> ColumnsAir<F> for XorinVmAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        <XorinVmCols<F> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
+}
 impl<F> BaseAir<F> for XorinVmAir {
     fn width(&self) -> usize {
         NUM_XORIN_VM_COLS

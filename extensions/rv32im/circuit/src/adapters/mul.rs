@@ -15,6 +15,7 @@ use openvm_circuit::{
     },
 };
 use openvm_circuit_primitives::AlignedBytesBorrow;
+use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{
     instruction::Instruction, program::DEFAULT_PC_STEP, riscv::RV32_REGISTER_AS,
@@ -30,7 +31,7 @@ use super::{tracing_write, RV32_REGISTER_NUM_LIMBS};
 use crate::adapters::tracing_read;
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct Rv32MultAdapterCols<T> {
     pub from_state: ExecutionState<T>,
     pub rd_ptr: T,
@@ -53,7 +54,11 @@ impl<F: Field> BaseAir<F> for Rv32MultAdapterAir {
         Rv32MultAdapterCols::<F>::width()
     }
 }
-impl<F: Field> ColumnsAir<F> for Rv32MultAdapterAir {}
+impl<F: Field> ColumnsAir<F> for Rv32MultAdapterAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        <Rv32MultAdapterCols<F> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
+}
 
 impl<AB: InteractionBuilder> VmAdapterAir<AB> for Rv32MultAdapterAir {
     type Interface = BasicAdapterInterface<

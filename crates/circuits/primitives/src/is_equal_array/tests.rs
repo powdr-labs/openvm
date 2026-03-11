@@ -4,6 +4,7 @@ use std::{
 };
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use crate::{StructReflection, StructReflectionHelper};
 use openvm_stark_backend::{
     ColumnsAir,
     any_air_arc_vec,
@@ -35,7 +36,7 @@ use super::{IsEqArrayAuxCols, IsEqArrayIo, IsEqArraySubAir};
 use crate::{utils::test_engine_small, SubAir, TraceSubRowGenerator};
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct IsEqArrayCols<T, const N: usize> {
     x: [T; N],
     y: [T; N],

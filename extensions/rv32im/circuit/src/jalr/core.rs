@@ -13,6 +13,7 @@ use openvm_circuit_primitives::{
     AlignedBytesBorrow,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
+use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
 use openvm_instructions::{
     instruction::Instruction,
     program::{DEFAULT_PC_STEP, PC_BITS},
@@ -32,7 +33,7 @@ use crate::adapters::{
 };
 
 #[repr(C)]
-#[derive(Debug, Clone, AlignedBorrow)]
+#[derive(Debug, Clone, AlignedBorrow, StructReflection)]
 pub struct Rv32JalrCoreCols<T> {
     pub imm: T,
     pub rs1_data: [T; RV32_REGISTER_NUM_LIMBS],
@@ -60,7 +61,11 @@ impl<F: Field> BaseAir<F> for Rv32JalrCoreAir {
 }
 
 impl<F: Field> BaseAirWithPublicValues<F> for Rv32JalrCoreAir {}
-impl<F: Field> ColumnsAir<F> for Rv32JalrCoreAir {}
+impl<F: Field> ColumnsAir<F> for Rv32JalrCoreAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        <Rv32JalrCoreCols<F> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
+}
 
 impl<AB, I> VmCoreAir<AB, I> for Rv32JalrCoreAir
 where
