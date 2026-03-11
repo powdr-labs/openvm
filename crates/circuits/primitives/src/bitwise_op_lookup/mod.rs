@@ -5,6 +5,7 @@ use std::{
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder,
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing},
@@ -55,6 +56,7 @@ impl<F: Field, const NUM_BITS: usize> PartitionedBaseAir<F>
     for BitwiseOperationLookupAir<NUM_BITS>
 {
 }
+impl<F: Field, const NUM_BITS: usize> ColumnsAir<F> for BitwiseOperationLookupAir<NUM_BITS> {}
 impl<F: Field, const NUM_BITS: usize> BaseAir<F> for BitwiseOperationLookupAir<NUM_BITS> {
     fn width(&self) -> usize {
         BitwiseOperationLookupCols::<F, NUM_BITS>::width()

@@ -24,6 +24,7 @@ use openvm_rv32im_transpiler::{
     Rv32ITranspilerExtension, Rv32IoTranspilerExtension, Rv32MTranspilerExtension,
 };
 use openvm_stark_backend::{
+    ColumnsAir,
     proof::Proof,
     prover::{AirProvingContext, ColMajorMatrix, DeviceDataTransporter, ProvingContext},
     AirRef, PartitionedBaseAir, StarkEngine,
@@ -89,6 +90,7 @@ impl<F> BaseAirWithPublicValues<F> for EmptyAirWithPvs {
     }
 }
 impl<F> PartitionedBaseAir<F> for EmptyAirWithPvs {}
+impl<F> ColumnsAir<F> for EmptyAirWithPvs {}
 impl<AB: AirBuilder + AirBuilderWithPublicValues> Air<AB> for EmptyAirWithPvs {
     fn eval(&self, builder: &mut AB) {
         let main = builder.main();

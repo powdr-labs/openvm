@@ -2,6 +2,7 @@ use std::borrow::Borrow;
 
 use openvm_circuit_primitives::{utils::not, AlignedBorrow, SubAir};
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use p3_air::{Air, AirBuilder, BaseAir};
@@ -44,6 +45,7 @@ impl<F> BaseAir<F> for PublicValuesAir {
 }
 impl<F> BaseAirWithPublicValues<F> for PublicValuesAir {}
 impl<F> PartitionedBaseAir<F> for PublicValuesAir {}
+impl<F> ColumnsAir<F> for PublicValuesAir {}
 
 impl<AB: AirBuilder + InteractionBuilder> Air<AB> for PublicValuesAir
 where

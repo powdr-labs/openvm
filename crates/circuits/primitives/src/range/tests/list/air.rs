@@ -1,6 +1,7 @@
 use std::borrow::Borrow;
 
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder,
     p3_air::{Air, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing},
@@ -19,6 +20,7 @@ pub struct ListAir {
 
 impl<F: Field> BaseAirWithPublicValues<F> for ListAir {}
 impl<F: Field> PartitionedBaseAir<F> for ListAir {}
+impl<F: Field> ColumnsAir<F> for ListAir {}
 impl<F: Field> BaseAir<F> for ListAir {
     fn width(&self) -> usize {
         NUM_LIST_COLS

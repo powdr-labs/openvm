@@ -5,6 +5,7 @@ use openvm_circuit_primitives::{
     SubAir,
 };
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::{D_EF, F};
@@ -91,6 +92,7 @@ pub struct SumcheckRoundsAir {
 
 impl BaseAirWithPublicValues<F> for SumcheckRoundsAir {}
 impl PartitionedBaseAir<F> for SumcheckRoundsAir {}
+impl<F> ColumnsAir<F> for SumcheckRoundsAir {}
 
 impl<F> BaseAir<F> for SumcheckRoundsAir {
     fn width(&self) -> usize {

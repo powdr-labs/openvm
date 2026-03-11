@@ -19,6 +19,7 @@ use openvm_instructions::{
 };
 use openvm_rv32im_transpiler::Rv32AuipcOpcode::{self, *};
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder,
     p3_air::{AirBuilder, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing, PrimeField32},
@@ -52,6 +53,7 @@ impl<F: Field> BaseAir<F> for Rv32AuipcCoreAir {
 }
 
 impl<F: Field> BaseAirWithPublicValues<F> for Rv32AuipcCoreAir {}
+impl<F: Field> ColumnsAir<F> for Rv32AuipcCoreAir {}
 
 impl<AB, I> VmCoreAir<AB, I> for Rv32AuipcCoreAir
 where

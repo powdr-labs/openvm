@@ -6,6 +6,7 @@ use std::{
 use derive_new::new;
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_stark_backend::{
+    ColumnsAir,
     any_air_arc_vec,
     p3_air::{Air, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing},
@@ -53,6 +54,7 @@ pub struct AssertLtTestAir<const AUX_LEN: usize>(pub AssertLtSubAir);
 
 impl<F: Field, const AUX_LEN: usize> BaseAirWithPublicValues<F> for AssertLtTestAir<AUX_LEN> {}
 impl<F: Field, const AUX_LEN: usize> PartitionedBaseAir<F> for AssertLtTestAir<AUX_LEN> {}
+impl<F: Field, const AUX_LEN: usize> ColumnsAir<F> for AssertLtTestAir<AUX_LEN> {}
 impl<F: Field, const AUX_LEN: usize> BaseAir<F> for AssertLtTestAir<AUX_LEN> {
     fn width(&self) -> usize {
         AssertLessThanCols::<F, AUX_LEN>::width()

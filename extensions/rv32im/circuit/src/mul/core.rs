@@ -18,7 +18,7 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, PrimeCharacteristicRing, PrimeField32},
-    BaseAirWithPublicValues,
+    BaseAirWithPublicValues, ColumnsAir,
 };
 
 #[repr(C)]
@@ -47,6 +47,7 @@ impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAirWithPublic
     for MultiplicationCoreAir<NUM_LIMBS, LIMB_BITS>
 {
 }
+impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> ColumnsAir<F> for MultiplicationCoreAir<NUM_LIMBS, LIMB_BITS> {}
 
 impl<AB, I, const NUM_LIMBS: usize, const LIMB_BITS: usize> VmCoreAir<AB, I>
     for MultiplicationCoreAir<NUM_LIMBS, LIMB_BITS>

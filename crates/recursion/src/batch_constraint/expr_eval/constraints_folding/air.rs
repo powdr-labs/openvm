@@ -2,6 +2,7 @@ use std::borrow::Borrow;
 
 use openvm_circuit_primitives::{utils::assert_array_eq, SubAir};
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::D_EF;
@@ -52,6 +53,7 @@ pub struct ConstraintsFoldingAir {
 
 impl<F> BaseAirWithPublicValues<F> for ConstraintsFoldingAir {}
 impl<F> PartitionedBaseAir<F> for ConstraintsFoldingAir {}
+impl<F> ColumnsAir<F> for ConstraintsFoldingAir {}
 
 impl<F> BaseAir<F> for ConstraintsFoldingAir {
     fn width(&self) -> usize {

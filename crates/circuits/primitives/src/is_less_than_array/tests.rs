@@ -12,7 +12,7 @@ use openvm_stark_backend::{
     p3_maybe_rayon::prelude::*,
     prover::{AirProvingContext, ColMajorMatrix},
     utils::disable_debug_builder,
-    BaseAirWithPublicValues, PartitionedBaseAir, StarkEngine, StarkTestError,
+    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir, StarkEngine, StarkTestError,
 };
 #[cfg(feature = "cuda")]
 use {
@@ -50,6 +50,10 @@ impl<F: Field, const NUM: usize, const AUX_LEN: usize> BaseAir<F>
     }
 }
 impl<F: Field, const NUM: usize, const AUX_LEN: usize> PartitionedBaseAir<F>
+    for IsLtArrayTestAir<NUM, AUX_LEN>
+{
+}
+impl<F: Field, const NUM: usize, const AUX_LEN: usize> ColumnsAir<F>
     for IsLtArrayTestAir<NUM, AUX_LEN>
 {
 }

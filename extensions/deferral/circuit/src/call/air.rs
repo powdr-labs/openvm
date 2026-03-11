@@ -18,6 +18,7 @@ use openvm_instructions::{
     LocalOpcode, DEFERRAL_AS,
 };
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, PrimeCharacteristicRing},
@@ -83,6 +84,7 @@ impl<F: Field> BaseAir<F> for DeferralCallCoreAir {
     }
 }
 impl<F: Field> BaseAirWithPublicValues<F> for DeferralCallCoreAir {}
+impl<F: Field> ColumnsAir<F> for DeferralCallCoreAir {}
 
 impl<AB, I> VmCoreAir<AB, I> for DeferralCallCoreAir
 where
@@ -198,6 +200,7 @@ impl<F: Field> BaseAir<F> for DeferralCallAdapterAir {
         DeferralCallAdapterCols::<F>::width()
     }
 }
+impl<F: Field> ColumnsAir<F> for DeferralCallAdapterAir {}
 
 impl<AB: InteractionBuilder> VmAdapterAir<AB> for DeferralCallAdapterAir {
     type Interface = DeferralCallAdapterInterface;

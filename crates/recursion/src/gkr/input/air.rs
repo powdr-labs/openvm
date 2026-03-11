@@ -6,6 +6,7 @@ use openvm_circuit_primitives::{
     SubAir,
 };
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::D_EF;
@@ -84,6 +85,7 @@ impl<F: Field> BaseAir<F> for GkrInputAir {
 
 impl<F: Field> BaseAirWithPublicValues<F> for GkrInputAir {}
 impl<F: Field> PartitionedBaseAir<F> for GkrInputAir {}
+impl<F: Field> ColumnsAir<F> for GkrInputAir {}
 
 impl<AB: AirBuilder + InteractionBuilder> Air<AB> for GkrInputAir {
     fn eval(&self, builder: &mut AB) {

@@ -2,6 +2,7 @@ use std::{borrow::Borrow, mem::size_of};
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder,
     p3_air::{Air, BaseAir},
     p3_field::Field,
@@ -27,6 +28,7 @@ pub struct ExecutionDummyAir {
 
 impl<F: Field> BaseAirWithPublicValues<F> for ExecutionDummyAir {}
 impl<F: Field> PartitionedBaseAir<F> for ExecutionDummyAir {}
+impl<F: Field> ColumnsAir<F> for ExecutionDummyAir {}
 impl<F: Field> BaseAir<F> for ExecutionDummyAir {
     fn width(&self) -> usize {
         size_of::<DummyExecutionInteractionCols<u8>>()

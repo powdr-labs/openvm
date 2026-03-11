@@ -2,6 +2,7 @@ use std::borrow::{Borrow, BorrowMut};
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_stark_backend::{
+    ColumnsAir,
     any_air_arc_vec,
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing},
@@ -43,6 +44,7 @@ pub struct IsZeroTestAir(IsZeroSubAir);
 
 impl<F: Field> BaseAirWithPublicValues<F> for IsZeroTestAir {}
 impl<F: Field> PartitionedBaseAir<F> for IsZeroTestAir {}
+impl<F: Field> ColumnsAir<F> for IsZeroTestAir {}
 impl<F: Field> BaseAir<F> for IsZeroTestAir {
     fn width(&self) -> usize {
         IsZeroCols::<F>::width()

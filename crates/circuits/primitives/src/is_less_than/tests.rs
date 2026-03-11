@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use derive_new::new;
 use openvm_stark_backend::{
+    ColumnsAir,
     any_air_arc_vec,
     interaction::InteractionBuilder,
     p3_air::{Air, BaseAir},
@@ -47,6 +48,7 @@ pub struct IsLtTestAir(pub IsLtSubAir);
 
 impl<F: Field> BaseAirWithPublicValues<F> for IsLtTestAir {}
 impl<F: Field> PartitionedBaseAir<F> for IsLtTestAir {}
+impl<F: Field> ColumnsAir<F> for IsLtTestAir {}
 impl<F: Field> BaseAir<F> for IsLtTestAir {
     fn width(&self) -> usize {
         // Cannot use size_of because Cols has Vec<T> which is stored on the heap

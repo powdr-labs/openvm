@@ -17,6 +17,7 @@ use openvm_instructions::{
     instruction::Instruction, program::DEFAULT_PC_STEP, riscv::RV32_REGISTER_AS,
 };
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, PrimeCharacteristicRing, PrimeField32},
@@ -45,6 +46,7 @@ impl<F: Field> BaseAir<F> for Rv32BranchAdapterAir {
         Rv32BranchAdapterCols::<F>::width()
     }
 }
+impl<F: Field> ColumnsAir<F> for Rv32BranchAdapterAir {}
 
 impl<AB: InteractionBuilder> VmAdapterAir<AB> for Rv32BranchAdapterAir {
     type Interface =

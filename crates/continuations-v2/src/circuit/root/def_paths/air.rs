@@ -8,6 +8,7 @@ use openvm_circuit_primitives::{
     SubAir,
 };
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::DIGEST_SIZE;
@@ -91,6 +92,7 @@ impl<F> BaseAir<F> for DeferralAccMerklePathsAir {
 }
 impl<F> BaseAirWithPublicValues<F> for DeferralAccMerklePathsAir {}
 impl<F> PartitionedBaseAir<F> for DeferralAccMerklePathsAir {}
+impl<F> ColumnsAir<F> for DeferralAccMerklePathsAir {}
 
 impl<AB: AirBuilder + InteractionBuilder> Air<AB> for DeferralAccMerklePathsAir {
     fn eval(&self, builder: &mut AB) {

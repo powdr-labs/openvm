@@ -14,6 +14,7 @@ use openvm_instructions::{
     SystemOpcode, VmOpcode,
 };
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder,
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing, PrimeField32},
@@ -67,6 +68,7 @@ impl<F: Field> BaseAir<F> for PhantomAir {
     }
 }
 impl<F: Field> PartitionedBaseAir<F> for PhantomAir {}
+impl<F: Field> ColumnsAir<F> for PhantomAir {}
 impl<F: Field> BaseAirWithPublicValues<F> for PhantomAir {}
 
 impl<AB: AirBuilder + InteractionBuilder> Air<AB> for PhantomAir {

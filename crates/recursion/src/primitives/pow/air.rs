@@ -1,6 +1,7 @@
 use core::borrow::Borrow;
 
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder, p3_util::log2_strict_usize, BaseAirWithPublicValues,
     PartitionedBaseAir,
 };
@@ -33,6 +34,7 @@ impl<F, const BASE: usize, const N: usize> BaseAir<F> for PowerCheckerAir<BASE, 
         PowerCheckerCols::<F>::width()
     }
 }
+impl<F, const BASE: usize, const N: usize> ColumnsAir<F> for PowerCheckerAir<BASE, N> {}
 impl<F, const B: usize, const N: usize> BaseAirWithPublicValues<F> for PowerCheckerAir<B, N> {}
 impl<F, const B: usize, const N: usize> PartitionedBaseAir<F> for PowerCheckerAir<B, N> {}
 

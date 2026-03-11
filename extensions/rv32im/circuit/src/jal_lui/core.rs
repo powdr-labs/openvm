@@ -16,6 +16,7 @@ use openvm_instructions::{
 };
 use openvm_rv32im_transpiler::Rv32JalLuiOpcode::{self, *};
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder,
     p3_air::{AirBuilder, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing, PrimeField32},
@@ -50,6 +51,7 @@ impl<F: Field> BaseAir<F> for Rv32JalLuiCoreAir {
 }
 
 impl<F: Field> BaseAirWithPublicValues<F> for Rv32JalLuiCoreAir {}
+impl<F: Field> ColumnsAir<F> for Rv32JalLuiCoreAir {}
 
 impl<AB, I> VmCoreAir<AB, I> for Rv32JalLuiCoreAir
 where

@@ -28,6 +28,7 @@ use openvm_rv32im_transpiler::{
     MAX_HINT_BUFFER_WORDS, MAX_HINT_BUFFER_WORDS_BITS,
 };
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder,
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing, PrimeField32},
@@ -90,6 +91,7 @@ impl<F: Field> BaseAir<F> for Rv32HintStoreAir {
 
 impl<F: Field> BaseAirWithPublicValues<F> for Rv32HintStoreAir {}
 impl<F: Field> PartitionedBaseAir<F> for Rv32HintStoreAir {}
+impl<F: Field> ColumnsAir<F> for Rv32HintStoreAir {}
 
 impl<AB: InteractionBuilder> Air<AB> for Rv32HintStoreAir {
     fn eval(&self, builder: &mut AB) {

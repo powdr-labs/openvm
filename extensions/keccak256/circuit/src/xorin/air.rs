@@ -14,6 +14,7 @@ use openvm_instructions::riscv::{
 };
 use openvm_keccak256_transpiler::XorinOpcode;
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder,
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::PrimeCharacteristicRing,
@@ -36,6 +37,7 @@ pub struct XorinVmAir {
 
 impl<F> BaseAirWithPublicValues<F> for XorinVmAir {}
 impl<F> PartitionedBaseAir<F> for XorinVmAir {}
+impl<F> ColumnsAir<F> for XorinVmAir {}
 impl<F> BaseAir<F> for XorinVmAir {
     fn width(&self) -> usize {
         NUM_XORIN_VM_COLS

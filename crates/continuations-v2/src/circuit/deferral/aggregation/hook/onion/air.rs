@@ -2,6 +2,7 @@ use std::borrow::Borrow;
 
 use openvm_circuit_primitives::utils::not;
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use p3_air::{Air, AirBuilder, AirBuilderWithPublicValues, BaseAir};
@@ -49,6 +50,7 @@ impl<F> BaseAir<F> for OnionHashAir {
 }
 impl<F> BaseAirWithPublicValues<F> for OnionHashAir {}
 impl<F> PartitionedBaseAir<F> for OnionHashAir {}
+impl<F> ColumnsAir<F> for OnionHashAir {}
 
 impl<AB: AirBuilder + InteractionBuilder + AirBuilderWithPublicValues> Air<AB> for OnionHashAir {
     fn eval(&self, builder: &mut AB) {

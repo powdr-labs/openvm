@@ -17,6 +17,7 @@ use openvm_circuit_primitives::{
 };
 use openvm_instructions::{instruction::Instruction, program::DEFAULT_PC_STEP};
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, PrimeCharacteristicRing, PrimeField32},
@@ -98,6 +99,7 @@ impl<F: Field> BaseAir<F> for FieldExpressionCoreAir {
 }
 
 impl<F: Field> BaseAirWithPublicValues<F> for FieldExpressionCoreAir {}
+impl<F: Field> ColumnsAir<F> for FieldExpressionCoreAir {}
 
 impl<AB: InteractionBuilder, I> VmCoreAir<AB, I> for FieldExpressionCoreAir
 where

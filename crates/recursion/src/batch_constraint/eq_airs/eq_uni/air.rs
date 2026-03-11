@@ -5,6 +5,7 @@ use openvm_circuit_primitives::{
     SubAir,
 };
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::D_EF;
@@ -43,6 +44,7 @@ pub struct EqUniAir {
 
 impl<F> BaseAirWithPublicValues<F> for EqUniAir {}
 impl<F> PartitionedBaseAir<F> for EqUniAir {}
+impl<F> ColumnsAir<F> for EqUniAir {}
 
 impl<F> BaseAir<F> for EqUniAir {
     fn width(&self) -> usize {

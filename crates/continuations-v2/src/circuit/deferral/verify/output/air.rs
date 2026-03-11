@@ -5,7 +5,7 @@ use openvm_circuit_primitives::{
     utils::{assert_array_eq, not},
     AlignedBorrow,
 };
-use openvm_stark_backend::{interaction::InteractionBuilder, PartitionedBaseAir};
+use openvm_stark_backend::{interaction::InteractionBuilder, ColumnsAir, PartitionedBaseAir};
 use p3_air::{Air, AirBuilder, BaseAir, BaseAirWithPublicValues};
 use p3_field::PrimeCharacteristicRing;
 use p3_matrix::Matrix;
@@ -58,6 +58,7 @@ impl<F> BaseAir<F> for DeferralOutputCommitAir {
 }
 impl<F> BaseAirWithPublicValues<F> for DeferralOutputCommitAir {}
 impl<F> PartitionedBaseAir<F> for DeferralOutputCommitAir {}
+impl<F> ColumnsAir<F> for DeferralOutputCommitAir {}
 
 impl<AB: AirBuilder + InteractionBuilder> Air<AB> for DeferralOutputCommitAir {
     fn eval(&self, builder: &mut AB) {

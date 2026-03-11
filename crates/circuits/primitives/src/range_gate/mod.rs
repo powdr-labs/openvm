@@ -11,6 +11,7 @@ use std::{
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::{BusIndex, InteractionBuilder},
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing},
@@ -52,6 +53,7 @@ pub struct RangeCheckerGateAir {
 
 impl<F: Field> BaseAirWithPublicValues<F> for RangeCheckerGateAir {}
 impl<F: Field> PartitionedBaseAir<F> for RangeCheckerGateAir {}
+impl<F: Field> ColumnsAir<F> for RangeCheckerGateAir {}
 impl<F: Field> BaseAir<F> for RangeCheckerGateAir {
     fn width(&self) -> usize {
         NUM_RANGE_GATE_COLS

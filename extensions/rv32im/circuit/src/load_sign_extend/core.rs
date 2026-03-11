@@ -24,7 +24,7 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, PrimeCharacteristicRing, PrimeField32},
-    BaseAirWithPublicValues,
+    BaseAirWithPublicValues, ColumnsAir,
 };
 
 use crate::adapters::{LoadStoreInstruction, Rv32LoadStoreAdapterFiller};
@@ -68,6 +68,7 @@ impl<F: Field, const NUM_CELLS: usize, const LIMB_BITS: usize> BaseAirWithPublic
     for LoadSignExtendCoreAir<NUM_CELLS, LIMB_BITS>
 {
 }
+impl<F: Field, const NUM_CELLS: usize, const LIMB_BITS: usize> ColumnsAir<F> for LoadSignExtendCoreAir<NUM_CELLS, LIMB_BITS> {}
 
 impl<AB, I, const NUM_CELLS: usize, const LIMB_BITS: usize> VmCoreAir<AB, I>
     for LoadSignExtendCoreAir<NUM_CELLS, LIMB_BITS>

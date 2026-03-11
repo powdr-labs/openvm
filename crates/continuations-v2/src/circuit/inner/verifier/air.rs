@@ -2,6 +2,7 @@ use std::{array::from_fn, borrow::Borrow};
 
 use openvm_circuit_primitives::utils::{and, assert_array_eq, not};
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use p3_air::{Air, AirBuilder, AirBuilderWithPublicValues, BaseAir};
@@ -55,6 +56,7 @@ impl<F> BaseAirWithPublicValues<F> for VerifierPvsAir {
     }
 }
 impl<F> PartitionedBaseAir<F> for VerifierPvsAir {}
+impl<F> ColumnsAir<F> for VerifierPvsAir {}
 
 impl<AB: AirBuilder + InteractionBuilder + AirBuilderWithPublicValues> Air<AB> for VerifierPvsAir {
     fn eval(&self, builder: &mut AB) {

@@ -9,6 +9,7 @@ use openvm_circuit_primitives::var_range::{
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::LocalOpcode;
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder,
     p3_air::{Air, AirBuilder, AirBuilderWithPublicValues, BaseAir, PairBuilder},
     p3_field::{Field, PrimeCharacteristicRing, PrimeField32},
@@ -75,6 +76,7 @@ impl<F: Field> BaseAirWithPublicValues<F> for VmConnectorAir {
     }
 }
 impl<F: Field> PartitionedBaseAir<F> for VmConnectorAir {}
+impl<F: Field> ColumnsAir<F> for VmConnectorAir {}
 impl<F: Field> BaseAir<F> for VmConnectorAir {
     fn width(&self) -> usize {
         ConnectorCols::<F>::width()

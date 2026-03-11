@@ -5,6 +5,7 @@ use openvm_poseidon2_air::{
     Poseidon2SubAir, Poseidon2SubCols, BABY_BEAR_POSEIDON2_HALF_FULL_ROUNDS,
 };
 use openvm_stark_backend::{
+    ColumnsAir,
     air_builders::sub::SubAirBuilder, interaction::InteractionBuilder, BaseAirWithPublicValues,
     PartitionedBaseAir,
 };
@@ -48,6 +49,7 @@ impl<F: Field, const SBOX_REGISTERS: usize> PartitionedBaseAir<F>
     for Poseidon2Air<F, SBOX_REGISTERS>
 {
 }
+impl<F: Field, const SBOX_REGISTERS: usize> ColumnsAir<F> for Poseidon2Air<F, SBOX_REGISTERS> {}
 
 impl<AB: AirBuilder + InteractionBuilder, const SBOX_REGISTERS: usize> Air<AB>
     for Poseidon2Air<AB::F, SBOX_REGISTERS>

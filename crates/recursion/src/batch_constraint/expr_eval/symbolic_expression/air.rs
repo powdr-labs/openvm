@@ -3,6 +3,7 @@ use std::{borrow::Borrow, sync::Arc};
 
 use openvm_circuit_primitives::{encoder::Encoder, utils::assert_array_eq, SubAir};
 use openvm_stark_backend::{
+    ColumnsAir,
     air_builders::PartitionedAirBuilder, interaction::InteractionBuilder, BaseAirWithPublicValues,
     PartitionedBaseAir,
 };
@@ -120,6 +121,7 @@ impl<F: Field> PartitionedBaseAir<F> for SymbolicExpressionAir<F> {
             }
     }
 }
+impl<F: Field> ColumnsAir<F> for SymbolicExpressionAir<F> {}
 
 impl<F: Field> BaseAir<F> for SymbolicExpressionAir<F> {
     fn width(&self) -> usize {

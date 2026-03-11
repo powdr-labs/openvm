@@ -1,6 +1,7 @@
 use core::borrow::Borrow;
 
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::F;
@@ -39,6 +40,7 @@ impl ExpBitsLenAir {
 
 impl BaseAirWithPublicValues<F> for ExpBitsLenAir {}
 impl PartitionedBaseAir<F> for ExpBitsLenAir {}
+impl<F> ColumnsAir<F> for ExpBitsLenAir {}
 
 impl<F> BaseAir<F> for ExpBitsLenAir {
     fn width(&self) -> usize {

@@ -1,4 +1,5 @@
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder,
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing},
@@ -21,6 +22,7 @@ impl TestSendAir {
 
 impl<F: Field> BaseAirWithPublicValues<F> for TestSendAir {}
 impl<F: Field> PartitionedBaseAir<F> for TestSendAir {}
+impl<F: Field> ColumnsAir<F> for TestSendAir {}
 impl<F: Field> BaseAir<F> for TestSendAir {
     fn width(&self) -> usize {
         2
@@ -54,6 +56,7 @@ impl TestRangeCheckAir {
 
 impl<F: Field> BaseAirWithPublicValues<F> for TestRangeCheckAir {}
 impl<F: Field> PartitionedBaseAir<F> for TestRangeCheckAir {}
+impl<F: Field> ColumnsAir<F> for TestRangeCheckAir {}
 impl<F: Field> BaseAir<F> for TestRangeCheckAir {
     fn width(&self) -> usize {
         1

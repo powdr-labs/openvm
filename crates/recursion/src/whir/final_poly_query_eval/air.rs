@@ -2,6 +2,7 @@ use core::borrow::Borrow;
 
 use openvm_circuit_primitives::{utils::assert_array_eq, SubAir};
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::{D_EF, F};
@@ -62,6 +63,7 @@ pub struct FinalPolyQueryEvalAir {
 
 impl BaseAirWithPublicValues<F> for FinalPolyQueryEvalAir {}
 impl PartitionedBaseAir<F> for FinalPolyQueryEvalAir {}
+impl<F> ColumnsAir<F> for FinalPolyQueryEvalAir {}
 
 impl<F> BaseAir<F> for FinalPolyQueryEvalAir {
     fn width(&self) -> usize {

@@ -3,6 +3,7 @@ use std::convert::Into;
 
 use openvm_circuit_primitives::SubAir;
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::D_EF;
@@ -55,6 +56,7 @@ impl<F: Field> BaseAir<F> for GkrXiSamplerAir {
 
 impl<F: Field> BaseAirWithPublicValues<F> for GkrXiSamplerAir {}
 impl<F: Field> PartitionedBaseAir<F> for GkrXiSamplerAir {}
+impl<F: Field> ColumnsAir<F> for GkrXiSamplerAir {}
 
 impl<AB: AirBuilder + InteractionBuilder> Air<AB> for GkrXiSamplerAir
 where

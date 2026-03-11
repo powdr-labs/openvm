@@ -16,6 +16,7 @@ use openvm_instructions::{
     LocalOpcode,
 };
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder,
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::PrimeCharacteristicRing,
@@ -90,6 +91,7 @@ impl<F> BaseAir<F> for DeferralOutputAir {
 }
 impl<F> BaseAirWithPublicValues<F> for DeferralOutputAir {}
 impl<F> PartitionedBaseAir<F> for DeferralOutputAir {}
+impl<F> ColumnsAir<F> for DeferralOutputAir {}
 
 impl<AB> Air<AB> for DeferralOutputAir
 where

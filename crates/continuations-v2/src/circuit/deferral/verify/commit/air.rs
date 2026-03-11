@@ -2,6 +2,7 @@ use std::{array::from_fn, borrow::Borrow};
 
 use openvm_circuit_primitives::SubAir;
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::DIGEST_SIZE;
@@ -67,6 +68,7 @@ impl<F> BaseAir<F> for UserPvsCommitValuesAir {
 }
 impl<F> BaseAirWithPublicValues<F> for UserPvsCommitValuesAir {}
 impl<F> PartitionedBaseAir<F> for UserPvsCommitValuesAir {}
+impl<F> ColumnsAir<F> for UserPvsCommitValuesAir {}
 
 impl<AB: AirBuilder + InteractionBuilder + AirBuilderWithPublicValues> Air<AB>
     for UserPvsCommitValuesAir

@@ -15,6 +15,7 @@ use openvm_instructions::riscv::{
 use openvm_keccak256_transpiler::KeccakfOpcode;
 use openvm_rv32im_circuit::adapters::abstract_compose;
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::{InteractionBuilder, PermutationCheckBus},
     p3_air::{Air, BaseAir},
     p3_field::PrimeCharacteristicRing,
@@ -43,6 +44,7 @@ pub struct KeccakfOpAir {
 
 impl<F> BaseAirWithPublicValues<F> for KeccakfOpAir {}
 impl<F> PartitionedBaseAir<F> for KeccakfOpAir {}
+impl<F> ColumnsAir<F> for KeccakfOpAir {}
 impl<F> BaseAir<F> for KeccakfOpAir {
     fn width(&self) -> usize {
         NUM_KECCAKF_OP_COLS

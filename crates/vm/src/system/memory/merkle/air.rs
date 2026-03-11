@@ -1,6 +1,7 @@
 use std::{borrow::Borrow, iter};
 
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::{InteractionBuilder, PermutationCheckBus},
     p3_air::{Air, AirBuilder, AirBuilderWithPublicValues, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing},
@@ -18,6 +19,7 @@ pub struct MemoryMerkleAir<const CHUNK: usize> {
 }
 
 impl<const CHUNK: usize, F: Field> PartitionedBaseAir<F> for MemoryMerkleAir<CHUNK> {}
+impl<const CHUNK: usize, F: Field> ColumnsAir<F> for MemoryMerkleAir<CHUNK> {}
 impl<const CHUNK: usize, F: Field> BaseAir<F> for MemoryMerkleAir<CHUNK> {
     fn width(&self) -> usize {
         MemoryMerkleCols::<F, CHUNK>::width()

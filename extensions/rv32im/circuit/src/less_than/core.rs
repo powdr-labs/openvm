@@ -19,7 +19,7 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{AirBuilder, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing, PrimeField32},
-    BaseAirWithPublicValues,
+    BaseAirWithPublicValues, ColumnsAir,
 };
 use strum::IntoEnumIterator;
 
@@ -61,6 +61,7 @@ impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAirWithPublic
     for LessThanCoreAir<NUM_LIMBS, LIMB_BITS>
 {
 }
+impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> ColumnsAir<F> for LessThanCoreAir<NUM_LIMBS, LIMB_BITS> {}
 
 impl<AB, I, const NUM_LIMBS: usize, const LIMB_BITS: usize> VmCoreAir<AB, I>
     for LessThanCoreAir<NUM_LIMBS, LIMB_BITS>

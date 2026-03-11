@@ -1,5 +1,6 @@
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_stark_backend::{
+    ColumnsAir,
     air_builders::PartitionedAirBuilder,
     interaction::InteractionBuilder,
     p3_air::{Air, BaseAir},
@@ -46,6 +47,7 @@ impl<F: Field> PartitionedBaseAir<F> for ProgramAir {
         1
     }
 }
+impl<F: Field> ColumnsAir<F> for ProgramAir {}
 impl<F: Field> BaseAir<F> for ProgramAir {
     fn width(&self) -> usize {
         ProgramCols::<F>::width()

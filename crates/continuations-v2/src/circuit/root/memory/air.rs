@@ -5,6 +5,7 @@ use openvm_circuit::system::memory::{
 };
 use openvm_circuit_primitives::SubAir;
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder, p3_util::log2_strict_usize, BaseAirWithPublicValues,
     PartitionedBaseAir,
 };
@@ -76,6 +77,7 @@ impl<F> BaseAir<F> for UserPvsInMemoryAir {
 }
 impl<F> BaseAirWithPublicValues<F> for UserPvsInMemoryAir {}
 impl<F> PartitionedBaseAir<F> for UserPvsInMemoryAir {}
+impl<F> ColumnsAir<F> for UserPvsInMemoryAir {}
 
 impl<AB: AirBuilder + InteractionBuilder> Air<AB> for UserPvsInMemoryAir {
     fn eval(&self, builder: &mut AB) {

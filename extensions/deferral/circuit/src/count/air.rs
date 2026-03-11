@@ -3,6 +3,7 @@ use std::borrow::Borrow;
 use openvm_circuit_primitives::utils::not;
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder,
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::PrimeCharacteristicRing,
@@ -33,6 +34,7 @@ impl<F> BaseAir<F> for DeferralCircuitCountAir {
 }
 impl<F> BaseAirWithPublicValues<F> for DeferralCircuitCountAir {}
 impl<F> PartitionedBaseAir<F> for DeferralCircuitCountAir {}
+impl<F> ColumnsAir<F> for DeferralCircuitCountAir {}
 
 impl<AB> Air<AB> for DeferralCircuitCountAir
 where

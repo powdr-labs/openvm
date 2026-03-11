@@ -3,6 +3,7 @@ use std::{array::from_fn, borrow::Borrow};
 use openvm_circuit::arch::{ExitCode, POSEIDON2_WIDTH};
 use openvm_circuit_primitives::utils::assert_array_eq;
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::DIGEST_SIZE;
@@ -92,6 +93,7 @@ impl<F> BaseAirWithPublicValues<F> for DeferredVerifyPvsAir {
     }
 }
 impl<F> PartitionedBaseAir<F> for DeferredVerifyPvsAir {}
+impl<F> ColumnsAir<F> for DeferredVerifyPvsAir {}
 
 impl<AB: AirBuilder + InteractionBuilder + AirBuilderWithPublicValues> Air<AB>
     for DeferredVerifyPvsAir

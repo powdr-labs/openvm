@@ -11,6 +11,7 @@ use std::{
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder,
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing, PrimeField32},
@@ -61,6 +62,7 @@ impl VariableRangeCheckerAir {
 
 impl<F: Field> BaseAirWithPublicValues<F> for VariableRangeCheckerAir {}
 impl<F: Field> PartitionedBaseAir<F> for VariableRangeCheckerAir {}
+impl<F: Field> ColumnsAir<F> for VariableRangeCheckerAir {}
 impl<F: Field> BaseAir<F> for VariableRangeCheckerAir {
     fn width(&self) -> usize {
         VariableRangeCols::<F>::width()

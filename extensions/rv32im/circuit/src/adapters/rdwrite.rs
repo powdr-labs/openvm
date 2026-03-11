@@ -17,6 +17,7 @@ use openvm_instructions::{
     instruction::Instruction, program::DEFAULT_PC_STEP, riscv::RV32_REGISTER_AS,
 };
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder,
     p3_air::{AirBuilder, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing, PrimeField32},
@@ -58,12 +59,14 @@ impl<F: Field> BaseAir<F> for Rv32RdWriteAdapterAir {
         Rv32RdWriteAdapterCols::<F>::width()
     }
 }
+impl<F: Field> ColumnsAir<F> for Rv32RdWriteAdapterAir {}
 
 impl<F: Field> BaseAir<F> for Rv32CondRdWriteAdapterAir {
     fn width(&self) -> usize {
         Rv32CondRdWriteAdapterCols::<F>::width()
     }
 }
+impl<F: Field> ColumnsAir<F> for Rv32CondRdWriteAdapterAir {}
 
 impl Rv32RdWriteAdapterAir {
     /// If `needs_write` is provided:

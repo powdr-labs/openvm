@@ -2,6 +2,7 @@ use std::{borrow::Borrow, iter};
 
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_stark_backend::{
+    ColumnsAir,
     air_builders::sub::SubAirBuilder,
     interaction::{InteractionBuilder, PermutationCheckBus},
     p3_air::{Air, AirBuilder, BaseAir},
@@ -51,6 +52,7 @@ pub const NUM_KECCAKF_PERM_COLS: usize = size_of::<KeccakfPermCols<u8>>();
 
 impl<F> BaseAirWithPublicValues<F> for KeccakfPermAir {}
 impl<F> PartitionedBaseAir<F> for KeccakfPermAir {}
+impl<F> ColumnsAir<F> for KeccakfPermAir {}
 impl<F> BaseAir<F> for KeccakfPermAir {
     fn width(&self) -> usize {
         NUM_KECCAKF_PERM_COLS

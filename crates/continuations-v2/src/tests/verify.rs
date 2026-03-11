@@ -17,7 +17,7 @@ use openvm_rv32im_circuit::Rv32ImBuilder;
 use openvm_rv32im_transpiler::{
     Rv32ITranspilerExtension, Rv32IoTranspilerExtension, Rv32MTranspilerExtension,
 };
-use openvm_stark_backend::{proof::Proof, AirRef, PartitionedBaseAir, StarkEngine};
+use openvm_stark_backend::{proof::Proof, AirRef, ColumnsAir, PartitionedBaseAir, StarkEngine};
 use openvm_stark_sdk::{
     config::{baby_bear_bn254_poseidon2::BabyBearBn254Poseidon2CpuEngine, baby_bear_poseidon2::F},
     utils::setup_tracing_with_log_level,
@@ -68,6 +68,7 @@ impl<F> BaseAirWithPublicValues<F> for EmptyAirWithPvs {
     }
 }
 impl<F> PartitionedBaseAir<F> for EmptyAirWithPvs {}
+impl<F> ColumnsAir<F> for EmptyAirWithPvs {}
 impl<AB: AirBuilder> Air<AB> for EmptyAirWithPvs {
     fn eval(&self, _builder: &mut AB) {}
 }

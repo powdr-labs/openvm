@@ -2,6 +2,7 @@ use core::borrow::Borrow;
 
 use openvm_circuit_primitives::{utils::assert_array_eq, SubAir};
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::{D_EF, F};
@@ -68,6 +69,7 @@ pub struct SumcheckAir {
 
 impl BaseAirWithPublicValues<F> for SumcheckAir {}
 impl PartitionedBaseAir<F> for SumcheckAir {}
+impl<F> ColumnsAir<F> for SumcheckAir {}
 
 impl<F> BaseAir<F> for SumcheckAir {
     fn width(&self) -> usize {

@@ -2,6 +2,7 @@ use core::borrow::Borrow;
 
 use openvm_circuit_primitives::utils::assert_array_eq;
 use openvm_stark_backend::{
+    ColumnsAir,
     interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::{D_EF, F};
@@ -45,6 +46,7 @@ pub struct WhirFoldingAir {
 
 impl BaseAirWithPublicValues<F> for WhirFoldingAir {}
 impl PartitionedBaseAir<F> for WhirFoldingAir {}
+impl ColumnsAir<F> for WhirFoldingAir {}
 
 impl BaseAir<F> for WhirFoldingAir {
     fn width(&self) -> usize {
