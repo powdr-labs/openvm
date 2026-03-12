@@ -17,7 +17,8 @@ tracing = { workspace = true }
 tempfile = "3"
 
 [features]
-default = ["parallel", "metrics"]
+default = ["parallel", "metrics", "jemalloc"]
 parallel = ["sdk-v2/parallel"]
 metrics = ["sdk-v2/metrics"]
 jemalloc = ["sdk-v2/jemalloc"]
+cuda = ["sdk-v2/cuda"]

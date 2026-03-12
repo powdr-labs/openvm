@@ -43,6 +43,10 @@ struct Args {
     /// Max trace height per segment
     #[arg(long)]
     max_segment_length: Option<u32>,
+
+    /// Path to write metrics JSON file
+    #[arg(long)]
+    metrics: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, ValueEnum)]
@@ -116,6 +120,11 @@ fn main() -> Result<()> {
             .set_max_trace_height(max_height);
     }
 
+    // Set metrics output path via env var (used by run_with_metric_collection)
+    if let Some(metrics_path) = &args.metrics {
+        std::env::set_var("OUTPUT_PATH", metrics_path);
+    }
+
     run_with_metric_collection("OUTPUT_PATH", || -> Result<()> {
         match args.mode {
             Mode::Execute => {
@@ -139,7 +148,6 @@ fn main() -> Result<()> {
             Mode::ProveApp => {
                 eprintln!("Generating app proofs (per-segment, no aggregation)...");
                 let mut prover = sdk.app_prover(elf.clone())?;
-                prover.set_program_name("pairing".to_string());
                 let app_proof = prover.prove(StdIn::default())?;
                 eprintln!(
                     "App proving complete: {} segment proofs",
