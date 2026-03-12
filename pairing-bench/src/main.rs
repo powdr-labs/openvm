@@ -122,6 +122,9 @@ fn main() -> Result<()> {
 
     // Set metrics output path via env var (used by run_with_metric_collection)
     if let Some(metrics_path) = &args.metrics {
+        if let Some(parent) = metrics_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
         std::env::set_var("OUTPUT_PATH", metrics_path);
     }
 
