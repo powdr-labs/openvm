@@ -8,16 +8,14 @@ use openvm_stark_sdk::{
 use openvm_transpiler::{elf::Elf, openvm_platform::memory::MEM_SIZE};
 use sdk_v2::{
     config::{
-        default_app_params, default_compression_params, default_internal_params,
-        default_leaf_params, AggregationSystemParams, DEFAULT_APP_L_SKIP, DEFAULT_APP_LOG_BLOWUP,
-        DEFAULT_COMPRESSION_LOG_BLOWUP, DEFAULT_INTERNAL_LOG_BLOWUP, DEFAULT_LEAF_LOG_BLOWUP,
+        default_app_params, AggregationSystemParams, DEFAULT_APP_L_SKIP, DEFAULT_APP_LOG_BLOWUP,
     },
     Sdk, StdIn,
 };
 
-/// Max log of stacked trace height for app-level proofs.
-/// Matches the value used in openvm-eth reth-benchmark.
-const DEFAULT_LOG_STACKED_HEIGHT: usize = 24;
+/// n_stack for app-level proofs. Matches the value used in powdr's openvm-riscv.
+/// max_log_height = l_skip + n_stack = 4 + 21 = 25.
+const DEFAULT_APP_N_STACK: usize = 21;
 
 #[derive(Parser, Debug)]
 #[command(name = "pairing-bench")]
@@ -104,15 +102,9 @@ fn main() -> Result<()> {
     let elf = load_or_build_elf(&args)?;
 
     // Configure SDK: rv32im only (no precompiles)
-    // max_log_height = l_skip + n_stack; use 24 like reth-benchmark
-    let app_n_stack = DEFAULT_LOG_STACKED_HEIGHT - args.app_l_skip;
-    let app_params = default_app_params(args.app_log_blowup, args.app_l_skip, app_n_stack);
-
-    let agg_params = AggregationSystemParams {
-        leaf: default_leaf_params(DEFAULT_LEAF_LOG_BLOWUP),
-        internal: default_internal_params(DEFAULT_INTERNAL_LOG_BLOWUP),
-        compression: Some(default_compression_params(DEFAULT_COMPRESSION_LOG_BLOWUP)),
-    };
+    // max_log_height = l_skip + n_stack = 4 + 21 = 25
+    let app_params = default_app_params(args.app_log_blowup, args.app_l_skip, DEFAULT_APP_N_STACK);
+    let agg_params = AggregationSystemParams::default();
 
     let mut sdk: Sdk = Sdk::riscv32(app_params, agg_params);
     if let Some(max_height) = args.max_segment_length {
