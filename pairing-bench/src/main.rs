@@ -25,7 +25,7 @@ struct Args {
     guest_dir: Option<PathBuf>,
 
     /// Execution mode
-    #[arg(long, default_value = "prove-stark")]
+    #[arg(long, default_value = "prove-app")]
     mode: Mode,
 
     /// App-level log blowup
@@ -39,6 +39,10 @@ struct Args {
     /// Max trace height per segment
     #[arg(long)]
     max_segment_length: Option<u32>,
+
+    /// Disable compression layer in prove-stark (saves 2 wrap + 1 compression step)
+    #[arg(long)]
+    no_compression: bool,
 }
 
 #[derive(Debug, Clone, ValueEnum)]
@@ -101,7 +105,11 @@ fn main() -> Result<()> {
     // max_log_height = l_skip + n_stack; need >= 22 for this workload
     let n_stack = 22 - args.app_l_skip;
     let app_params = default_app_params(args.app_log_blowup, args.app_l_skip, n_stack);
-    let agg_params = AggregationSystemParams::default();
+
+    let mut agg_params = AggregationSystemParams::default();
+    if args.no_compression {
+        agg_params.compression = None;
+    }
 
     let mut sdk: Sdk = Sdk::riscv32(app_params, agg_params);
     if let Some(max_height) = args.max_segment_length {
