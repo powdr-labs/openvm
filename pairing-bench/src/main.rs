@@ -98,7 +98,8 @@ fn main() -> Result<()> {
     let elf = load_or_build_elf(&args)?;
 
     // Configure SDK: rv32im only (no precompiles)
-    let n_stack = 21 - args.app_l_skip;
+    // max_log_height = l_skip + n_stack; need >= 22 for this workload
+    let n_stack = 22 - args.app_l_skip;
     let app_params = default_app_params(args.app_log_blowup, args.app_l_skip, n_stack);
     let agg_params = AggregationSystemParams::default();
 
