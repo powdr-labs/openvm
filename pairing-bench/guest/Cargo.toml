@@ -1,0 +1,15 @@
+[package]
+name = "guest-pairing"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+members = []
+
+[dependencies]
+openvm = { path = "../../crates/toolchain/openvm", features = ["std"] }
+
+ark-bn254 = "0.5"
+ark-ec = "0.5"
+ark-ff = "0.5"
+hex = { version = "0.4", default-features = false, features = ["alloc"] }

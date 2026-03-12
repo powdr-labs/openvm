@@ -12,6 +12,7 @@ members = [
     # "benchmarks/utils",
     # "benchmarks/execute",
     # "benchmarks/prove",
+    "pairing-bench",
     "crates/prof",
     # "crates/cli",
     # "crates/sdk",

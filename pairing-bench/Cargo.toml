@@ -1,0 +1,23 @@
+[package]
+name = "pairing-bench"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+sdk-v2 = { workspace = true, features = ["metrics"] }
+verify-stark = { workspace = true }
+openvm-transpiler = { workspace = true }
+openvm-stark-sdk = { workspace = true, features = ["baby-bear-bn254-poseidon2", "metrics"] }
+
+openvm-build = { workspace = true }
+
+clap = { workspace = true, features = ["derive"] }
+eyre = { workspace = true }
+tracing = { workspace = true }
+tempfile = "3"
+
+[features]
+default = ["parallel", "metrics"]
+parallel = ["sdk-v2/parallel"]
+metrics = ["sdk-v2/metrics"]
+jemalloc = ["sdk-v2/jemalloc"]

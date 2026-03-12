@@ -4371,6 +4371,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "pairing-bench"
+version = "2.0.0-alpha"
+dependencies = [
+ "clap",
+ "eyre",
+ "openvm-build",
+ "openvm-stark-sdk",
+ "openvm-transpiler",
+ "sdk-v2",
+ "tempfile",
+ "tracing",
+ "verify-stark",
+]
+
+[[package]]
 name = "parity-scale-codec"
 version = "3.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
