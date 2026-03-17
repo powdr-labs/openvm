@@ -1543,11 +1543,17 @@ mod vm_metrics {
             self.chip_complex.system.finalize_trace_heights(heights);
             let mut main_cells_used = 0usize;
             let mut total_cells_used = 0usize;
-            for (pk, height) in zip(&self.pk.per_air, heights.iter()) {
+            for (i, (pk, height)) in zip(&self.pk.per_air, heights.iter()).enumerate() {
                 let width = &pk.vk.params.width;
                 main_cells_used += width.main_width() * *height;
-                total_cells_used +=
-                    width.total_width(<E::SC as StarkGenericConfig>::Challenge::D) * *height;
+                let total_width = width.total_width(<E::SC as StarkGenericConfig>::Challenge::D);
+                total_cells_used += total_width * *height;
+                tracing::info!(
+                    "Air {i}: total_cells_used = {} * {} = {}",
+                    total_width,
+                    *height,
+                    total_width * *height
+                );
             }
             tracing::debug!(?heights);
             tracing::info!(main_cells_used, total_cells_used);
