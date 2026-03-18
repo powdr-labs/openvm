@@ -1,5 +1,6 @@
 use std::{array::from_fn, borrow::Borrow, marker::PhantomData};
 
+use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{instruction::Instruction, LocalOpcode};
 use openvm_stark_backend::{
@@ -8,7 +9,7 @@ use openvm_stark_backend::{
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
     prover::{AirProvingContext, ColMajorMatrix, CpuBackend},
-    BaseAirWithPublicValues, PartitionedBaseAir, StarkProtocolConfig, Val,
+    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir, StarkProtocolConfig, Val,
 };
 use serde::{Deserialize, Serialize};
 
@@ -245,6 +246,36 @@ where
 {
 }
 
+impl<F, A, M> ColumnsAir<F> for VmAirWrapper<A, M>
+where
+    A: ColumnsAir<F>,
+    M: ColumnsAir<F>,
+{
+    fn columns(&self) -> Option<Vec<String>> {
+        let adapter_cols = self.adapter.columns();
+        let core_cols = self.core.columns();
+        match (adapter_cols, core_cols) {
+            (Some(mut a), Some(c)) => {
+                a.extend(c);
+                Some(a)
+            }
+            (Some(a), None) => {
+                let mut cols = a;
+                cols.extend((0..self.core.width()).map(|i| format!("core[{i}]")));
+                Some(cols)
+            }
+            (None, Some(c)) => {
+                let mut cols: Vec<String> = (0..self.adapter.width())
+                    .map(|i| format!("adapter[{i}]"))
+                    .collect();
+                cols.extend(c);
+                Some(cols)
+            }
+            (None, None) => None,
+        }
+    }
+}
+
 impl<AB, A, M> Air<AB> for VmAirWrapper<A, M>
 where
     AB: AirBuilder,
@@ -382,7 +413,7 @@ pub struct DynArray<T>(pub Vec<T>);
 // =================================================================================================
 
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct MinimalInstruction<T> {
     pub is_valid: T,
     /// Absolute opcode number
@@ -391,7 +422,7 @@ pub struct MinimalInstruction<T> {
 
 // This ProcessedInstruction is used by rv32_rdwrite
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct ImmInstruction<T> {
     pub is_valid: T,
     /// Absolute opcode number
@@ -401,7 +432,7 @@ pub struct ImmInstruction<T> {
 
 // This ProcessedInstruction is used by rv32_jalr
 #[repr(C)]
-#[derive(AlignedBorrow)]
+#[derive(AlignedBorrow, StructReflection)]
 pub struct SignedImmInstruction<T> {
     pub is_valid: T,
     /// Absolute opcode number

@@ -2,7 +2,7 @@ use core::borrow::Borrow;
 
 use openvm_circuit_primitives::{encoder::Encoder, SubAir};
 use openvm_stark_backend::{
-    interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
+    interaction::InteractionBuilder, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::{DIGEST_SIZE, D_EF, F};
 use p3_air::{Air, AirBuilder, BaseAir};
@@ -73,6 +73,7 @@ pub struct WhirRoundAir {
 
 impl BaseAirWithPublicValues<F> for WhirRoundAir {}
 impl PartitionedBaseAir<F> for WhirRoundAir {}
+impl<F> ColumnsAir<F> for WhirRoundAir {}
 
 impl<F> BaseAir<F> for WhirRoundAir {
     fn width(&self) -> usize {

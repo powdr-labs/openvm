@@ -1,6 +1,6 @@
 use clap::Args;
 use openvm_sdk_config::SdkVmConfig;
-use openvm_stark_backend::{SystemParams, WhirConfig, WhirParams};
+use openvm_stark_backend::{SystemParams, WhirProximityStrategy};
 use openvm_stark_sdk::config::log_up_params::log_up_security_params_baby_bear_100_bits;
 use serde::{Deserialize, Serialize};
 
@@ -123,7 +123,7 @@ pub fn default_leaf_params(log_blowup: usize) -> SystemParams {
 
 pub fn default_internal_params(log_blowup: usize) -> SystemParams {
     let l_skip = 2;
-    let n_stack = 17;
+    let n_stack = 18;
     let k_whir = 4;
     let max_constraint_degree = 4;
     let w_stack = 512;
@@ -148,24 +148,19 @@ pub fn default_internal_params(log_blowup: usize) -> SystemParams {
 pub fn default_compression_params(log_blowup: usize) -> SystemParams {
     let l_skip = 2;
     let n_stack = 20;
-    let k_whir = 4;
-    let max_constraint_degree = 4;
-    let whir_params = WhirParams {
-        k: k_whir,
-        log_final_poly_len: 11,
-        query_phase_pow_bits: WHIR_POW_BITS,
-    };
     let w_stack = 16;
-    let whir_config = WhirConfig::new(log_blowup, l_skip + n_stack, whir_params, SECURITY_LEVEL);
-    SystemParams {
+    SystemParams::new(
+        log_blowup,
         l_skip,
         n_stack,
         w_stack,
-        log_blowup,
-        whir: whir_config,
-        logup: log_up_security_params_baby_bear_100_bits(),
-        max_constraint_degree,
-    }
+        11, // log_final_poly_len
+        5,  // folding_pow_bits
+        15, // mu_pow_bits
+        WhirProximityStrategy::UniqueDecoding,
+        SECURITY_LEVEL,
+        log_up_security_params_baby_bear_100_bits(),
+    )
 }
 
 pub fn default_root_params(log_blowup: usize) -> SystemParams {
@@ -189,24 +184,21 @@ pub fn generic_system_params(
     l_skip: usize,
     n_stack: usize,
     w_stack: usize,
-    k_whir: usize,
-    max_constraint_degree: usize,
+    _k_whir: usize,
+    _max_constraint_degree: usize,
 ) -> SystemParams {
-    let whir_params = WhirParams {
-        k: k_whir,
-        log_final_poly_len: WHIR_MAX_LOG_FINAL_POLY_LEN,
-        query_phase_pow_bits: WHIR_POW_BITS,
-    };
-    let whir_config = WhirConfig::new(log_blowup, l_skip + n_stack, whir_params, SECURITY_LEVEL);
-    SystemParams {
+    SystemParams::new(
+        log_blowup,
         l_skip,
         n_stack,
         w_stack,
-        log_blowup,
-        whir: whir_config,
-        logup: log_up_security_params_baby_bear_100_bits(),
-        max_constraint_degree,
-    }
+        WHIR_MAX_LOG_FINAL_POLY_LEN,
+        5,  // folding_pow_bits
+        15, // mu_pow_bits
+        WhirProximityStrategy::UniqueDecoding,
+        SECURITY_LEVEL,
+        log_up_security_params_baby_bear_100_bits(),
+    )
 }
 
 // TODO: move to openvm-stark-backend

@@ -3,7 +3,7 @@ use std::borrow::Borrow;
 use openvm_circuit::system::connector::DEFAULT_SUSPEND_EXIT_CODE;
 use openvm_circuit_primitives::utils::{and, assert_array_eq, not};
 use openvm_stark_backend::{
-    interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
+    interaction::InteractionBuilder, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::DIGEST_SIZE;
 use p3_air::{Air, AirBuilder, AirBuilderWithPublicValues, BaseAir};
@@ -48,6 +48,7 @@ impl<F> BaseAirWithPublicValues<F> for VmPvsAir {
     }
 }
 impl<F> PartitionedBaseAir<F> for VmPvsAir {}
+impl<F> ColumnsAir<F> for VmPvsAir {}
 
 impl<AB: AirBuilder + InteractionBuilder + AirBuilderWithPublicValues> Air<AB> for VmPvsAir {
     fn eval(&self, builder: &mut AB) {

@@ -26,6 +26,7 @@ pub struct VmState<F, MEM = GuestMemory> {
     pub memory: MEM,
     pub streams: Streams<F>,
     pub rng: StdRng,
+    pub custom_pvs: Vec<Option<F>>,
     #[cfg(feature = "metrics")]
     pub metrics: VmMetrics,
 }
@@ -51,6 +52,7 @@ impl<F: Clone, MEM> VmState<F, MEM> {
             memory,
             streams: streams.into(),
             rng: StdRng::seed_from_u64(seed),
+            custom_pvs: Vec::new(),
             #[cfg(feature = "metrics")]
             metrics: VmMetrics::default(),
         }
@@ -63,6 +65,7 @@ impl<F: Clone, MEM> VmState<F, MEM> {
             memory: &mut self.memory,
             streams: &mut self.streams,
             rng: &mut self.rng,
+            custom_pvs: &mut self.custom_pvs,
             ctx,
             #[cfg(feature = "metrics")]
             metrics: &mut self.metrics,

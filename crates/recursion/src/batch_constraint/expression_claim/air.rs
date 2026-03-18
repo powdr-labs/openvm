@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 
 use openvm_circuit_primitives::utils::{assert_array_eq, not};
 use openvm_stark_backend::{
-    interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
+    interaction::InteractionBuilder, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::D_EF;
 use p3_air::{Air, AirBuilder, BaseAir};
@@ -69,6 +69,7 @@ pub struct ExpressionClaimAir {
 
 impl<F> BaseAirWithPublicValues<F> for ExpressionClaimAir {}
 impl<F> PartitionedBaseAir<F> for ExpressionClaimAir {}
+impl<F> ColumnsAir<F> for ExpressionClaimAir {}
 
 impl<F> BaseAir<F> for ExpressionClaimAir {
     fn width(&self) -> usize {

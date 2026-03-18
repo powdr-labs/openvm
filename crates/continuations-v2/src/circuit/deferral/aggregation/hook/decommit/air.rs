@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 
 use openvm_circuit_primitives::{utils::not, SubAir};
 use openvm_stark_backend::{
-    interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
+    interaction::InteractionBuilder, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
 };
 use p3_air::{Air, AirBuilder, AirBuilderWithPublicValues, BaseAir};
 use p3_field::PrimeCharacteristicRing;
@@ -35,6 +35,7 @@ impl<F> BaseAir<F> for MerkleDecommitAir {
 }
 impl<F> BaseAirWithPublicValues<F> for MerkleDecommitAir {}
 impl<F> PartitionedBaseAir<F> for MerkleDecommitAir {}
+impl<F> ColumnsAir<F> for MerkleDecommitAir {}
 
 impl<AB: AirBuilder + InteractionBuilder + AirBuilderWithPublicValues> Air<AB>
     for MerkleDecommitAir

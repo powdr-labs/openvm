@@ -2,7 +2,7 @@ use core::borrow::Borrow;
 
 use openvm_circuit_primitives::utils::{and, not, or};
 use openvm_stark_backend::{
-    interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
+    interaction::InteractionBuilder, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
 };
 use p3_air::{Air, AirBuilder, BaseAir};
 use p3_field::{Field, PrimeCharacteristicRing};
@@ -52,6 +52,7 @@ impl<F: Field> BaseAir<F> for TranscriptAir {
 
 impl<F: Field> BaseAirWithPublicValues<F> for TranscriptAir {}
 impl<F: Field> PartitionedBaseAir<F> for TranscriptAir {}
+impl<F: Field> ColumnsAir<F> for TranscriptAir {}
 
 impl<AB: AirBuilder + InteractionBuilder> Air<AB> for TranscriptAir {
     fn eval(&self, builder: &mut AB) {

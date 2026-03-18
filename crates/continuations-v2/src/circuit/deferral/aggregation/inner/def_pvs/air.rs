@@ -2,7 +2,7 @@ use std::{array::from_fn, borrow::Borrow};
 
 use openvm_circuit_primitives::utils::{assert_array_eq, not};
 use openvm_stark_backend::{
-    interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
+    interaction::InteractionBuilder, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
 };
 use p3_air::{Air, AirBuilder, AirBuilderWithPublicValues, BaseAir};
 use p3_field::PrimeCharacteristicRing;
@@ -55,6 +55,7 @@ impl<F> BaseAirWithPublicValues<F> for DeferralAggPvsAir {
     }
 }
 impl<F> PartitionedBaseAir<F> for DeferralAggPvsAir {}
+impl<F> ColumnsAir<F> for DeferralAggPvsAir {}
 
 impl<AB: AirBuilder + InteractionBuilder + AirBuilderWithPublicValues> Air<AB>
     for DeferralAggPvsAir
