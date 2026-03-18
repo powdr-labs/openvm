@@ -123,7 +123,7 @@ pub fn default_leaf_params(log_blowup: usize) -> SystemParams {
 
 pub fn default_internal_params(log_blowup: usize) -> SystemParams {
     let l_skip = 2;
-    let n_stack = 17;
+    let n_stack = 18;
     let k_whir = 4;
     let max_constraint_degree = 4;
     let w_stack = 512;
