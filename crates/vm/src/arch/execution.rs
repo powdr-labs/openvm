@@ -1,4 +1,4 @@
-use openvm_circuit_primitives::AlignedBytesBorrow;
+use openvm_circuit_primitives::{AlignedBytesBorrow, StructReflection, StructReflectionHelper};
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{
     instruction::Instruction, program::DEFAULT_PC_STEP, PhantomDiscriminant, VmOpcode,
@@ -289,6 +289,8 @@ pub struct VmStateMut<'a, F, MEM, RA> {
     pub memory: &'a mut MEM,
     pub streams: &'a mut Streams<F>,
     pub rng: &'a mut StdRng,
+    /// Custom public values to be set by the system PublicValuesExecutor
+    pub custom_pvs: &'a mut Vec<Option<F>>,
     pub ctx: &'a mut RA,
     #[cfg(feature = "metrics")]
     pub metrics: &'a mut VmMetrics,
@@ -304,7 +306,9 @@ pub struct E2PreCompute<DATA> {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq, Default, AlignedBorrow, Serialize, Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Default, AlignedBorrow, StructReflection, Serialize, Deserialize,
+)]
 pub struct ExecutionState<T> {
     pub pc: T,
     pub timestamp: T,

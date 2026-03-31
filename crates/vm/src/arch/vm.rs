@@ -623,6 +623,7 @@ where
             memory,
             state.streams,
             state.rng,
+            state.custom_pvs,
             #[cfg(feature = "metrics")]
             state.metrics,
         );
@@ -651,6 +652,7 @@ where
             memory.data,
             exec_state.vm_state.streams,
             exec_state.vm_state.rng,
+            exec_state.vm_state.custom_pvs,
             #[cfg(feature = "metrics")]
             exec_state.vm_state.metrics,
         );
