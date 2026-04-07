@@ -37,7 +37,7 @@ cfg_if::cfg_if! {
         use openvm_rv32im_circuit::Rv32ImGpuBuilder;
         use openvm_stark_sdk::config::baby_bear_poseidon2::BabyBearPoseidon2Config;
         pub use self::{
-            Rv32ImExtraAluCpuBuilder as Rv32ImExtraAluBuilder,
+            Rv32ImExtraAluGpuBuilder as Rv32ImExtraAluBuilder,
         };
     } else {
         pub use self::{
