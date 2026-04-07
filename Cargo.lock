@@ -3820,6 +3820,54 @@ dependencies = [
 ]
 
 [[package]]
+name = "openvm-rv32im-extra-alu-circuit"
+version = "2.0.0-alpha"
+dependencies = [
+ "cfg-if",
+ "derive-new 0.6.0",
+ "derive_more 1.0.0",
+ "openvm-circuit",
+ "openvm-circuit-derive",
+ "openvm-circuit-primitives",
+ "openvm-cuda-backend",
+ "openvm-cuda-builder",
+ "openvm-cuda-common",
+ "openvm-instructions",
+ "openvm-rv32im-circuit",
+ "openvm-rv32im-transpiler",
+ "openvm-stark-backend",
+ "openvm-stark-sdk",
+ "serde",
+]
+
+[[package]]
+name = "openvm-rv32im-extra-alu-tests"
+version = "2.0.0-alpha"
+dependencies = [
+ "eyre",
+ "openvm-circuit",
+ "openvm-instructions",
+ "openvm-rv32im-circuit",
+ "openvm-rv32im-extra-alu-circuit",
+ "openvm-rv32im-extra-alu-transpiler",
+ "openvm-rv32im-transpiler",
+ "openvm-stark-sdk",
+ "openvm-toolchain-tests",
+ "openvm-transpiler",
+]
+
+[[package]]
+name = "openvm-rv32im-extra-alu-transpiler"
+version = "2.0.0-alpha"
+dependencies = [
+ "openvm-instructions",
+ "openvm-rv32im-transpiler",
+ "openvm-stark-backend",
+ "openvm-transpiler",
+ "serde",
+]
+
+[[package]]
 name = "openvm-rv32im-guest"
 version = "2.0.0-alpha"
 dependencies = [

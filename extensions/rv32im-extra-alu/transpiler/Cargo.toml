@@ -1,0 +1,15 @@
+[package]
+name = "openvm-rv32im-extra-alu-transpiler"
+description = "OpenVM transpiler extension: multiple BaseAlu chips with round-robin dispatch"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+openvm-stark-backend = { workspace = true }
+openvm-instructions = { workspace = true }
+openvm-transpiler = { workspace = true }
+openvm-rv32im-transpiler = { workspace = true }
+serde = { workspace = true, features = ["derive"] }

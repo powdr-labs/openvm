@@ -35,6 +35,9 @@ members = [
     "crates/vm",
     "extensions/rv32im/circuit",
     "extensions/rv32im/transpiler",
+    "extensions/rv32im-extra-alu/circuit",
+    "extensions/rv32im-extra-alu/transpiler",
+    "extensions/rv32im-extra-alu/tests",
     "extensions/rv32im/guest",
     "extensions/rv32im/tests",
     "extensions/rv32-adapters",
@@ -151,6 +154,9 @@ cargo-openvm = { path = "crates/cli", default-features = false }
 # Extensions
 openvm-rv32im-circuit = { path = "extensions/rv32im/circuit", default-features = false }
 openvm-rv32im-transpiler = { path = "extensions/rv32im/transpiler", default-features = false }
+openvm-rv32im-extra-alu-circuit = { path = "extensions/rv32im-extra-alu/circuit", default-features = false }
+openvm-rv32im-extra-alu-transpiler = { path = "extensions/rv32im-extra-alu/transpiler", default-features = false }
+openvm-rv32im-extra-alu-tests = { path = "extensions/rv32im-extra-alu/tests", default-features = false }
 openvm-rv32im-guest = { path = "extensions/rv32im/guest", default-features = false }
 openvm-rv32-adapters = { path = "extensions/rv32-adapters", default-features = false }
 openvm-keccak256-circuit = { path = "extensions/keccak256/circuit", default-features = false }
