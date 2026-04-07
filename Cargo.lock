@@ -3845,6 +3845,7 @@ name = "openvm-rv32im-extra-alu-tests"
 version = "2.0.0-alpha"
 dependencies = [
  "eyre",
+ "openvm-build",
  "openvm-circuit",
  "openvm-instructions",
  "openvm-rv32im-circuit",
