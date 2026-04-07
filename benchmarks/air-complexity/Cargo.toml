@@ -1,0 +1,27 @@
+[package]
+name = "openvm-benchmark-air-complexity"
+description = "Benchmark proving time vs AIR complexity parameters"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "benchmark_air"
+path = "src/main.rs"
+
+[dependencies]
+openvm-benchmark-circuit.workspace = true
+openvm-circuit = { workspace = true, features = ["test-utils"] }
+openvm-instructions.workspace = true
+openvm-stark-backend.workspace = true
+openvm-stark-sdk = { workspace = true, features = ["cpu-backend"] }
+
+clap = { workspace = true, features = ["derive"] }
+eyre.workspace = true
+
+[features]
+default = ["parallel", "jemalloc"]
+jemalloc = ["openvm-circuit/jemalloc"]
+parallel = ["openvm-circuit/parallel"]

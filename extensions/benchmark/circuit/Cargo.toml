@@ -1,0 +1,36 @@
+[package]
+name = "openvm-benchmark-circuit"
+description = "OpenVM benchmark extension for measuring proving time vs AIR complexity"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+[dependencies]
+openvm-stark-backend = { workspace = true }
+openvm-stark-sdk = { workspace = true, features = ["cpu-backend"] }
+openvm-cpu-backend = { workspace = true }
+openvm-circuit-primitives = { workspace = true }
+openvm-circuit-primitives-derive = { workspace = true }
+openvm-circuit = { workspace = true }
+openvm-circuit-derive = { workspace = true }
+openvm-instructions = { workspace = true }
+
+p3-field = { workspace = true }
+
+derive-new.workspace = true
+derive_more = { workspace = true, features = ["from"] }
+serde.workspace = true
+
+[dev-dependencies]
+openvm-stark-sdk = { workspace = true, features = ["cpu-backend"] }
+openvm-circuit = { workspace = true, features = ["test-utils"] }
+
+[features]
+default = ["parallel", "jemalloc"]
+tco = ["openvm-circuit/tco"]
+aot = ["openvm-circuit/aot"]
+jemalloc = ["openvm-circuit/jemalloc"]
+parallel = ["openvm-circuit/parallel"]
+test-utils = ["openvm-circuit/test-utils"]

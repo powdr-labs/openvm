@@ -6053,6 +6053,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "openvm-benchmark-air-complexity"
+version = "2.0.0-alpha"
+dependencies = [
+ "clap",
+ "eyre",
+ "openvm-benchmark-circuit",
+ "openvm-circuit",
+ "openvm-instructions",
+ "openvm-stark-backend",
+ "openvm-stark-sdk",
+]
+
+[[package]]
+name = "openvm-benchmark-circuit"
+version = "2.0.0-alpha"
+dependencies = [
+ "derive-new 0.6.0",
+ "derive_more 1.0.0",
+ "openvm-circuit",
+ "openvm-circuit-derive",
+ "openvm-circuit-primitives",
+ "openvm-circuit-primitives-derive",
+ "openvm-cpu-backend",
+ "openvm-instructions",
+ "openvm-stark-backend",
+ "openvm-stark-sdk",
+ "p3-field",
+ "serde",
+]
+
+[[package]]
 name = "openvm-benchmarks-execute"
 version = "2.0.0-alpha"
 dependencies = [

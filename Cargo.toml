@@ -12,6 +12,7 @@ members = [
     "benchmarks/utils",
     "benchmarks/execute",
     "benchmarks/prove",
+    "benchmarks/air-complexity",
     "crates/prof",
     "crates/cli",
     "crates/sdk",
@@ -63,6 +64,7 @@ members = [
     "extensions/ecc/tests",
     "extensions/pairing/circuit",
     "extensions/pairing/guest",
+    "extensions/benchmark/circuit",
     "guest-libs/ff_derive/",
     "guest-libs/k256/",
     "guest-libs/p256/",
@@ -182,6 +184,7 @@ openvm-verify-stark-guest = { path = "guest-libs/verify-stark/guest", default-fe
 openvm-deferral-circuit = { path = "extensions/deferral/circuit", default-features = false }
 openvm-deferral-guest = { path = "extensions/deferral/guest", default-features = false }
 openvm-deferral-transpiler = { path = "extensions/deferral/transpiler", default-features = false }
+openvm-benchmark-circuit = { path = "extensions/benchmark/circuit", default-features = false }
 
 # Benchmarking
 openvm-benchmarks-utils = { path = "benchmarks/utils", default-features = false }
