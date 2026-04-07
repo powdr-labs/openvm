@@ -3855,6 +3855,7 @@ dependencies = [
  "openvm-stark-sdk",
  "openvm-toolchain-tests",
  "openvm-transpiler",
+ "sdk-v2",
 ]
 
 [[package]]

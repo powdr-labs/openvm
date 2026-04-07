@@ -1,7 +1,8 @@
 use eyre::Result;
 use openvm_build::{build_guest_package, get_package, GuestOptions, TargetFilter};
 use openvm_circuit::arch::InitFileGenerator;
-use openvm_circuit::utils::air_test;
+use openvm_circuit::utils::air_test_with_min_segments;
+use sdk_v2::StdIn;
 use openvm_instructions::exe::VmExe;
 use openvm_rv32im_circuit::{Rv32IConfig, Rv32ImConfig};
 use openvm_rv32im_extra_alu_circuit::{Rv32ImExtraAluBuilder, Rv32ImExtraAluConfig};
@@ -41,15 +42,22 @@ fn build_guest(
 }
 
 fn main() -> Result<()> {
-    let num_total_alu: usize = std::env::args()
-        .nth(1)
-        .expect("Usage: keccak_alu <num_alus>")
+    let mut args = std::env::args().skip(1);
+    let num_total_alu: usize = args
+        .next()
+        .expect("Usage: keccak_alu <num_alus> [repeats]")
         .parse()
         .expect("num_alus must be a positive integer");
+    let repeats: u32 = args
+        .next()
+        .unwrap_or_else(|| "1".to_string())
+        .parse()
+        .expect("repeats must be a positive integer");
 
     assert!(num_total_alu >= 1, "num_alus must be >= 1");
+    assert!(repeats >= 1, "repeats must be >= 1");
 
-    println!("Running keccak with {num_total_alu} ALU chip(s)...");
+    println!("Running keccak with {num_total_alu} ALU chip(s), {repeats} repeat(s)...");
 
     let config = Rv32ImExtraAluConfig::new(
         Rv32ImConfig {
@@ -72,7 +80,10 @@ fn main() -> Result<()> {
             .with_extension(Rv32IoTranspilerExtension),
     )?;
 
-    air_test(Rv32ImExtraAluBuilder, config, exe);
+    let mut stdin = StdIn::<F>::default();
+    stdin.write(&repeats);
+
+    air_test_with_min_segments(Rv32ImExtraAluBuilder, config, exe, stdin, 1);
 
     println!("Done.");
     Ok(())

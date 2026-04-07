@@ -3,6 +3,7 @@
 
 #[cfg(target_os = "zkvm")]
 use openvm as _;
+use openvm::io::read;
 use tiny_keccak::{Hasher, Keccak};
 
 openvm::entry!(main);
@@ -147,11 +148,14 @@ const KECCAK_TEST_CASES: &[(&[u8], [u8; 32])] = &[
 ];
 
 pub fn main() {
-    for &(input, expected) in KECCAK_TEST_CASES {
-        let mut output = [0u8; 32];
-        let mut hasher = Keccak::v256();
-        hasher.update(input);
-        hasher.finalize(&mut output);
-        assert_eq!(output, expected);
+    let repeats: u32 = read();
+    for _ in 0..repeats {
+        for &(input, expected) in KECCAK_TEST_CASES {
+            let mut output = [0u8; 32];
+            let mut hasher = Keccak::v256();
+            hasher.update(input);
+            hasher.finalize(&mut output);
+            assert_eq!(output, expected);
+        }
     }
 }

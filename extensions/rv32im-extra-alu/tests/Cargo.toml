@@ -18,6 +18,7 @@ openvm-rv32im-extra-alu-circuit = { workspace = true, features = ["test-utils"] 
 openvm-rv32im-extra-alu-transpiler.workspace = true
 openvm-toolchain-tests = { path = "../../../crates/toolchain/tests" }
 openvm-build.workspace = true
+sdk-v2.workspace = true
 eyre.workspace = true
 
 [features]

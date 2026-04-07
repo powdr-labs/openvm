@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use eyre::Result;
-    use openvm_circuit::utils::air_test;
+    use openvm_circuit::utils::{air_test, air_test_with_min_segments};
     use openvm_instructions::exe::VmExe;
     use openvm_rv32im_circuit::{Rv32IConfig, Rv32ImConfig};
     use openvm_rv32im_extra_alu_circuit::{Rv32ImExtraAluBuilder, Rv32ImExtraAluConfig};
@@ -11,6 +11,7 @@ mod tests {
     use openvm_stark_sdk::p3_baby_bear::BabyBear;
     use openvm_toolchain_tests::{build_example_program_at_path, get_programs_dir};
     use openvm_transpiler::{transpiler::Transpiler, FromElf};
+    use sdk_v2::StdIn;
 
     type F = BabyBear;
 
@@ -89,7 +90,9 @@ mod tests {
         let config = make_config(num_total_alu);
         let elf = build_example_program_at_path(extra_alu_programs_dir(), "keccak", &config)?;
         let exe = VmExe::from_elf(elf, make_transpiler(num_total_alu))?;
-        air_test(Rv32ImExtraAluBuilder, config, exe);
+        let mut stdin = StdIn::<F>::default();
+        stdin.write(&1u32);
+        air_test_with_min_segments(Rv32ImExtraAluBuilder, config, exe, stdin, 1);
         Ok(())
     }
 }
