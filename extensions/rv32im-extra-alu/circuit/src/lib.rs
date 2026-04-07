@@ -59,23 +59,16 @@ pub const BASE_EXTRA_ALU_OFFSET: usize = 0x900;
 /// Circuit extension that instantiates `num_extra` additional BaseAlu chips beyond
 /// the one already present in `Rv32ImConfig`.
 ///
-/// Total chip count = `num_extra + 1`, which should be a power of two.
 /// Extra chip k (k = 0..num_extra-1) handles opcodes at
 /// `BASE_EXTRA_ALU_OFFSET + k * BASE_ALU_COUNT`.
+/// `num_extra = 0` is valid and produces behavior identical to the original `Rv32ImConfig`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Rv32ExtraAlu {
     pub num_extra: usize,
 }
 
 impl Rv32ExtraAlu {
-    /// `num_extra` is the number of BaseAlu chips to add beyond the original.
-    /// Together with the one in `Rv32ImConfig`, total = `num_extra + 1`, which must be a
-    /// power of two >= 2.
     pub fn new(num_extra: usize) -> Self {
-        assert!(
-            (num_extra + 1).is_power_of_two() && num_extra >= 1,
-            "num_extra + 1 must be a power of two >= 2, got num_extra = {num_extra}",
-        );
         Self { num_extra }
     }
 }

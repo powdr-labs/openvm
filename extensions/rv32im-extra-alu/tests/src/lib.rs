@@ -40,6 +40,16 @@ mod tests {
     }
 
     #[test]
+    fn test_extra_alu_fibonacci_1chip() -> Result<()> {
+        let num_total_alu = 1; // equivalent to original Rv32Im
+        let config = make_config(num_total_alu);
+        let elf = build_example_program_at_path(programs_dir(), "fibonacci", &config)?;
+        let exe = VmExe::from_elf(elf, make_transpiler(num_total_alu))?;
+        air_test(Rv32ImExtraAluBuilder, config, exe);
+        Ok(())
+    }
+
+    #[test]
     fn test_extra_alu_fibonacci_2chips() -> Result<()> {
         let num_total_alu = 2; // 1 original + 1 extra
         let config = make_config(num_total_alu);

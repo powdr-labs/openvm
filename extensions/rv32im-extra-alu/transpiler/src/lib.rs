@@ -20,12 +20,12 @@ pub const BASE_EXTRA_ALU_OFFSET: usize = 0x900;
 /// Chip 0 keeps the original opcodes (`BaseAluOpcode::CLASS_OFFSET` = 0x200–0x204).
 /// Chips k = 1..N-1 use opcodes at `BASE_EXTRA_ALU_OFFSET + (k-1)*5` through `+4`.
 ///
-/// `num_total_alu` must be a power of two >= 2.
+/// `num_total_alu` must be >= 1. With 1 chip the behavior is identical to the original.
 ///
 /// **Register this extension instead of** (not alongside) `Rv32ITranspilerExtension`.
 /// `Rv32MTranspilerExtension` and `Rv32IoTranspilerExtension` should be registered separately.
 pub struct Rv32ExtraAluTranspilerExtension {
-    /// Total number of BaseAlu chips (must be a power of two, >= 2).
+    /// Total number of BaseAlu chips (must be >= 1).
     pub num_total_alu: usize,
     counter: Cell<usize>,
 }
@@ -33,8 +33,8 @@ pub struct Rv32ExtraAluTranspilerExtension {
 impl Rv32ExtraAluTranspilerExtension {
     pub fn new(num_total_alu: usize) -> Self {
         assert!(
-            num_total_alu.is_power_of_two() && num_total_alu >= 2,
-            "num_total_alu must be a power of two >= 2, got {num_total_alu}",
+            num_total_alu >= 1,
+            "num_total_alu must be >= 1, got {num_total_alu}",
         );
         Self {
             num_total_alu,
