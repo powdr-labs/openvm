@@ -19,6 +19,10 @@ mod tests {
         get_programs_dir!("../../rv32im/tests/programs")
     }
 
+    fn extra_alu_programs_dir() -> std::path::PathBuf {
+        get_programs_dir!("programs")
+    }
+
     fn make_config(num_total_alu: usize) -> Rv32ImExtraAluConfig {
         Rv32ImExtraAluConfig::new(
             Rv32ImConfig {
@@ -74,6 +78,16 @@ mod tests {
         let num_total_alu = 2;
         let config = make_config(num_total_alu);
         let elf = build_example_program_at_path(programs_dir(), "collatz", &config)?;
+        let exe = VmExe::from_elf(elf, make_transpiler(num_total_alu))?;
+        air_test(Rv32ImExtraAluBuilder, config, exe);
+        Ok(())
+    }
+
+    #[test]
+    fn test_keccak_extra_alu_1chip() -> Result<()> {
+        let num_total_alu = 1; // 1 chip = stock rv32im ALU count
+        let config = make_config(num_total_alu);
+        let elf = build_example_program_at_path(extra_alu_programs_dir(), "keccak", &config)?;
         let exe = VmExe::from_elf(elf, make_transpiler(num_total_alu))?;
         air_test(Rv32ImExtraAluBuilder, config, exe);
         Ok(())
