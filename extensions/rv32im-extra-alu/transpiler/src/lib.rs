@@ -2,9 +2,7 @@ use std::cell::Cell;
 
 use openvm_instructions::VmOpcode;
 use openvm_instructions::LocalOpcode;
-use openvm_rv32im_transpiler::{
-    BaseAluOpcode, Rv32IoTranspilerExtension, Rv32ITranspilerExtension, Rv32MTranspilerExtension,
-};
+use openvm_rv32im_transpiler::{BaseAluOpcode, Rv32ITranspilerExtension};
 use openvm_stark_backend::p3_field::PrimeField32;
 use openvm_transpiler::{TranspilerExtension, TranspilerOutput};
 
@@ -16,16 +14,16 @@ const BASE_ALU_COUNT: usize = 5;
 /// `BASE_EXTRA_ALU_OFFSET + (k - 1) * BASE_ALU_COUNT`.
 pub const BASE_EXTRA_ALU_OFFSET: usize = 0x900;
 
-/// A transpiler extension that wraps all standard RV32IM transpilation and distributes
-/// BaseAlu instructions (ADD/SUB/XOR/OR/AND) round-robin across `num_total_alu` chips.
+/// A transpiler extension that wraps `Rv32ITranspilerExtension` and distributes BaseAlu
+/// instructions (ADD/SUB/XOR/OR/AND) round-robin across `num_total_alu` chips.
 ///
 /// Chip 0 keeps the original opcodes (`BaseAluOpcode::CLASS_OFFSET` = 0x200–0x204).
 /// Chips k = 1..N-1 use opcodes at `BASE_EXTRA_ALU_OFFSET + (k-1)*5` through `+4`.
 ///
 /// `num_total_alu` must be a power of two >= 2.
 ///
-/// **Register this extension instead of** (not alongside) `Rv32ITranspilerExtension`,
-/// `Rv32MTranspilerExtension`, and `Rv32IoTranspilerExtension`.
+/// **Register this extension instead of** (not alongside) `Rv32ITranspilerExtension`.
+/// `Rv32MTranspilerExtension` and `Rv32IoTranspilerExtension` should be registered separately.
 pub struct Rv32ExtraAluTranspilerExtension {
     /// Total number of BaseAlu chips (must be a power of two, >= 2).
     pub num_total_alu: usize,
@@ -47,12 +45,7 @@ impl Rv32ExtraAluTranspilerExtension {
 
 impl<F: PrimeField32> TranspilerExtension<F> for Rv32ExtraAluTranspilerExtension {
     fn process_custom(&self, instruction_stream: &[u32]) -> Option<TranspilerOutput<F>> {
-        // Delegate to the three standard extensions. They cover disjoint instruction sets
-        // so the first non-None result is the correct one.
-        let output = Rv32ITranspilerExtension
-            .process_custom(instruction_stream)
-            .or_else(|| Rv32MTranspilerExtension.process_custom(instruction_stream))
-            .or_else(|| Rv32IoTranspilerExtension.process_custom(instruction_stream))?;
+        let output = Rv32ITranspilerExtension.process_custom(instruction_stream)?;
 
         // Check whether the (single) transpiled instruction is a BaseAlu opcode.
         if let [Some(insn)] = output.instructions.as_slice() {

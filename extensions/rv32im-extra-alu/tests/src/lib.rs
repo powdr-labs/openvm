@@ -6,6 +6,7 @@ mod tests {
     use openvm_rv32im_circuit::{Rv32IConfig, Rv32ImConfig};
     use openvm_rv32im_extra_alu_circuit::{Rv32ImExtraAluBuilder, Rv32ImExtraAluConfig};
     use openvm_rv32im_extra_alu_transpiler::Rv32ExtraAluTranspilerExtension;
+    use openvm_rv32im_transpiler::{Rv32IoTranspilerExtension, Rv32MTranspilerExtension};
 
     use openvm_stark_sdk::p3_baby_bear::BabyBear;
     use openvm_toolchain_tests::{build_example_program_at_path, get_programs_dir};
@@ -34,6 +35,8 @@ mod tests {
     fn make_transpiler(num_total_alu: usize) -> Transpiler<F> {
         Transpiler::<F>::default()
             .with_extension(Rv32ExtraAluTranspilerExtension::new(num_total_alu))
+            .with_extension(Rv32MTranspilerExtension)
+            .with_extension(Rv32IoTranspilerExtension)
     }
 
     #[test]
