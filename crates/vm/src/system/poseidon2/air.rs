@@ -1,6 +1,7 @@
 use std::{array::from_fn, borrow::Borrow, sync::Arc};
 
 use derive_new::new;
+use openvm_circuit_primitives::ColumnsAir;
 use openvm_poseidon2_air::{
     Poseidon2SubAir, BABY_BEAR_POSEIDON2_HALF_FULL_ROUNDS, POSEIDON2_WIDTH,
 };
@@ -10,7 +11,7 @@ use openvm_stark_backend::{
     p3_air::{Air, BaseAir},
     p3_field::Field,
     p3_matrix::Matrix,
-    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
+    BaseAirWithPublicValues, PartitionedBaseAir,
 };
 
 use super::columns::Poseidon2PeripheryCols;

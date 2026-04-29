@@ -2,7 +2,7 @@
 
 use core::borrow::Borrow;
 
-use openvm_circuit_primitives::SubAir;
+use openvm_circuit_primitives::{ColumnsAir, SubAir};
 use openvm_cpu_backend::CpuBackend;
 use openvm_stark_backend::{
     any_air_arc_vec,
@@ -12,8 +12,7 @@ use openvm_stark_backend::{
     prover::{AirProvingContext, DeviceDataTransporter, ProvingContext},
     utils::disable_debug_builder,
     verifier::VerifierError,
-    AirRef, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir, StarkEngine,
-    StarkProtocolConfig,
+    AirRef, BaseAirWithPublicValues, PartitionedBaseAir, StarkEngine, StarkProtocolConfig,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::{BabyBearPoseidon2Config, F};
 

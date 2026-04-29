@@ -12,7 +12,8 @@ use openvm_circuit::{
     },
 };
 use openvm_circuit_primitives::{
-    bitwise_op_lookup::BitwiseOperationLookupBus, StructReflection, StructReflectionHelper,
+    bitwise_op_lookup::BitwiseOperationLookupBus, ColumnsAir, StructReflection,
+    StructReflectionHelper,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_deferral_transpiler::DeferralOpcode;
@@ -25,7 +26,7 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::BaseAir,
     p3_field::{Field, PrimeCharacteristicRing},
-    BaseAirWithPublicValues, ColumnsAir,
+    BaseAirWithPublicValues,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::DIGEST_SIZE;
 use p3_field::PrimeField32;

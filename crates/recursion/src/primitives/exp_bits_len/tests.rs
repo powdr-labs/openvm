@@ -1,6 +1,7 @@
 use core::borrow::Borrow;
 use std::borrow::BorrowMut;
 
+use openvm_circuit_primitives::ColumnsAir;
 use openvm_cpu_backend::CpuBackend;
 use openvm_recursion_circuit_derive::AlignedBorrow;
 use openvm_stark_backend::{
@@ -9,7 +10,7 @@ use openvm_stark_backend::{
     prover::{AirProvingContext, DeviceDataTransporter, ProvingContext},
     utils::disable_debug_builder,
     verifier::VerifierError,
-    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir, StarkEngine, StarkProtocolConfig,
+    BaseAirWithPublicValues, PartitionedBaseAir, StarkEngine, StarkProtocolConfig,
 };
 use openvm_stark_sdk::{
     config::baby_bear_poseidon2::{BabyBearPoseidon2Config, F},
@@ -313,6 +314,7 @@ fn test_exp_bits_len_rejects_nonzero_terminal_tail_on_last_row() {
 mod cuda_tests {
     use std::sync::Arc;
 
+    use openvm_circuit_primitives::ColumnsAir;
     use openvm_cuda_backend::data_transporter::assert_eq_host_and_device_matrix;
 
     use super::*;

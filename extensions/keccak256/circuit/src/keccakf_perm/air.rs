@@ -1,6 +1,6 @@
 use std::{borrow::Borrow, iter};
 
-use openvm_circuit_primitives::StructReflectionHelper;
+use openvm_circuit_primitives::{ColumnsAir, StructReflectionHelper};
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_stark_backend::{
     air_builders::sub::SubAirBuilder,
@@ -8,7 +8,7 @@ use openvm_stark_backend::{
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::PrimeCharacteristicRing,
     p3_matrix::Matrix,
-    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
+    BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use p3_keccak_air::{KeccakAir, KeccakCols, NUM_KECCAK_COLS, U64_LIMBS};
 

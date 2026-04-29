@@ -1,10 +1,10 @@
 use std::borrow::Borrow;
 
 use itertools::Itertools;
-use openvm_circuit_primitives::{encoder::Encoder, utils::assert_array_eq, SubAir};
+use openvm_circuit_primitives::{encoder::Encoder, utils::assert_array_eq, ColumnsAir, SubAir};
 use openvm_recursion_circuit::{bus::Poseidon2CompressBus, utils::assert_zeros};
 use openvm_stark_backend::{
-    interaction::InteractionBuilder, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
+    interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::DIGEST_SIZE;
 use p3_air::{Air, AirBuilder, AirBuilderWithPublicValues, BaseAir};

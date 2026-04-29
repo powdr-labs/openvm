@@ -25,6 +25,9 @@ pub use openvm_circuit_primitives_derive::*;
 /// Struct reflection for column names
 pub use struct_reflection::{StructReflection, StructReflectionHelper};
 
+mod columns_air;
+pub use columns_air::ColumnsAir;
+
 pub mod assert_less_than;
 pub mod bigint;
 pub mod bitwise_op_lookup;

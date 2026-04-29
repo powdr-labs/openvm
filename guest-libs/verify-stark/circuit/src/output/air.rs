@@ -1,7 +1,7 @@
 use std::{array::from_fn, borrow::Borrow};
 
 use itertools::{fold, Itertools};
-use openvm_circuit_primitives::{utils::assert_array_eq, AlignedBorrow};
+use openvm_circuit_primitives::{utils::assert_array_eq, AlignedBorrow, ColumnsAir};
 use openvm_continuations::utils::digests_to_poseidon2_input;
 use openvm_deferral_circuit::canonicity::{CanonicityAuxCols, CanonicitySubAir};
 use openvm_recursion_circuit::{
@@ -9,7 +9,7 @@ use openvm_recursion_circuit::{
     prelude::DIGEST_SIZE,
     primitives::bus::{RangeCheckerBus, RangeCheckerBusMessage},
 };
-use openvm_stark_backend::{interaction::InteractionBuilder, ColumnsAir, PartitionedBaseAir};
+use openvm_stark_backend::{interaction::InteractionBuilder, PartitionedBaseAir};
 use p3_air::{Air, AirBuilder, BaseAir, BaseAirWithPublicValues};
 use p3_field::{PrimeCharacteristicRing, PrimeField32};
 use p3_matrix::Matrix;

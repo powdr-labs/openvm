@@ -2,15 +2,13 @@ use core::borrow::Borrow;
 use std::{array::from_fn, sync::Arc};
 
 use itertools::{fold, Itertools};
-use openvm_circuit_primitives::{encoder::Encoder, utils::assert_array_eq, SubAir};
+use openvm_circuit_primitives::{encoder::Encoder, utils::assert_array_eq, ColumnsAir, SubAir};
 use openvm_poseidon2_air::{
     Poseidon2Config, Poseidon2SubAir, Poseidon2SubChip, Poseidon2SubCols,
     BABY_BEAR_POSEIDON2_SBOX_DEGREE, POSEIDON2_WIDTH,
 };
 use openvm_recursion_circuit_derive::AlignedBorrow;
-use openvm_stark_backend::{
-    air_builders::sub::SubAirBuilder, interaction::InteractionBuilder, ColumnsAir,
-};
+use openvm_stark_backend::{air_builders::sub::SubAirBuilder, interaction::InteractionBuilder};
 use openvm_stark_sdk::config::baby_bear_poseidon2::{DIGEST_SIZE, F};
 use p3_air::{Air, AirBuilder, AirBuilderWithPublicValues, BaseAir};
 use p3_field::{Field, InjectiveMonomial, PrimeCharacteristicRing, PrimeField};

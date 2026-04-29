@@ -1,6 +1,6 @@
 use std::mem::size_of;
 
-use openvm_circuit_primitives::Chip;
+use openvm_circuit_primitives::{Chip, ColumnsAir};
 use openvm_cpu_backend::CpuBackend;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
@@ -8,7 +8,7 @@ use openvm_stark_backend::{
     p3_field::{PrimeCharacteristicRing, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     prover::AirProvingContext,
-    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir, StarkProtocolConfig, Val,
+    BaseAirWithPublicValues, PartitionedBaseAir, StarkProtocolConfig, Val,
 };
 
 use crate::{

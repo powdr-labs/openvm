@@ -3,7 +3,7 @@ use std::sync::Arc;
 use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_stark_backend::{
-    interaction::PermutationCheckBus, p3_util::log2_strict_usize, AirRef, StarkProtocolConfig,
+    interaction::PermutationCheckBus, p3_util::log2_strict_usize, StarkProtocolConfig,
 };
 
 mod controller;
@@ -18,7 +18,7 @@ pub use controller::*;
 pub use online::{Address, AddressMap, INITIAL_TIMESTAMP};
 
 use crate::{
-    arch::MemoryConfig,
+    arch::{AirRefWithColumns, MemoryConfig},
     system::memory::{
         dimensions::MemoryDimensions, interface::MemoryInterfaceAirs, merkle::MemoryMerkleAir,
         offline_checker::MemoryBridge, persistent::PersistentBoundaryAir,
@@ -98,7 +98,7 @@ impl MemoryAirInventory {
     }
 
     /// The order of memory AIRs is boundary, merkle (if exists)
-    pub fn into_airs<SC: StarkProtocolConfig>(self) -> Vec<AirRef<SC>> {
+    pub fn into_airs<SC: StarkProtocolConfig>(self) -> Vec<AirRefWithColumns<SC>> {
         vec![
             Arc::new(self.interface.boundary),
             Arc::new(self.interface.merkle),

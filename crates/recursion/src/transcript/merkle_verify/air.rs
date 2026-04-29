@@ -1,9 +1,10 @@
 use core::{array, borrow::Borrow};
 
+use openvm_circuit_primitives::ColumnsAir;
 pub use openvm_poseidon2_air::POSEIDON2_WIDTH;
 use openvm_recursion_circuit_derive::AlignedBorrow;
 use openvm_stark_backend::{
-    interaction::InteractionBuilder, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
+    interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::{CHUNK, DIGEST_SIZE};
 use p3_air::{Air, AirBuilder, BaseAir};

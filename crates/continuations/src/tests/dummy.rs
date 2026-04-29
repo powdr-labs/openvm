@@ -1,11 +1,12 @@
 use std::{borrow::BorrowMut, sync::Arc};
 
 use eyre::Result;
+use openvm_circuit_primitives::ColumnsAir;
 use openvm_stark_backend::{
     keygen::types::{MultiStarkProvingKey, MultiStarkVerifyingKey},
     proof::Proof,
     prover::{AirProvingContext, DeviceDataTransporter, ProvingContext},
-    AirRef, ColumnsAir, PartitionedBaseAir, StarkEngine,
+    AirRef, PartitionedBaseAir, StarkEngine,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::{
     BabyBearPoseidon2CpuEngine, DuplexSponge, DIGEST_SIZE, F,

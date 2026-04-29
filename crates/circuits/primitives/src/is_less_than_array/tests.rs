@@ -12,7 +12,7 @@ use openvm_stark_backend::{
     p3_maybe_rayon::prelude::*,
     prover::AirProvingContext,
     utils::disable_debug_builder,
-    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir, StarkEngine, StarkTestError,
+    BaseAirWithPublicValues, PartitionedBaseAir, StarkEngine, StarkTestError,
 };
 #[cfg(feature = "cuda")]
 use {
@@ -24,7 +24,7 @@ use {
 };
 
 use super::*;
-use crate::{utils::test_engine_small, StructReflection, StructReflectionHelper};
+use crate::{utils::test_engine_small, ColumnsAir, StructReflection, StructReflectionHelper};
 
 #[repr(C)]
 #[derive(AlignedBorrow, StructReflection, Clone, Copy, Debug)]

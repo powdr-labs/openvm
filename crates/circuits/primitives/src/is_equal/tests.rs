@@ -9,7 +9,7 @@ use openvm_stark_backend::{
     p3_maybe_rayon::prelude::*,
     prover::AirProvingContext,
     utils::disable_debug_builder,
-    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir, StarkEngine, StarkTestError,
+    BaseAirWithPublicValues, PartitionedBaseAir, StarkEngine, StarkTestError,
 };
 use test_case::test_matrix;
 #[cfg(feature = "cuda")]
@@ -27,7 +27,7 @@ use {
 
 use super::{IsEqSubAir, IsEqualIo};
 use crate::{
-    utils::test_engine_small, StructReflection, StructReflectionHelper, SubAir,
+    utils::test_engine_small, ColumnsAir, StructReflection, StructReflectionHelper, SubAir,
     TraceSubRowGenerator,
 };
 
