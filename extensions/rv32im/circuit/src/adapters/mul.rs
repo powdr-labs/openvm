@@ -14,9 +14,7 @@ use openvm_circuit::{
         MemoryAddress, MemoryAuxColsFactory,
     },
 };
-use openvm_circuit_primitives::{
-    AlignedBytesBorrow, ColumnsAir, StructReflection, StructReflectionHelper,
-};
+use openvm_circuit_primitives::{AlignedBytesBorrow, StructReflection, StructReflectionHelper};
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{
     instruction::Instruction, program::DEFAULT_PC_STEP, riscv::RV32_REGISTER_AS,
@@ -54,11 +52,7 @@ impl<F: Field> BaseAir<F> for Rv32MultAdapterAir {
         Rv32MultAdapterCols::<F>::width()
     }
 }
-impl<F: Field> ColumnsAir<F> for Rv32MultAdapterAir {
-    fn columns(&self) -> Option<Vec<String>> {
-        <Rv32MultAdapterCols<F> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
-    }
-}
+openvm_circuit_primitives::impl_columns_air!(Rv32MultAdapterAir, Rv32MultAdapterCols<F>);
 
 impl<AB: InteractionBuilder> VmAdapterAir<AB> for Rv32MultAdapterAir {
     type Interface = BasicAdapterInterface<

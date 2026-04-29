@@ -261,11 +261,7 @@ impl<F: Field> BaseAir<F> for DeferralCallAdapterAir {
         DeferralCallAdapterCols::<F>::width()
     }
 }
-impl<F: Field> ColumnsAir<F> for DeferralCallAdapterAir {
-    fn columns(&self) -> Option<Vec<String>> {
-        None
-    }
-}
+impl<F: Field> ColumnsAir<F> for DeferralCallAdapterAir {}
 
 impl<AB: InteractionBuilder> VmAdapterAir<AB> for DeferralCallAdapterAir {
     type Interface = DeferralCallAdapterInterface;

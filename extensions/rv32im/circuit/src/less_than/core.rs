@@ -10,7 +10,7 @@ use openvm_circuit::{
 use openvm_circuit_primitives::{
     bitwise_op_lookup::{BitwiseOperationLookupBus, SharedBitwiseOperationLookupChip},
     utils::not,
-    AlignedBytesBorrow, ColumnsAir, StructReflection, StructReflectionHelper,
+    AlignedBytesBorrow, StructReflection, StructReflectionHelper,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{instruction::Instruction, program::DEFAULT_PC_STEP, LocalOpcode};
@@ -61,13 +61,11 @@ impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAirWithPublic
     for LessThanCoreAir<NUM_LIMBS, LIMB_BITS>
 {
 }
-impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> ColumnsAir<F>
-    for LessThanCoreAir<NUM_LIMBS, LIMB_BITS>
-{
-    fn columns(&self) -> Option<Vec<String>> {
-        <LessThanCoreCols<F, NUM_LIMBS, LIMB_BITS> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
-    }
-}
+openvm_circuit_primitives::impl_columns_air!(
+    [const NUM_LIMBS: usize, const LIMB_BITS: usize]
+    LessThanCoreAir<NUM_LIMBS, LIMB_BITS>,
+    LessThanCoreCols<F, NUM_LIMBS, LIMB_BITS>
+);
 
 impl<AB, I, const NUM_LIMBS: usize, const LIMB_BITS: usize> VmCoreAir<AB, I>
     for LessThanCoreAir<NUM_LIMBS, LIMB_BITS>

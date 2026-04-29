@@ -15,7 +15,7 @@ use openvm_circuit::{
     },
 };
 use openvm_circuit_primitives::{
-    utils::not, AlignedBytesBorrow, ColumnsAir, StructReflection, StructReflectionHelper,
+    utils::not, AlignedBytesBorrow, StructReflection, StructReflectionHelper,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{
@@ -54,11 +54,7 @@ impl<F: Field> BaseAir<F> for Rv32JalrAdapterAir {
         Rv32JalrAdapterCols::<F>::width()
     }
 }
-impl<F: Field> ColumnsAir<F> for Rv32JalrAdapterAir {
-    fn columns(&self) -> Option<Vec<String>> {
-        <Rv32JalrAdapterCols<F> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
-    }
-}
+openvm_circuit_primitives::impl_columns_air!(Rv32JalrAdapterAir, Rv32JalrAdapterCols<F>);
 
 impl<AB: InteractionBuilder> VmAdapterAir<AB> for Rv32JalrAdapterAir {
     type Interface = BasicAdapterInterface<

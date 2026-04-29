@@ -5,7 +5,7 @@ use std::{
 
 use openvm_circuit_primitives::{
     var_range::{SharedVariableRangeCheckerChip, VariableRangeCheckerBus},
-    ColumnsAir, StructReflection, StructReflectionHelper,
+    StructReflection, StructReflectionHelper,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_cpu_backend::CpuBackend;
@@ -77,11 +77,7 @@ impl<F: Field> BaseAirWithPublicValues<F> for VmConnectorAir {
     }
 }
 impl<F: Field> PartitionedBaseAir<F> for VmConnectorAir {}
-impl<F: Field> ColumnsAir<F> for VmConnectorAir {
-    fn columns(&self) -> Option<Vec<String>> {
-        <ConnectorCols<F> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
-    }
-}
+openvm_circuit_primitives::impl_columns_air!(VmConnectorAir, ConnectorCols<F>);
 impl<F: Field> BaseAir<F> for VmConnectorAir {
     fn width(&self) -> usize {
         ConnectorCols::<F>::width()

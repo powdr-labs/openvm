@@ -17,7 +17,7 @@ use openvm_circuit::{
 use openvm_circuit_primitives::{
     bitwise_op_lookup::{BitwiseOperationLookupBus, SharedBitwiseOperationLookupChip},
     utils::not,
-    AlignedBytesBorrow, ColumnsAir, StructReflection, StructReflectionHelper,
+    AlignedBytesBorrow, StructReflection, StructReflectionHelper,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{
@@ -64,11 +64,7 @@ impl<F: Field> BaseAir<F> for Rv32BaseAluAdapterAir {
         Rv32BaseAluAdapterCols::<F>::width()
     }
 }
-impl<F: Field> ColumnsAir<F> for Rv32BaseAluAdapterAir {
-    fn columns(&self) -> Option<Vec<String>> {
-        <Rv32BaseAluAdapterCols<F> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
-    }
-}
+openvm_circuit_primitives::impl_columns_air!(Rv32BaseAluAdapterAir, Rv32BaseAluAdapterCols<F>);
 
 impl<AB: InteractionBuilder> VmAdapterAir<AB> for Rv32BaseAluAdapterAir {
     type Interface = BasicAdapterInterface<

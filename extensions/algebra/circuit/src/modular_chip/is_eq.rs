@@ -16,8 +16,7 @@ use openvm_circuit_primitives::{
     bigint::utils::big_uint_to_limbs,
     bitwise_op_lookup::{BitwiseOperationLookupBus, SharedBitwiseOperationLookupChip},
     is_equal_array::{IsEqArrayIo, IsEqArraySubAir},
-    AlignedBytesBorrow, ColumnsAir, StructReflection, StructReflectionHelper, SubAir,
-    TraceSubRowGenerator,
+    AlignedBytesBorrow, StructReflection, StructReflectionHelper, SubAir, TraceSubRowGenerator,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{
@@ -113,13 +112,11 @@ impl<F: Field, const READ_LIMBS: usize, const WRITE_LIMBS: usize, const LIMB_BIT
     BaseAirWithPublicValues<F> for ModularIsEqualCoreAir<READ_LIMBS, WRITE_LIMBS, LIMB_BITS>
 {
 }
-impl<F: Field, const READ_LIMBS: usize, const WRITE_LIMBS: usize, const LIMB_BITS: usize>
-    ColumnsAir<F> for ModularIsEqualCoreAir<READ_LIMBS, WRITE_LIMBS, LIMB_BITS>
-{
-    fn columns(&self) -> Option<Vec<String>> {
-        <ModularIsEqualCoreCols<F, READ_LIMBS> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
-    }
-}
+openvm_circuit_primitives::impl_columns_air!(
+    [const READ_LIMBS: usize, const WRITE_LIMBS: usize, const LIMB_BITS: usize]
+    ModularIsEqualCoreAir<READ_LIMBS, WRITE_LIMBS, LIMB_BITS>,
+    ModularIsEqualCoreCols<F, READ_LIMBS>
+);
 
 impl<AB, I, const READ_LIMBS: usize, const WRITE_LIMBS: usize, const LIMB_BITS: usize>
     VmCoreAir<AB, I> for ModularIsEqualCoreAir<READ_LIMBS, WRITE_LIMBS, LIMB_BITS>

@@ -1,6 +1,5 @@
 use std::{borrow::Borrow, iter};
 
-use openvm_circuit_primitives::ColumnsAir;
 use openvm_stark_backend::{
     interaction::{InteractionBuilder, PermutationCheckBus},
     p3_air::{Air, AirBuilder, AirBuilderWithPublicValues, BaseAir},
@@ -19,11 +18,7 @@ pub struct MemoryMerkleAir<const CHUNK: usize> {
 }
 
 impl<const CHUNK: usize, F: Field> PartitionedBaseAir<F> for MemoryMerkleAir<CHUNK> {}
-impl<const CHUNK: usize, F: Field> ColumnsAir<F> for MemoryMerkleAir<CHUNK> {
-    fn columns(&self) -> Option<Vec<String>> {
-        <MemoryMerkleCols<F, CHUNK> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
-    }
-}
+openvm_circuit_primitives::impl_columns_air!([const CHUNK: usize] MemoryMerkleAir<CHUNK>, MemoryMerkleCols<F, CHUNK>);
 impl<const CHUNK: usize, F: Field> BaseAir<F> for MemoryMerkleAir<CHUNK> {
     fn width(&self) -> usize {
         MemoryMerkleCols::<F, CHUNK>::width()

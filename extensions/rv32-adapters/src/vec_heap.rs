@@ -21,7 +21,7 @@ use openvm_circuit::{
 };
 use openvm_circuit_primitives::{
     bitwise_op_lookup::{BitwiseOperationLookupBus, SharedBitwiseOperationLookupChip},
-    AlignedBytesBorrow, ColumnsAir, StructReflection, StructReflectionHelper,
+    AlignedBytesBorrow, StructReflection, StructReflectionHelper,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{
@@ -108,27 +108,17 @@ impl<
     }
 }
 
-impl<
-        F: Field,
+openvm_circuit_primitives::impl_columns_air!(
+    [
         const NUM_READS: usize,
         const BLOCKS_PER_READ: usize,
         const BLOCKS_PER_WRITE: usize,
         const READ_SIZE: usize,
         const WRITE_SIZE: usize,
-    > ColumnsAir<F>
-    for Rv32VecHeapAdapterAir<NUM_READS, BLOCKS_PER_READ, BLOCKS_PER_WRITE, READ_SIZE, WRITE_SIZE>
-{
-    fn columns(&self) -> Option<Vec<String>> {
-        <Rv32VecHeapAdapterCols<
-            F,
-            NUM_READS,
-            BLOCKS_PER_READ,
-            BLOCKS_PER_WRITE,
-            READ_SIZE,
-            WRITE_SIZE,
-        > as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
-    }
-}
+    ]
+    Rv32VecHeapAdapterAir<NUM_READS, BLOCKS_PER_READ, BLOCKS_PER_WRITE, READ_SIZE, WRITE_SIZE>,
+    Rv32VecHeapAdapterCols<F, NUM_READS, BLOCKS_PER_READ, BLOCKS_PER_WRITE, READ_SIZE, WRITE_SIZE>
+);
 
 impl<
         AB: InteractionBuilder,

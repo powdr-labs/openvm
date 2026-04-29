@@ -6,7 +6,7 @@ use openvm_circuit::{
 };
 use openvm_circuit_primitives::{
     bitwise_op_lookup::{BitwiseOperationLookupBus, SharedBitwiseOperationLookupChip},
-    AlignedBytesBorrow, ColumnsAir, StructReflection, StructReflectionHelper,
+    AlignedBytesBorrow, StructReflection, StructReflectionHelper,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{
@@ -50,11 +50,7 @@ impl<F: Field> BaseAir<F> for Rv32JalLuiCoreAir {
 }
 
 impl<F: Field> BaseAirWithPublicValues<F> for Rv32JalLuiCoreAir {}
-impl<F: Field> ColumnsAir<F> for Rv32JalLuiCoreAir {
-    fn columns(&self) -> Option<Vec<String>> {
-        <Rv32JalLuiCoreCols<F> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
-    }
-}
+openvm_circuit_primitives::impl_columns_air!(Rv32JalLuiCoreAir, Rv32JalLuiCoreCols<F>);
 
 impl<AB, I> VmCoreAir<AB, I> for Rv32JalLuiCoreAir
 where

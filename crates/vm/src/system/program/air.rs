@@ -1,4 +1,4 @@
-use openvm_circuit_primitives::{ColumnsAir, StructReflection, StructReflectionHelper};
+use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_stark_backend::{
     air_builders::PartitionedAirBuilder,
@@ -47,11 +47,7 @@ impl<F: Field> PartitionedBaseAir<F> for ProgramAir {
         1
     }
 }
-impl<F: Field> ColumnsAir<F> for ProgramAir {
-    fn columns(&self) -> Option<Vec<String>> {
-        <ProgramCols<F> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
-    }
-}
+openvm_circuit_primitives::impl_columns_air!(ProgramAir, ProgramCols<F>);
 impl<F: Field> BaseAir<F> for ProgramAir {
     fn width(&self) -> usize {
         ProgramCols::<F>::width()

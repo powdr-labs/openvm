@@ -12,7 +12,7 @@ use openvm_circuit::{
     },
 };
 use openvm_circuit_primitives::{
-    utils::not, AlignedBytesBorrow, ColumnsAir, StructReflection, StructReflectionHelper,
+    utils::not, AlignedBytesBorrow, StructReflection, StructReflectionHelper,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{
@@ -60,22 +60,17 @@ impl<F: Field> BaseAir<F> for Rv32RdWriteAdapterAir {
         Rv32RdWriteAdapterCols::<F>::width()
     }
 }
-impl<F: Field> ColumnsAir<F> for Rv32RdWriteAdapterAir {
-    fn columns(&self) -> Option<Vec<String>> {
-        <Rv32RdWriteAdapterCols<F> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
-    }
-}
+openvm_circuit_primitives::impl_columns_air!(Rv32RdWriteAdapterAir, Rv32RdWriteAdapterCols<F>);
 
 impl<F: Field> BaseAir<F> for Rv32CondRdWriteAdapterAir {
     fn width(&self) -> usize {
         Rv32CondRdWriteAdapterCols::<F>::width()
     }
 }
-impl<F: Field> ColumnsAir<F> for Rv32CondRdWriteAdapterAir {
-    fn columns(&self) -> Option<Vec<String>> {
-        <Rv32CondRdWriteAdapterCols<F> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
-    }
-}
+openvm_circuit_primitives::impl_columns_air!(
+    Rv32CondRdWriteAdapterAir,
+    Rv32CondRdWriteAdapterCols<F>
+);
 
 impl Rv32RdWriteAdapterAir {
     /// If `needs_write` is provided:
