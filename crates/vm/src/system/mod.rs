@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use derive_more::derive::From;
+use tracing::info_span;
 use openvm_circuit_derive::{AnyEnum, Executor, MeteredExecutor, PreflightExecutor};
 #[cfg(feature = "aot")]
 use openvm_circuit_derive::{AotExecutor, AotMeteredExecutor};
@@ -355,12 +356,16 @@ where
         } = system_records;
 
         self.program_chip.filtered_exec_frequencies = filtered_exec_frequencies;
-        let program_ctx = self.program_chip.generate_proving_ctx(());
+        let program_ctx = info_span!("program_tracegen").in_scope(|| {
+            self.program_chip.generate_proving_ctx(())
+        });
         self.connector_chip.begin(from_state);
         self.connector_chip.end(to_state, exit_code);
         let connector_ctx = self.connector_chip.generate_proving_ctx(());
 
-        let memory_ctxs = self.memory_controller.generate_proving_ctx(touched_memory);
+        let memory_ctxs = info_span!("memory_tracegen").in_scope(|| {
+            self.memory_controller.generate_proving_ctx(touched_memory)
+        });
 
         [program_ctx, connector_ctx]
             .into_iter()

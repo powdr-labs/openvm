@@ -5,7 +5,7 @@ use openvm_stark_backend::{
     p3_field::PrimeField32, p3_matrix::dense::RowMajorMatrix, prover::AirProvingContext,
     StarkProtocolConfig, Val,
 };
-use tracing::instrument;
+use tracing::{info_span, instrument};
 
 use crate::{
     arch::{hasher::HasherChip, VmField},
@@ -21,7 +21,7 @@ use crate::{
 };
 
 impl<const CHUNK: usize, F: PrimeField32> MemoryMerkleChip<CHUNK, F> {
-    #[instrument(name = "merkle_finalize", level = "debug", skip_all)]
+    #[instrument(name = "merkle_finalize", level = "info", skip_all)]
     pub(crate) fn finalize(
         &mut self,
         initial_memory: &MemoryImage,
@@ -30,8 +30,20 @@ impl<const CHUNK: usize, F: PrimeField32> MemoryMerkleChip<CHUNK, F> {
     ) {
         assert!(self.final_state.is_none(), "Merkle chip already finalized");
         let memory_dimensions = &self.air.memory_dimensions;
-        let mut tree = MerkleTree::from_memory(initial_memory, memory_dimensions, hasher);
-        self.final_state = Some(tree.finalize(hasher, final_memory, memory_dimensions));
+        #[cfg(feature = "metrics")]
+        metrics::gauge!("merkle_touched_chunks").set(final_memory.len() as f64);
+        let mut tree = info_span!("merkle_from_memory").in_scope(|| {
+            MerkleTree::from_memory(initial_memory, memory_dimensions, hasher)
+        });
+        #[cfg(feature = "metrics")]
+        metrics::gauge!("merkle_initial_tree_nodes").set(tree.num_nodes() as f64);
+        self.final_state = info_span!("merkle_tree_finalize").in_scope(|| {
+            Some(tree.finalize(hasher, final_memory, memory_dimensions))
+        });
+        #[cfg(feature = "metrics")]
+        if let Some(ref state) = self.final_state {
+            metrics::gauge!("merkle_unpadded_rows").set(state.rows.len() as f64);
+        }
         self.top_tree = tree.top_tree(memory_dimensions.addr_space_height);
     }
 }
