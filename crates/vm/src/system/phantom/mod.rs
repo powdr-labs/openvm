@@ -7,7 +7,9 @@ use std::{
     sync::Arc,
 };
 
-use openvm_circuit_primitives::{AlignedBytesBorrow, StructReflection, StructReflectionHelper};
+use openvm_circuit_primitives::{
+    AlignedBytesBorrow, ColumnsAir, StructReflection, StructReflectionHelper,
+};
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{
     instruction::Instruction, program::DEFAULT_PC_STEP, PhantomDiscriminant, SysPhantom,
@@ -67,7 +69,11 @@ impl<F: Field> BaseAir<F> for PhantomAir {
     }
 }
 impl<F: Field> PartitionedBaseAir<F> for PhantomAir {}
-openvm_circuit_primitives::impl_columns_air!(PhantomAir, PhantomCols<F>);
+impl<F: Field> ColumnsAir<F> for PhantomAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        <PhantomCols<F> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
+}
 impl<F: Field> BaseAirWithPublicValues<F> for PhantomAir {}
 
 impl<AB: AirBuilder + InteractionBuilder> Air<AB> for PhantomAir {

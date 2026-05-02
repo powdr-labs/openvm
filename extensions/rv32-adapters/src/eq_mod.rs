@@ -20,7 +20,7 @@ use openvm_circuit::{
 };
 use openvm_circuit_primitives::{
     bitwise_op_lookup::{BitwiseOperationLookupBus, SharedBitwiseOperationLookupChip},
-    AlignedBytesBorrow, StructReflection, StructReflectionHelper,
+    AlignedBytesBorrow, ColumnsAir, StructReflection, StructReflectionHelper,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{
@@ -90,16 +90,19 @@ impl<
     }
 }
 
-openvm_circuit_primitives::impl_columns_air!(
-    [
+impl<
+        F: Field,
         const NUM_READS: usize,
         const BLOCKS_PER_READ: usize,
         const BLOCK_SIZE: usize,
         const TOTAL_READ_SIZE: usize,
-    ]
-    Rv32IsEqualModAdapterAir<NUM_READS, BLOCKS_PER_READ, BLOCK_SIZE, TOTAL_READ_SIZE>,
-    Rv32IsEqualModAdapterCols<F, NUM_READS, BLOCKS_PER_READ, BLOCK_SIZE>
-);
+    > ColumnsAir<F>
+    for Rv32IsEqualModAdapterAir<NUM_READS, BLOCKS_PER_READ, BLOCK_SIZE, TOTAL_READ_SIZE>
+{
+    fn columns(&self) -> Option<Vec<String>> {
+        <Rv32IsEqualModAdapterCols<F, NUM_READS, BLOCKS_PER_READ, BLOCK_SIZE> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
+}
 
 impl<
         AB: InteractionBuilder,

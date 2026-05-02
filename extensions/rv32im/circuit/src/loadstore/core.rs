@@ -9,7 +9,7 @@ use openvm_circuit::{
     system::memory::{online::TracingMemory, MemoryAuxColsFactory},
 };
 use openvm_circuit_primitives::{
-    AlignedBorrow, AlignedBytesBorrow, StructReflection, StructReflectionHelper,
+    AlignedBorrow, AlignedBytesBorrow, ColumnsAir, StructReflection, StructReflectionHelper,
 };
 use openvm_instructions::{
     instruction::Instruction, program::DEFAULT_PC_STEP, riscv::RV32_REGISTER_NUM_LIMBS, LocalOpcode,
@@ -75,11 +75,11 @@ impl<F: Field, const NUM_CELLS: usize> BaseAir<F> for LoadStoreCoreAir<NUM_CELLS
 }
 
 impl<F: Field, const NUM_CELLS: usize> BaseAirWithPublicValues<F> for LoadStoreCoreAir<NUM_CELLS> {}
-openvm_circuit_primitives::impl_columns_air!(
-    [const NUM_CELLS: usize]
-    LoadStoreCoreAir<NUM_CELLS>,
-    LoadStoreCoreCols<F, NUM_CELLS>
-);
+impl<F: Field, const NUM_CELLS: usize> ColumnsAir<F> for LoadStoreCoreAir<NUM_CELLS> {
+    fn columns(&self) -> Option<Vec<String>> {
+        <LoadStoreCoreCols<F, NUM_CELLS> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
+}
 
 impl<AB, I, const NUM_CELLS: usize> VmCoreAir<AB, I> for LoadStoreCoreAir<NUM_CELLS>
 where

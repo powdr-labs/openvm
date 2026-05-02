@@ -10,7 +10,7 @@ use openvm_circuit::{
 use openvm_circuit_primitives::{
     bitwise_op_lookup::{BitwiseOperationLookupBus, SharedBitwiseOperationLookupChip},
     range_tuple::{RangeTupleCheckerBus, SharedRangeTupleCheckerChip},
-    AlignedBytesBorrow, StructReflection, StructReflectionHelper,
+    AlignedBytesBorrow, ColumnsAir, StructReflection, StructReflectionHelper,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{instruction::Instruction, program::DEFAULT_PC_STEP, LocalOpcode};
@@ -56,11 +56,13 @@ impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> BaseAirWithPublic
     for MulHCoreAir<NUM_LIMBS, LIMB_BITS>
 {
 }
-openvm_circuit_primitives::impl_columns_air!(
-    [const NUM_LIMBS: usize, const LIMB_BITS: usize]
-    MulHCoreAir<NUM_LIMBS, LIMB_BITS>,
-    MulHCoreCols<F, NUM_LIMBS, LIMB_BITS>
-);
+impl<F: Field, const NUM_LIMBS: usize, const LIMB_BITS: usize> ColumnsAir<F>
+    for MulHCoreAir<NUM_LIMBS, LIMB_BITS>
+{
+    fn columns(&self) -> Option<Vec<String>> {
+        <MulHCoreCols<F, NUM_LIMBS, LIMB_BITS> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
+}
 
 impl<AB, I, const NUM_LIMBS: usize, const LIMB_BITS: usize> VmCoreAir<AB, I>
     for MulHCoreAir<NUM_LIMBS, LIMB_BITS>

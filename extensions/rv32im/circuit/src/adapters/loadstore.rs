@@ -20,7 +20,7 @@ use openvm_circuit::{
 use openvm_circuit_primitives::{
     utils::{not, select},
     var_range::{SharedVariableRangeCheckerChip, VariableRangeCheckerBus},
-    AlignedBytesBorrow, StructReflection, StructReflectionHelper,
+    AlignedBytesBorrow, ColumnsAir, StructReflection, StructReflectionHelper,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{
@@ -114,7 +114,11 @@ impl<F: Field> BaseAir<F> for Rv32LoadStoreAdapterAir {
         Rv32LoadStoreAdapterCols::<F>::width()
     }
 }
-openvm_circuit_primitives::impl_columns_air!(Rv32LoadStoreAdapterAir, Rv32LoadStoreAdapterCols<F>);
+impl<F: Field> ColumnsAir<F> for Rv32LoadStoreAdapterAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        <Rv32LoadStoreAdapterCols<F> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
+}
 
 impl<AB: InteractionBuilder> VmAdapterAir<AB> for Rv32LoadStoreAdapterAir {
     type Interface = Rv32LoadStoreAdapterAirInterface<AB>;

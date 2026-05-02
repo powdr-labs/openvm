@@ -4,7 +4,7 @@ use std::{
     iter,
 };
 
-use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
+use openvm_circuit_primitives::{ColumnsAir, StructReflection, StructReflectionHelper};
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_cpu_backend::CpuBackend;
 use openvm_stark_backend::{
@@ -76,7 +76,11 @@ impl<const CHUNK: usize, F> BaseAir<F> for PersistentBoundaryAir<CHUNK> {
 
 impl<const CHUNK: usize, F> BaseAirWithPublicValues<F> for PersistentBoundaryAir<CHUNK> {}
 impl<const CHUNK: usize, F> PartitionedBaseAir<F> for PersistentBoundaryAir<CHUNK> {}
-openvm_circuit_primitives::impl_columns_air!([const CHUNK: usize] PersistentBoundaryAir<CHUNK>, PersistentBoundaryCols<F, CHUNK>);
+impl<const CHUNK: usize, F> ColumnsAir<F> for PersistentBoundaryAir<CHUNK> {
+    fn columns(&self) -> Option<Vec<String>> {
+        <PersistentBoundaryCols<F, CHUNK> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
+}
 
 impl<const CHUNK: usize, AB: InteractionBuilder> Air<AB> for PersistentBoundaryAir<CHUNK> {
     fn eval(&self, builder: &mut AB) {

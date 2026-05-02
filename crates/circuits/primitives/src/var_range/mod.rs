@@ -21,7 +21,7 @@ use openvm_stark_backend::{
 };
 use tracing::instrument;
 
-use crate::{Chip, StructReflection, StructReflectionHelper};
+use crate::{Chip, ColumnsAir, StructReflection, StructReflectionHelper};
 
 mod bus;
 pub use bus::*;
@@ -62,7 +62,11 @@ impl VariableRangeCheckerAir {
 
 impl<F: Field> BaseAirWithPublicValues<F> for VariableRangeCheckerAir {}
 impl<F: Field> PartitionedBaseAir<F> for VariableRangeCheckerAir {}
-crate::impl_columns_air!(VariableRangeCheckerAir, VariableRangeCols<F>);
+impl<F: Field> ColumnsAir<F> for VariableRangeCheckerAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        <VariableRangeCols<F> as crate::StructReflectionHelper>::struct_reflection()
+    }
+}
 impl<F: Field> BaseAir<F> for VariableRangeCheckerAir {
     fn width(&self) -> usize {
         VariableRangeCols::<F>::width()

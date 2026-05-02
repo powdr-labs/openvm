@@ -19,7 +19,7 @@ use openvm_stark_backend::{
     BaseAirWithPublicValues, PartitionedBaseAir,
 };
 
-use crate::{StructReflection, StructReflectionHelper};
+use crate::{ColumnsAir, StructReflection, StructReflectionHelper};
 
 mod bus;
 
@@ -58,7 +58,11 @@ impl RangeCheckerAir {
 
 impl<F: Field> BaseAirWithPublicValues<F> for RangeCheckerAir {}
 impl<F: Field> PartitionedBaseAir<F> for RangeCheckerAir {}
-crate::impl_columns_air!(RangeCheckerAir, RangeCols<F>);
+impl<F: Field> ColumnsAir<F> for RangeCheckerAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        <RangeCols<F> as crate::StructReflectionHelper>::struct_reflection()
+    }
+}
 impl<F: Field> BaseAir<F> for RangeCheckerAir {
     fn width(&self) -> usize {
         NUM_RANGE_COLS

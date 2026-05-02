@@ -1,6 +1,6 @@
 use std::borrow::Borrow;
 
-use openvm_circuit_primitives::{utils::not, StructReflection, StructReflectionHelper};
+use openvm_circuit_primitives::{utils::not, ColumnsAir, StructReflection, StructReflectionHelper};
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
@@ -33,7 +33,11 @@ impl<F> BaseAir<F> for DeferralCircuitCountAir {
 }
 impl<F> BaseAirWithPublicValues<F> for DeferralCircuitCountAir {}
 impl<F> PartitionedBaseAir<F> for DeferralCircuitCountAir {}
-openvm_circuit_primitives::impl_columns_air!(DeferralCircuitCountAir, DeferralCircuitCountCols<F>);
+impl<F> ColumnsAir<F> for DeferralCircuitCountAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        <DeferralCircuitCountCols<F> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
+}
 
 impl<AB> Air<AB> for DeferralCircuitCountAir
 where

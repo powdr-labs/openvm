@@ -14,7 +14,7 @@ use openvm_circuit::{
 use openvm_circuit_primitives::{
     bitwise_op_lookup::{BitwiseOperationLookupBus, SharedBitwiseOperationLookupChip},
     utils::not,
-    StructReflection, StructReflectionHelper,
+    ColumnsAir, StructReflection, StructReflectionHelper,
 };
 use openvm_circuit_primitives_derive::{AlignedBorrow, AlignedBytesBorrow};
 use openvm_instructions::{
@@ -91,7 +91,11 @@ impl<F: Field> BaseAir<F> for Rv32HintStoreAir {
 
 impl<F: Field> BaseAirWithPublicValues<F> for Rv32HintStoreAir {}
 impl<F: Field> PartitionedBaseAir<F> for Rv32HintStoreAir {}
-openvm_circuit_primitives::impl_columns_air!(Rv32HintStoreAir, Rv32HintStoreCols<F>);
+impl<F: Field> ColumnsAir<F> for Rv32HintStoreAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        <Rv32HintStoreCols<F> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
+}
 
 impl<AB: InteractionBuilder> Air<AB> for Rv32HintStoreAir {
     fn eval(&self, builder: &mut AB) {

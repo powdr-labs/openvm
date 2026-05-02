@@ -14,7 +14,7 @@ use openvm_stark_backend::{
     BaseAirWithPublicValues, PartitionedBaseAir, StarkProtocolConfig, Val,
 };
 
-use crate::{Chip, StructReflection, StructReflectionHelper};
+use crate::{Chip, ColumnsAir, StructReflection, StructReflectionHelper};
 
 mod bus;
 pub use bus::*;
@@ -56,7 +56,11 @@ impl<F: Field, const NUM_BITS: usize> PartitionedBaseAir<F>
     for BitwiseOperationLookupAir<NUM_BITS>
 {
 }
-crate::impl_columns_air!([const NUM_BITS: usize] BitwiseOperationLookupAir<NUM_BITS>, BitwiseOperationLookupCols<F, NUM_BITS>);
+impl<F: Field, const NUM_BITS: usize> ColumnsAir<F> for BitwiseOperationLookupAir<NUM_BITS> {
+    fn columns(&self) -> Option<Vec<String>> {
+        <BitwiseOperationLookupCols<F, NUM_BITS> as crate::StructReflectionHelper>::struct_reflection()
+    }
+}
 impl<F: Field, const NUM_BITS: usize> BaseAir<F> for BitwiseOperationLookupAir<NUM_BITS> {
     fn width(&self) -> usize {
         BitwiseOperationLookupCols::<F, NUM_BITS>::width()

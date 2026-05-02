@@ -9,7 +9,7 @@ use openvm_circuit::{
 };
 use openvm_circuit_primitives::{
     bitwise_op_lookup::{BitwiseOperationLookupBus, SharedBitwiseOperationLookupChip},
-    AlignedBytesBorrow, StructReflection, StructReflectionHelper,
+    AlignedBytesBorrow, ColumnsAir, StructReflection, StructReflectionHelper,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{
@@ -52,7 +52,11 @@ impl<F: Field> BaseAir<F> for Rv32AuipcCoreAir {
 }
 
 impl<F: Field> BaseAirWithPublicValues<F> for Rv32AuipcCoreAir {}
-openvm_circuit_primitives::impl_columns_air!(Rv32AuipcCoreAir, Rv32AuipcCoreCols<F>);
+impl<F: Field> ColumnsAir<F> for Rv32AuipcCoreAir {
+    fn columns(&self) -> Option<Vec<String>> {
+        <Rv32AuipcCoreCols<F> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
+}
 
 impl<AB, I> VmCoreAir<AB, I> for Rv32AuipcCoreAir
 where

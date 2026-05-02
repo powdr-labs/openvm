@@ -10,7 +10,7 @@ use openvm_circuit::{
 use openvm_circuit_primitives::{
     utils::select,
     var_range::{SharedVariableRangeCheckerChip, VariableRangeCheckerBus},
-    AlignedBytesBorrow, StructReflection, StructReflectionHelper,
+    AlignedBytesBorrow, ColumnsAir, StructReflection, StructReflectionHelper,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{
@@ -68,11 +68,13 @@ impl<F: Field, const NUM_CELLS: usize, const LIMB_BITS: usize> BaseAirWithPublic
     for LoadSignExtendCoreAir<NUM_CELLS, LIMB_BITS>
 {
 }
-openvm_circuit_primitives::impl_columns_air!(
-    [const NUM_CELLS: usize, const LIMB_BITS: usize]
-    LoadSignExtendCoreAir<NUM_CELLS, LIMB_BITS>,
-    LoadSignExtendCoreCols<F, NUM_CELLS>
-);
+impl<F: Field, const NUM_CELLS: usize, const LIMB_BITS: usize> ColumnsAir<F>
+    for LoadSignExtendCoreAir<NUM_CELLS, LIMB_BITS>
+{
+    fn columns(&self) -> Option<Vec<String>> {
+        <LoadSignExtendCoreCols<F, NUM_CELLS> as openvm_circuit_primitives::StructReflectionHelper>::struct_reflection()
+    }
+}
 
 impl<AB, I, const NUM_CELLS: usize, const LIMB_BITS: usize> VmCoreAir<AB, I>
     for LoadSignExtendCoreAir<NUM_CELLS, LIMB_BITS>
