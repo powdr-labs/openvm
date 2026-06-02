@@ -11,10 +11,11 @@ use openvm_circuit::{
     },
     system::memory::online::TracingMemory,
 };
+use openvm_circuit_primitives::ColumnsAir;
 use openvm_instructions::instruction::Instruction;
 use openvm_stark_backend::{
     interaction::InteractionBuilder, p3_air::BaseAir, p3_field::PrimeField32,
-    BaseAirWithPublicValues, ColumnsAir,
+    BaseAirWithPublicValues,
 };
 
 // =================================================================================================

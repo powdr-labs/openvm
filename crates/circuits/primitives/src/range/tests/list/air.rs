@@ -5,11 +5,11 @@ use openvm_stark_backend::{
     p3_air::{Air, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing},
     p3_matrix::Matrix,
-    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
+    BaseAirWithPublicValues, PartitionedBaseAir,
 };
 
 use super::columns::{ListCols, NUM_LIST_COLS};
-use crate::range::bus::RangeCheckBus;
+use crate::{range::bus::RangeCheckBus, ColumnsAir};
 
 #[derive(Copy, Clone, Debug, derive_new::new)]
 pub struct ListAir {

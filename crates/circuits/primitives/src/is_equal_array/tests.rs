@@ -12,7 +12,7 @@ use openvm_stark_backend::{
     p3_maybe_rayon::prelude::*,
     prover::AirProvingContext,
     utils::disable_debug_builder,
-    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir, StarkEngine, StarkTestError,
+    BaseAirWithPublicValues, PartitionedBaseAir, StarkEngine, StarkTestError,
 };
 #[cfg(not(feature = "cuda"))]
 use openvm_stark_sdk::config::baby_bear_poseidon2::F;
@@ -32,7 +32,7 @@ use {
 
 use super::{IsEqArrayAuxCols, IsEqArrayIo, IsEqArraySubAir};
 use crate::{
-    utils::test_engine_small, StructReflection, StructReflectionHelper, SubAir,
+    utils::test_engine_small, ColumnsAir, StructReflection, StructReflectionHelper, SubAir,
     TraceSubRowGenerator,
 };
 

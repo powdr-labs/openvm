@@ -4,11 +4,11 @@ use itertools::fold;
 use openvm_circuit_primitives::{
     encoder::Encoder,
     utils::{and, not, or, select},
-    SubAir,
+    ColumnsAir, SubAir,
 };
 use openvm_recursion_circuit_derive::AlignedBorrow;
 use openvm_stark_backend::{
-    interaction::InteractionBuilder, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
+    interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::DIGEST_SIZE;
 use p3_air::{Air, AirBuilder, BaseAir};

@@ -1,13 +1,13 @@
 use std::borrow::Borrow;
 
-use openvm_circuit_primitives::{utils::not, StructReflection, StructReflectionHelper};
+use openvm_circuit_primitives::{utils::not, ColumnsAir, StructReflection, StructReflectionHelper};
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::PrimeCharacteristicRing,
     p3_matrix::Matrix,
-    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
+    BaseAirWithPublicValues, PartitionedBaseAir,
 };
 
 use super::DeferralCircuitCountBus;

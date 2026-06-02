@@ -4,7 +4,7 @@ use std::{
     iter,
 };
 
-use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
+use openvm_circuit_primitives::{ColumnsAir, StructReflection, StructReflectionHelper};
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_cpu_backend::CpuBackend;
 use openvm_stark_backend::{
@@ -14,7 +14,7 @@ use openvm_stark_backend::{
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_maybe_rayon::prelude::*,
     prover::AirProvingContext,
-    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir, StarkProtocolConfig, Val,
+    BaseAirWithPublicValues, PartitionedBaseAir, StarkProtocolConfig, Val,
 };
 use rustc_hash::FxHashSet;
 use tracing::instrument;

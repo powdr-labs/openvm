@@ -1,13 +1,13 @@
 use std::{borrow::Borrow, mem::size_of};
 
-use openvm_circuit_primitives::{StructReflection, StructReflectionHelper};
+use openvm_circuit_primitives::{ColumnsAir, StructReflection, StructReflectionHelper};
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{Air, BaseAir},
     p3_field::Field,
     p3_matrix::Matrix,
-    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
+    BaseAirWithPublicValues, PartitionedBaseAir,
 };
 
 use crate::arch::{ExecutionBus, ExecutionState};

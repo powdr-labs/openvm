@@ -16,7 +16,7 @@ use openvm_stark_backend::{
     p3_maybe_rayon::prelude::*,
     prover::AirProvingContext,
     utils::disable_debug_builder,
-    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir, StarkEngine, StarkTestError,
+    BaseAirWithPublicValues, PartitionedBaseAir, StarkEngine, StarkTestError,
 };
 #[cfg(not(feature = "cuda"))]
 use openvm_stark_sdk::config::baby_bear_poseidon2::F;
@@ -33,7 +33,7 @@ use super::*;
 use crate::{
     utils::test_engine_small,
     var_range::{VariableRangeCheckerBus, VariableRangeCheckerChip},
-    StructReflection, StructReflectionHelper,
+    ColumnsAir, StructReflection, StructReflectionHelper,
 };
 
 // We only create an Air for testing purposes

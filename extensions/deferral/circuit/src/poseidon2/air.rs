@@ -1,6 +1,6 @@
 use std::{borrow::Borrow, iter::once, sync::Arc};
 
-use openvm_circuit_primitives::AlignedBorrow;
+use openvm_circuit_primitives::{AlignedBorrow, ColumnsAir};
 use openvm_poseidon2_air::{
     Poseidon2Config, Poseidon2SubAir, Poseidon2SubCols, BABY_BEAR_POSEIDON2_HALF_FULL_ROUNDS,
 };
@@ -9,7 +9,7 @@ use openvm_stark_backend::{
     interaction::{InteractionBuilder, LookupBus},
     p3_air::{Air, AirBuilder, BaseAir},
     p3_matrix::Matrix,
-    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
+    BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::DIGEST_SIZE;
 use p3_field::{Field, PrimeCharacteristicRing};

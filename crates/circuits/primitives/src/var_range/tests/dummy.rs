@@ -3,10 +3,10 @@ use openvm_stark_backend::{
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
-    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
+    BaseAirWithPublicValues, PartitionedBaseAir,
 };
 
-use crate::var_range::bus::VariableRangeCheckerBus;
+use crate::{var_range::bus::VariableRangeCheckerBus, ColumnsAir};
 
 // dummy AIR for testing VariableRangeCheckerBus::send
 pub struct TestSendAir {
@@ -87,6 +87,7 @@ pub mod cuda {
 
     use crate::{
         cuda_abi::var_range::dummy_tracegen, var_range::VariableRangeCheckerChipGPU, Chip,
+        ColumnsAir,
     };
 
     /// Width of the dummy trace: [count, value, bits] = 3 columns

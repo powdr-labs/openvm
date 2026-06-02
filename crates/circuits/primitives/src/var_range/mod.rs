@@ -17,11 +17,11 @@ use openvm_stark_backend::{
     p3_field::{Field, PrimeCharacteristicRing, PrimeField32},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     prover::AirProvingContext,
-    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir, StarkProtocolConfig, Val,
+    BaseAirWithPublicValues, PartitionedBaseAir, StarkProtocolConfig, Val,
 };
 use tracing::instrument;
 
-use crate::{Chip, StructReflection, StructReflectionHelper};
+use crate::{Chip, ColumnsAir, StructReflection, StructReflectionHelper};
 
 mod bus;
 pub use bus::*;

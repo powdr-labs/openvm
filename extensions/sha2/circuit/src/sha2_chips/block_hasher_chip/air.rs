@@ -1,11 +1,11 @@
-use openvm_circuit_primitives::{bitwise_op_lookup::BitwiseOperationLookupBus, SubAir};
+use openvm_circuit_primitives::{bitwise_op_lookup::BitwiseOperationLookupBus, ColumnsAir, SubAir};
 use openvm_sha2_air::{compose, Sha2BlockHasherSubAir};
 use openvm_stark_backend::{
     interaction::{BusIndex, InteractionBuilder, PermutationCheckBus},
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing},
     p3_matrix::Matrix,
-    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
+    BaseAirWithPublicValues, PartitionedBaseAir,
 };
 
 use crate::{

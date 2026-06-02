@@ -10,7 +10,7 @@ use openvm_stark_backend::{
     p3_maybe_rayon::prelude::*,
     prover::AirProvingContext,
     utils::disable_debug_builder,
-    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir, StarkEngine, StarkTestError,
+    BaseAirWithPublicValues, PartitionedBaseAir, StarkEngine, StarkTestError,
 };
 #[cfg(feature = "cuda")]
 use {
@@ -26,7 +26,7 @@ use crate::{
     is_less_than::IsLtSubAir,
     utils::test_engine_small,
     var_range::{VariableRangeCheckerBus, VariableRangeCheckerChip},
-    SubAir, TraceSubRowGenerator,
+    ColumnsAir, SubAir, TraceSubRowGenerator,
 };
 
 /// Struct purely for testing purposes. We could make this have a const generic just like

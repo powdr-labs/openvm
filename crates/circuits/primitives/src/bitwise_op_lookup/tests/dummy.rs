@@ -3,10 +3,10 @@ use openvm_stark_backend::{
     p3_air::{Air, AirBuilder, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
-    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
+    BaseAirWithPublicValues, PartitionedBaseAir,
 };
 
-use crate::bitwise_op_lookup::bus::BitwiseOperationLookupBus;
+use crate::{bitwise_op_lookup::bus::BitwiseOperationLookupBus, ColumnsAir};
 
 pub struct DummyAir {
     bus: BitwiseOperationLookupBus,
@@ -51,7 +51,7 @@ pub mod cuda {
 
     use crate::{
         bitwise_op_lookup::BitwiseOperationLookupChipGPU,
-        cuda_abi::bitwise_op_lookup::dummy_tracegen, Chip,
+        cuda_abi::bitwise_op_lookup::dummy_tracegen, Chip, ColumnsAir,
     };
 
     const RECORD_WIDTH: usize = 3;

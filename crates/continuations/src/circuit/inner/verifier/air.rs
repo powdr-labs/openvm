@@ -3,7 +3,7 @@ use std::{array::from_fn, borrow::Borrow};
 use openvm_circuit::arch::POSEIDON2_WIDTH;
 use openvm_circuit_primitives::{
     utils::{and, assert_array_eq, not},
-    SubAir,
+    ColumnsAir, SubAir,
 };
 use openvm_recursion_circuit::{
     bus::{
@@ -14,7 +14,7 @@ use openvm_recursion_circuit::{
 };
 use openvm_recursion_circuit_derive::AlignedBorrow;
 use openvm_stark_backend::{
-    interaction::InteractionBuilder, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
+    interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use openvm_verify_stark_host::pvs::{
     VerifierBasePvs, VerifierDefPvs, CONSTRAINT_EVAL_AIR_ID, CONSTRAINT_EVAL_CACHED_INDEX,

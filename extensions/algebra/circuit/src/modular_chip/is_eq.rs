@@ -16,7 +16,8 @@ use openvm_circuit_primitives::{
     bigint::utils::big_uint_to_limbs,
     bitwise_op_lookup::{BitwiseOperationLookupBus, SharedBitwiseOperationLookupChip},
     is_equal_array::{IsEqArrayIo, IsEqArraySubAir},
-    AlignedBytesBorrow, StructReflection, StructReflectionHelper, SubAir, TraceSubRowGenerator,
+    AlignedBytesBorrow, ColumnsAir, StructReflection, StructReflectionHelper, SubAir,
+    TraceSubRowGenerator,
 };
 use openvm_circuit_primitives_derive::AlignedBorrow;
 use openvm_instructions::{
@@ -30,7 +31,7 @@ use openvm_stark_backend::{
     interaction::InteractionBuilder,
     p3_air::{AirBuilder, BaseAir},
     p3_field::{Field, PrimeCharacteristicRing, PrimeField32},
-    BaseAirWithPublicValues, ColumnsAir,
+    BaseAirWithPublicValues,
 };
 
 use crate::modular_chip::VmModularIsEqualExecutor;

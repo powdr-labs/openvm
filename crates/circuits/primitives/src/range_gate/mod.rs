@@ -16,11 +16,11 @@ use openvm_stark_backend::{
     p3_field::{Field, PrimeCharacteristicRing},
     p3_matrix::{dense::RowMajorMatrix, Matrix},
     p3_util::indices_arr,
-    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
+    BaseAirWithPublicValues, PartitionedBaseAir,
 };
 
 pub use crate::range::RangeCheckBus;
-use crate::{StructReflection, StructReflectionHelper};
+use crate::{ColumnsAir, StructReflection, StructReflectionHelper};
 
 #[cfg(test)]
 mod tests;

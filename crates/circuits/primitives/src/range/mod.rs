@@ -16,10 +16,10 @@ use openvm_stark_backend::{
     p3_air::{Air, BaseAir, PairBuilder},
     p3_field::Field,
     p3_matrix::{dense::RowMajorMatrix, Matrix},
-    BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
+    BaseAirWithPublicValues, PartitionedBaseAir,
 };
 
-use crate::{StructReflection, StructReflectionHelper};
+use crate::{ColumnsAir, StructReflection, StructReflectionHelper};
 
 mod bus;
 

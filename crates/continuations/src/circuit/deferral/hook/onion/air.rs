@@ -1,6 +1,6 @@
 use std::borrow::Borrow;
 
-use openvm_circuit_primitives::utils::not;
+use openvm_circuit_primitives::{utils::not, ColumnsAir};
 use openvm_recursion_circuit::{
     bus::{Poseidon2CompressBus, Poseidon2CompressMessage},
     prelude::DIGEST_SIZE,
@@ -8,7 +8,7 @@ use openvm_recursion_circuit::{
 };
 use openvm_recursion_circuit_derive::AlignedBorrow;
 use openvm_stark_backend::{
-    interaction::InteractionBuilder, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
+    interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use p3_air::{Air, AirBuilder, AirBuilderWithPublicValues, BaseAir};
 use p3_matrix::Matrix;

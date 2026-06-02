@@ -1,11 +1,11 @@
 use core::array;
 use std::{borrow::Borrow, sync::Arc};
 
-use openvm_circuit_primitives::{encoder::Encoder, utils::assert_array_eq, SubAir};
+use openvm_circuit_primitives::{encoder::Encoder, utils::assert_array_eq, ColumnsAir, SubAir};
 use openvm_recursion_circuit_derive::AlignedBorrow;
 use openvm_stark_backend::{
     air_builders::PartitionedAirBuilder, interaction::InteractionBuilder, BaseAirWithPublicValues,
-    ColumnsAir, PartitionedBaseAir,
+    PartitionedBaseAir,
 };
 use openvm_stark_sdk::config::baby_bear_poseidon2::D_EF;
 use p3_air::{Air, AirBuilder, AirBuilderWithPublicValues, BaseAir};

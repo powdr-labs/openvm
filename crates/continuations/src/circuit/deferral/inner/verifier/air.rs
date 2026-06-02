@@ -1,13 +1,16 @@
 use std::{array::from_fn, borrow::Borrow};
 
-use openvm_circuit_primitives::utils::{and, not};
+use openvm_circuit_primitives::{
+    utils::{and, not},
+    ColumnsAir,
+};
 use openvm_recursion_circuit::bus::{
     CachedCommitBus, CachedCommitBusMessage, PreHashBus, PreHashMessage, PublicValuesBus,
     PublicValuesBusMessage,
 };
 use openvm_recursion_circuit_derive::AlignedBorrow;
 use openvm_stark_backend::{
-    interaction::InteractionBuilder, BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
+    interaction::InteractionBuilder, BaseAirWithPublicValues, PartitionedBaseAir,
 };
 use openvm_verify_stark_host::pvs::{
     VerifierBasePvs, CONSTRAINT_EVAL_AIR_ID, CONSTRAINT_EVAL_CACHED_INDEX, VERIFIER_PVS_AIR_ID,
