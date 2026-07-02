@@ -10,7 +10,7 @@ use openvm_stark_backend::{
     StarkProtocolConfig, Val,
 };
 
-use crate::arch::{ExecutionBus, ExecutionState};
+use crate::arch::{ExecutionBus, ExecutionState, EXTRA_EXEC_REGS};
 
 pub mod air;
 #[cfg(feature = "cuda")]
@@ -34,8 +34,8 @@ impl<F: PrimeField32> ExecutionTester<F> {
 
     pub fn execute(
         &mut self,
-        initial_state: ExecutionState<u32>,
-        final_state: ExecutionState<u32>,
+        initial_state: ExecutionState<u32, EXTRA_EXEC_REGS>,
+        final_state: ExecutionState<u32, EXTRA_EXEC_REGS>,
     ) {
         self.records.push(DummyExecutionInteractionCols {
             count: F::NEG_ONE, // send

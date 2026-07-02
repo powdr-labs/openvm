@@ -4,6 +4,7 @@ use openvm_circuit::{
     arch::{
         get_record_from_slice, AdapterAirContext, AdapterTraceExecutor, AdapterTraceFiller,
         BasicAdapterInterface, ExecutionBridge, ExecutionState, MinimalInstruction, VmAdapterAir,
+        EXTRA_EXEC_REGS,
     },
     system::memory::{
         offline_checker::{
@@ -205,7 +206,7 @@ impl<F: PrimeField32, const LIMB_BITS: usize> AdapterTraceExecutor<F>
     #[inline(always)]
     fn start(
         pc: u32,
-        _fp: u32,
+        _extra_regs: [u32; EXTRA_EXEC_REGS],
         memory: &TracingMemory,
         record: &mut &mut Rv32BaseAluAdapterRecord,
     ) {

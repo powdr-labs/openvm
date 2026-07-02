@@ -402,7 +402,12 @@ where
     ) -> Result<(), ExecutionError> {
         let (mut adapter_record, mut core_record) = state.ctx.alloc(self.get_record_layout());
 
-        A::start(*state.pc, *state.fp, state.memory, &mut adapter_record);
+        A::start(
+            *state.pc,
+            *state.extra_regs,
+            state.memory,
+            &mut adapter_record,
+        );
 
         let data: DynArray<_> = self
             .adapter

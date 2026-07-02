@@ -13,7 +13,7 @@ use super::{create_memory_image, ExecutionError, Streams};
 #[cfg(feature = "metrics")]
 use crate::metrics::VmMetrics;
 use crate::{
-    arch::{execution_mode::ExecutionCtxTrait, SystemConfig, VmStateMut},
+    arch::{execution_mode::ExecutionCtxTrait, SystemConfig, VmStateMut, EXTRA_EXEC_REGS},
     system::memory::online::GuestMemory,
 };
 
@@ -23,9 +23,10 @@ use crate::{
 pub struct VmState<F, MEM = GuestMemory> {
     #[getset(get_copy = "pub", get_mut = "pub")]
     pc: u32,
-    /// Frame pointer, carried in the VM state alongside `pc` (no longer in a memory cell).
+    /// Extra ISA-specific registers carried in the VM state alongside `pc` (no longer in a memory
+    /// cell). Empty (`[u32; 0]`) unless the `fp` feature is on; see [`EXTRA_EXEC_REGS`].
     #[getset(get_copy = "pub", get_mut = "pub")]
-    fp: u32,
+    extra_regs: [u32; EXTRA_EXEC_REGS],
     pub memory: MEM,
     pub streams: Streams<F>,
     pub rng: StdRng,
@@ -42,8 +43,8 @@ impl<F, MEM> VmState<F, MEM> {
     }
 
     #[inline(always)]
-    pub fn set_fp(&mut self, fp: u32) {
-        self.fp = fp;
+    pub fn set_extra_regs(&mut self, extra_regs: [u32; EXTRA_EXEC_REGS]) {
+        self.extra_regs = extra_regs;
     }
 }
 
@@ -56,7 +57,7 @@ impl<F: Clone, MEM> VmState<F, MEM> {
     ) -> Self {
         Self {
             pc,
-            fp: 0,
+            extra_regs: [0; EXTRA_EXEC_REGS],
             memory,
             streams: streams.into(),
             rng: StdRng::seed_from_u64(seed),
@@ -69,7 +70,7 @@ impl<F: Clone, MEM> VmState<F, MEM> {
     pub fn into_mut<'a, RA>(&'a mut self, ctx: &'a mut RA) -> VmStateMut<'a, F, MEM, RA> {
         VmStateMut {
             pc: &mut self.pc,
-            fp: &mut self.fp,
+            extra_regs: &mut self.extra_regs,
             memory: &mut self.memory,
             streams: &mut self.streams,
             rng: &mut self.rng,
@@ -99,7 +100,7 @@ impl<F: Clone> VmState<F, GuestMemory> {
         streams: impl Into<Streams<F>>,
     ) {
         self.pc = pc_start;
-        self.fp = 0;
+        self.extra_regs = [0; EXTRA_EXEC_REGS];
         self.memory.memory.fill_zero();
         self.memory.memory.set_from_sparse(init_memory);
         self.streams = streams.into();

@@ -117,7 +117,7 @@ pub(crate) mod phantom {
     use eyre::bail;
     use halo2curves_axiom::ff;
     use openvm_circuit::{
-        arch::{PhantomSubExecutor, Streams},
+        arch::{PhantomSubExecutor, Streams, EXTRA_EXEC_REGS},
         system::memory::online::GuestMemory,
     };
     use openvm_ecc_guest::{algebra::field::FieldExtension, AffinePoint};
@@ -144,7 +144,7 @@ pub(crate) mod phantom {
             memory: &GuestMemory,
             streams: &mut Streams<F>,
             _: &mut StdRng,
-            _fp: u32,
+            _extra_regs: [u32; EXTRA_EXEC_REGS],
             _: PhantomDiscriminant,
             a: u32,
             b: u32,

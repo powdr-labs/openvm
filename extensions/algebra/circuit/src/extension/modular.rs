@@ -513,7 +513,7 @@ pub(crate) mod phantom {
     use eyre::bail;
     use num_bigint::BigUint;
     use openvm_circuit::{
-        arch::{PhantomSubExecutor, Streams},
+        arch::{PhantomSubExecutor, Streams, EXTRA_EXEC_REGS},
         system::memory::online::GuestMemory,
     };
     use openvm_instructions::{riscv::RV32_MEMORY_AS, PhantomDiscriminant};
@@ -543,7 +543,7 @@ pub(crate) mod phantom {
             memory: &GuestMemory,
             streams: &mut Streams<F>,
             _: &mut StdRng,
-            _fp: u32,
+            _extra_regs: [u32; EXTRA_EXEC_REGS],
             _: PhantomDiscriminant,
             a: u32,
             _: u32,
@@ -633,7 +633,7 @@ pub(crate) mod phantom {
             _: &GuestMemory,
             streams: &mut Streams<F>,
             _: &mut StdRng,
-            _fp: u32,
+            _extra_regs: [u32; EXTRA_EXEC_REGS],
             _: PhantomDiscriminant,
             _: u32,
             _: u32,

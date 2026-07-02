@@ -7,7 +7,7 @@ use openvm_circuit::{
     arch::{
         AdapterAirContext, AdapterTraceExecutor, BasicAdapterInterface, ImmInstruction,
         MinimalInstruction, VecHeapAdapterInterface, VecHeapBranchAdapterInterface, VmAdapterAir,
-        VmAdapterInterface,
+        VmAdapterInterface, EXTRA_EXEC_REGS,
     },
     system::memory::online::TracingMemory,
 };
@@ -280,8 +280,13 @@ where
         Self: 'a;
 
     #[inline(always)]
-    fn start(pc: u32, fp: u32, memory: &TracingMemory, record: &mut Self::RecordMut<'_>) {
-        A::start(pc, fp, memory, record);
+    fn start(
+        pc: u32,
+        extra_regs: [u32; EXTRA_EXEC_REGS],
+        memory: &TracingMemory,
+        record: &mut Self::RecordMut<'_>,
+    ) {
+        A::start(pc, extra_regs, memory, record);
     }
 
     #[inline(always)]
@@ -495,8 +500,13 @@ where
         Self: 'a;
 
     #[inline(always)]
-    fn start(pc: u32, fp: u32, memory: &TracingMemory, record: &mut Self::RecordMut<'_>) {
-        A::start(pc, fp, memory, record);
+    fn start(
+        pc: u32,
+        extra_regs: [u32; EXTRA_EXEC_REGS],
+        memory: &TracingMemory,
+        record: &mut Self::RecordMut<'_>,
+    ) {
+        A::start(pc, extra_regs, memory, record);
     }
 
     #[inline(always)]

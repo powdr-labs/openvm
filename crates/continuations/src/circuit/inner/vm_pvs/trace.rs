@@ -61,9 +61,9 @@ pub fn generate_proving_ctx(
             let &VmConnectorPvs {
                 initial_pc,
                 final_pc,
-                // fp continuity is not threaded through aggregation yet; ignore here.
-                initial_fp: _,
-                final_fp: _,
+                // extra-register continuity is not threaded through aggregation yet; ignore here.
+                initial_extra_regs: _,
+                final_extra_regs: _,
                 exit_code,
                 is_terminate,
             } = proof.public_values[CONNECTOR_AIR_ID].as_slice().borrow();

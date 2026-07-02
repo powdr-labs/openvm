@@ -4,6 +4,7 @@ use openvm_circuit::{
     arch::{
         get_record_from_slice, AdapterAirContext, AdapterTraceExecutor, AdapterTraceFiller,
         BasicAdapterInterface, ExecutionBridge, ExecutionState, MinimalInstruction, VmAdapterAir,
+        EXTRA_EXEC_REGS,
     },
     system::memory::{
         offline_checker::{
@@ -163,7 +164,12 @@ where
     type RecordMut<'a> = &'a mut Rv32MultAdapterRecord;
 
     #[inline(always)]
-    fn start(pc: u32, _fp: u32, memory: &TracingMemory, record: &mut Self::RecordMut<'_>) {
+    fn start(
+        pc: u32,
+        _extra_regs: [u32; EXTRA_EXEC_REGS],
+        memory: &TracingMemory,
+        record: &mut Self::RecordMut<'_>,
+    ) {
         record.from_pc = pc;
         record.from_timestamp = memory.timestamp;
     }

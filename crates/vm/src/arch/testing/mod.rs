@@ -19,7 +19,9 @@ use openvm_stark_backend::{interaction::BusIndex, p3_air::BaseAir};
 use p3_field::Field;
 pub use utils::*;
 
-use crate::arch::{Arena, ExecutionState, MatrixRecordArena, PreflightExecutor, Streams};
+use crate::arch::{
+    Arena, ExecutionState, MatrixRecordArena, PreflightExecutor, Streams, EXTRA_EXEC_REGS,
+};
 
 pub const EXECUTION_BUS: BusIndex = 0;
 pub const MEMORY_BUS: BusIndex = 1;
@@ -93,7 +95,7 @@ pub trait TestBuilder<F> {
     fn last_to_pc(&self) -> F;
     fn last_from_pc(&self) -> F;
 
-    fn execution_final_state(&self) -> ExecutionState<F>;
+    fn execution_final_state(&self) -> ExecutionState<F, EXTRA_EXEC_REGS>;
     fn streams_mut(&mut self) -> &mut Streams<F>;
 
     fn get_default_register(&mut self, increment: usize) -> usize;

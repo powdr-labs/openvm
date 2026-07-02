@@ -15,7 +15,7 @@ use openvm_stark_backend::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    arch::RowMajorMatrixArena,
+    arch::{RowMajorMatrixArena, EXTRA_EXEC_REGS},
     primitives::Chip,
     system::memory::{online::TracingMemory, MemoryAuxColsFactory, SharedMemoryHelper},
 };
@@ -182,7 +182,12 @@ pub trait AdapterTraceExecutor<F>: Clone {
     where
         Self: 'a;
 
-    fn start(pc: u32, fp: u32, memory: &TracingMemory, record: &mut Self::RecordMut<'_>);
+    fn start(
+        pc: u32,
+        extra_regs: [u32; EXTRA_EXEC_REGS],
+        memory: &TracingMemory,
+        record: &mut Self::RecordMut<'_>,
+    );
 
     fn read(
         &self,
