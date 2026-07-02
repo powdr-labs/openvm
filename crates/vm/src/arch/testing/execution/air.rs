@@ -10,15 +10,15 @@ use openvm_stark_backend::{
     BaseAirWithPublicValues, ColumnsAir, PartitionedBaseAir,
 };
 
-use crate::arch::{ExecutionBus, ExecutionState};
+use crate::arch::{ExecutionBus, ExecutionState, EXTRA_EXEC_REGS};
 
 #[derive(Clone, Copy, Debug, AlignedBorrow, StructReflection, derive_new::new)]
 #[repr(C)]
 pub struct DummyExecutionInteractionCols<T> {
     /// The receive frequency. To send, set to negative.
     pub count: T,
-    pub initial_state: ExecutionState<T>,
-    pub final_state: ExecutionState<T>,
+    pub initial_state: ExecutionState<T, EXTRA_EXEC_REGS>,
+    pub final_state: ExecutionState<T, EXTRA_EXEC_REGS>,
 }
 
 #[derive(Clone, Copy, Debug, derive_new::new)]

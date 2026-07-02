@@ -4,6 +4,7 @@ use openvm_circuit::{
     arch::{
         get_record_from_slice, AdapterAirContext, AdapterTraceExecutor, AdapterTraceFiller,
         BasicAdapterInterface, ExecutionBridge, ExecutionState, SignedImmInstruction, VmAdapterAir,
+        EXTRA_EXEC_REGS,
     },
     system::memory::{
         offline_checker::{
@@ -131,6 +132,7 @@ impl<AB: InteractionBuilder> VmAdapterAir<AB> for Rv32JalrAdapterAir {
                 local_cols.from_state,
                 ExecutionState {
                     pc: to_pc,
+                    extra_regs: local_cols.from_state.extra_regs.map(Into::into),
                     timestamp: timestamp + AB::F::from_usize(timestamp_delta),
                 },
             )
@@ -174,7 +176,12 @@ where
     type RecordMut<'a> = &'a mut Rv32JalrAdapterRecord;
 
     #[inline(always)]
-    fn start(pc: u32, memory: &TracingMemory, record: &mut Self::RecordMut<'_>) {
+    fn start(
+        pc: u32,
+        _extra_regs: [u32; EXTRA_EXEC_REGS],
+        memory: &TracingMemory,
+        record: &mut Self::RecordMut<'_>,
+    ) {
         record.from_pc = pc;
         record.from_timestamp = memory.timestamp;
     }

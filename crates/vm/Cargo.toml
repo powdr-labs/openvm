@@ -65,6 +65,9 @@ openvm-circuit = { workspace = true, features = ["test-utils"] }
 
 [features]
 default = ["parallel", "jemalloc"]
+# Carry one extra ISA-specific register (a frame pointer) in the execution state at runtime and on
+# the execution bus. Off by default (zero-cost: `EXTRA_EXEC_REGS == 0`). Crush enables this.
+fp = []
 parallel = [
     "openvm-stark-backend/parallel",
     "dashmap/rayon",

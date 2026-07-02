@@ -39,7 +39,7 @@ use crate::{
         },
         vm_poseidon2_config, Arena, ExecutionBridge, ExecutionBus, ExecutionState,
         MatrixRecordArena, MemoryConfig, PreflightExecutor, Streams, VmField, VmStateMut,
-        DEFAULT_BLOCK_SIZE,
+        DEFAULT_BLOCK_SIZE, EXTRA_EXEC_REGS,
     },
     system::{
         memory::{
@@ -88,15 +88,19 @@ where
         E: PreflightExecutor<F, RA>,
         RA: Arena,
     {
+        let initial_extra_regs = [0u32; EXTRA_EXEC_REGS];
         let initial_state = ExecutionState {
             pc: initial_pc,
             timestamp: self.memory.memory.timestamp(),
+            extra_regs: initial_extra_regs,
         };
         tracing::debug!("initial_timestamp={}", self.memory.memory.timestamp());
 
         let mut pc = initial_pc;
+        let mut extra_regs = initial_extra_regs;
         let state_mut = VmStateMut {
             pc: &mut pc,
+            extra_regs: &mut extra_regs,
             memory: &mut self.memory.memory,
             streams: &mut self.streams,
             rng: &mut self.rng,
@@ -110,6 +114,7 @@ where
         let final_state = ExecutionState {
             pc,
             timestamp: self.memory.memory.timestamp(),
+            extra_regs,
         };
 
         self.program.execute(instruction, &initial_state);
@@ -146,7 +151,7 @@ where
         self.execution.last_from_pc()
     }
 
-    fn execution_final_state(&self) -> ExecutionState<F> {
+    fn execution_final_state(&self) -> ExecutionState<F, EXTRA_EXEC_REGS> {
         self.execution.records.last().unwrap().final_state
     }
 

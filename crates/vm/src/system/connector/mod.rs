@@ -21,7 +21,7 @@ use openvm_stark_backend::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    arch::{instructions::SystemOpcode::TERMINATE, ExecutionBus, ExecutionState},
+    arch::{instructions::SystemOpcode::TERMINATE, ExecutionBus, ExecutionState, EXTRA_EXEC_REGS},
     primitives::Chip,
     system::program::ProgramBus,
 };
@@ -49,6 +49,11 @@ pub struct VmConnectorPvs<F> {
     pub initial_pc: F,
     /// The final PC of this segment.
     pub final_pc: F,
+    /// The initial extra ISA-specific registers of this segment (empty unless the `fp` feature is
+    /// on; see [`EXTRA_EXEC_REGS`]).
+    pub initial_extra_regs: [F; EXTRA_EXEC_REGS],
+    /// The final extra ISA-specific registers of this segment.
+    pub final_extra_regs: [F; EXTRA_EXEC_REGS],
     /// The exit code of the whole program. 0 means exited normally. This is only meaningful when
     /// `is_terminate` is 1.
     pub exit_code: F,
@@ -124,6 +129,7 @@ impl VmConnectorAir {
 #[repr(C)]
 pub struct ConnectorCols<T> {
     pub pc: T,
+    pub extra_regs: [T; EXTRA_EXEC_REGS],
     pub timestamp: T,
     pub is_terminate: T,
     pub exit_code: T,
@@ -138,6 +144,7 @@ impl<T: Copy> ConnectorCols<T> {
     fn map<F>(self, f: impl Fn(T) -> F) -> ConnectorCols<F> {
         ConnectorCols {
             pc: f(self.pc),
+            extra_regs: self.extra_regs.map(&f),
             timestamp: f(self.timestamp),
             is_terminate: f(self.is_terminate),
             exit_code: f(self.exit_code),
@@ -146,15 +153,18 @@ impl<T: Copy> ConnectorCols<T> {
         }
     }
 
-    fn flatten(&self) -> [T; 6] {
-        [
-            self.pc,
-            self.timestamp,
-            self.is_terminate,
-            self.exit_code,
-            self.timestamp_low_limb,
-            self.is_begin,
-        ]
+    /// Flattened in `repr(C)` field order, matching [`ConnectorCols`]'s memory layout so the trace
+    /// row can be borrowed back as a `ConnectorCols`.
+    fn flatten(&self) -> Vec<T> {
+        let mut cols = Vec::with_capacity(ConnectorCols::<T>::width());
+        cols.push(self.pc);
+        cols.extend(self.extra_regs.iter().copied());
+        cols.push(self.timestamp);
+        cols.push(self.is_terminate);
+        cols.push(self.exit_code);
+        cols.push(self.timestamp_low_limb);
+        cols.push(self.is_begin);
+        cols
     }
 }
 
@@ -172,12 +182,22 @@ impl<AB: InteractionBuilder + PairBuilder + AirBuilderWithPublicValues> Air<AB> 
         let &VmConnectorPvs {
             initial_pc,
             final_pc,
+            initial_extra_regs,
+            final_extra_regs,
             exit_code,
             is_terminate,
         } = builder.public_values().borrow();
 
         builder.when_transition().assert_eq(local.pc, initial_pc);
         builder.when_transition().assert_eq(next.pc, final_pc);
+        for i in 0..EXTRA_EXEC_REGS {
+            builder
+                .when_transition()
+                .assert_eq(local.extra_regs[i], initial_extra_regs[i]);
+            builder
+                .when_transition()
+                .assert_eq(next.extra_regs[i], final_extra_regs[i]);
+        }
         builder
             .when_transition()
             .when(next.is_terminate)
@@ -201,8 +221,16 @@ impl<AB: InteractionBuilder + PairBuilder + AirBuilderWithPublicValues> Air<AB> 
         self.execution_bus.execute(
             builder,
             local.is_begin, // 1 only if these are [0th, 1st] and not [1st, 0th]
-            ExecutionState::new(next.pc, next.timestamp),
-            ExecutionState::new(local.pc, local.timestamp),
+            ExecutionState {
+                pc: next.pc,
+                timestamp: next.timestamp,
+                extra_regs: next.extra_regs,
+            },
+            ExecutionState {
+                pc: local.pc,
+                timestamp: local.timestamp,
+                extra_regs: local.extra_regs,
+            },
         );
         self.program_bus.lookup_instruction(
             builder,
@@ -251,9 +279,10 @@ impl<F> VmConnectorChip<F> {
         }
     }
 
-    pub fn begin(&mut self, state: ExecutionState<u32>) {
+    pub fn begin(&mut self, state: ExecutionState<u32, EXTRA_EXEC_REGS>) {
         self.boundary_states[0] = Some(ConnectorCols {
             pc: state.pc,
+            extra_regs: state.extra_regs,
             timestamp: state.timestamp,
             is_terminate: 0,
             exit_code: 0,
@@ -262,9 +291,10 @@ impl<F> VmConnectorChip<F> {
         });
     }
 
-    pub fn end(&mut self, state: ExecutionState<u32>, exit_code: Option<u32>) {
+    pub fn end(&mut self, state: ExecutionState<u32, EXTRA_EXEC_REGS>, exit_code: Option<u32>) {
         self.boundary_states[1] = Some(ConnectorCols {
             pc: state.pc,
+            extra_regs: state.extra_regs,
             timestamp: state.timestamp,
             is_terminate: exit_code.is_some() as u32,
             exit_code: exit_code.unwrap_or(DEFAULT_SUSPEND_EXIT_CODE),
@@ -312,6 +342,8 @@ where
         *public_values.as_mut_slice().borrow_mut() = VmConnectorPvs {
             initial_pc: initial_state.pc,
             final_pc: final_state.pc,
+            initial_extra_regs: initial_state.extra_regs,
+            final_extra_regs: final_state.extra_regs,
             exit_code: final_state.exit_code,
             is_terminate: final_state.is_terminate,
         };

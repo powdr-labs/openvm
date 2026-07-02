@@ -9,6 +9,7 @@ use openvm_circuit::{
     arch::{
         get_record_from_slice, AdapterAirContext, AdapterTraceExecutor, AdapterTraceFiller,
         ExecutionBridge, ExecutionState, VecHeapBranchAdapterInterface, VmAdapterAir,
+        EXTRA_EXEC_REGS,
     },
     system::memory::{
         offline_checker::{MemoryBridge, MemoryReadAuxCols, MemoryReadAuxRecord},
@@ -252,7 +253,12 @@ impl<
         &'a mut Rv32VecHeapBranchAdapterRecord<NUM_READS, BLOCKS_PER_READ, READ_SIZE>;
 
     #[inline(always)]
-    fn start(pc: u32, memory: &TracingMemory, record: &mut Self::RecordMut<'_>) {
+    fn start(
+        pc: u32,
+        _extra_regs: [u32; EXTRA_EXEC_REGS],
+        memory: &TracingMemory,
+        record: &mut Self::RecordMut<'_>,
+    ) {
         record.from_pc = pc;
         record.from_timestamp = memory.timestamp;
     }

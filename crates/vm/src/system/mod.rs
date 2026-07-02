@@ -28,7 +28,7 @@ use crate::{
         ChipInventoryError, ExecutionBridge, ExecutionBus, ExecutionState, ExecutorInventory,
         ExecutorInventoryError, MatrixRecordArena, PhantomSubExecutor, RowMajorMatrixArena,
         SystemConfig, VmBuilder, VmChipComplex, VmCircuitConfig, VmExecutionConfig, VmField,
-        BOUNDARY_AIR_ID, CONNECTOR_AIR_ID, DEFAULT_BLOCK_SIZE, PROGRAM_AIR_ID,
+        BOUNDARY_AIR_ID, CONNECTOR_AIR_ID, DEFAULT_BLOCK_SIZE, EXTRA_EXEC_REGS, PROGRAM_AIR_ID,
     },
     system::{
         connector::VmConnectorChip,
@@ -101,8 +101,8 @@ pub trait SystemWithFixedTraceHeights {
 }
 
 pub struct SystemRecords<F> {
-    pub from_state: ExecutionState<u32>,
-    pub to_state: ExecutionState<u32>,
+    pub from_state: ExecutionState<u32, EXTRA_EXEC_REGS>,
+    pub to_state: ExecutionState<u32, EXTRA_EXEC_REGS>,
     pub exit_code: Option<u32>,
     /// `i` -> frequency of instruction in `i`th row of trace matrix. This requires filtering
     /// `program.instructions_and_debug_infos` to remove gaps.

@@ -730,7 +730,7 @@ where
 mod phantom {
     use eyre::bail;
     use openvm_circuit::{
-        arch::{PhantomSubExecutor, Streams},
+        arch::{PhantomSubExecutor, Streams, EXTRA_EXEC_REGS},
         system::memory::online::GuestMemory,
     };
     use openvm_instructions::PhantomDiscriminant;
@@ -749,6 +749,7 @@ mod phantom {
             _: &GuestMemory,
             streams: &mut Streams<F>,
             _: &mut StdRng,
+            _extra_regs: [u32; EXTRA_EXEC_REGS],
             _: PhantomDiscriminant,
             _: u32,
             _: u32,
@@ -781,6 +782,7 @@ mod phantom {
             memory: &GuestMemory,
             streams: &mut Streams<F>,
             rng: &mut StdRng,
+            _extra_regs: [u32; EXTRA_EXEC_REGS],
             _: PhantomDiscriminant,
             a: u32,
             _: u32,
@@ -806,6 +808,7 @@ mod phantom {
             memory: &GuestMemory,
             _: &mut Streams<F>,
             _: &mut StdRng,
+            _extra_regs: [u32; EXTRA_EXEC_REGS],
             _: PhantomDiscriminant,
             a: u32,
             b: u32,

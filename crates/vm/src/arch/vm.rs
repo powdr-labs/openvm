@@ -47,7 +47,7 @@ use super::{
     AirInventoryError, ChipInventoryError, ExecutionError, ExecutionState, Executor,
     ExecutorInventory, ExecutorInventoryError, MemoryConfig, MeteredExecutor, PreflightExecutor,
     StaticProgramError, SystemConfig, VmBuilder, VmChipComplex, VmCircuitConfig, VmExecState,
-    VmExecutionConfig, VmState, CONNECTOR_AIR_ID, MERKLE_AIR_ID, PROGRAM_AIR_ID,
+    VmExecutionConfig, VmState, CONNECTOR_AIR_ID, EXTRA_EXEC_REGS, MERKLE_AIR_ID, PROGRAM_AIR_ID,
     PROGRAM_CACHED_TRACE_INDEX,
 };
 use crate::{
@@ -329,6 +329,12 @@ pub enum VmVerificationError<SC: StarkProtocolConfig> {
 
     #[error("initial pc mismatch (initial: {initial}, prev_final: {prev_final})")]
     InitialPcMismatch { initial: u32, prev_final: u32 },
+
+    #[error("initial extra registers mismatch (initial: {initial:?}, prev_final: {prev_final:?})")]
+    InitialExtraRegsMismatch {
+        initial: Vec<u32>,
+        prev_final: Vec<u32>,
+    },
 
     #[error("initial memory root mismatch")]
     InitialMemoryRootMismatch,
@@ -614,10 +620,12 @@ where
         let ctx = PreflightCtx::new_with_capacity(&capacities, num_insns);
 
         let pc = state.pc();
+        let extra_regs = state.extra_regs();
         let memory = TracingMemory::from_image(state.memory);
-        let from_state = ExecutionState::new(pc, memory.timestamp());
+        let from_state = ExecutionState::from_parts(pc, memory.timestamp(), extra_regs);
         let vm_state = VmState::new(
             pc,
+            extra_regs,
             memory,
             state.streams,
             state.rng,
@@ -633,8 +641,9 @@ where
         crate::metrics::end_segment_metrics(&mut exec_state);
 
         let pc = exec_state.vm_state.pc();
+        let extra_regs = exec_state.vm_state.extra_regs();
         let memory = exec_state.vm_state.memory;
-        let to_state = ExecutionState::new(pc, memory.timestamp());
+        let to_state = ExecutionState::from_parts(pc, memory.timestamp(), extra_regs);
         let exit_code = exec_state.exit_code?;
         let system_records = SystemRecords {
             from_state,
@@ -646,6 +655,7 @@ where
         let record_arenas = exec_state.ctx.arenas;
         let to_state = VmState::new(
             pc,
+            extra_regs,
             memory.data,
             exec_state.vm_state.streams,
             exec_state.vm_state.rng,
@@ -1165,6 +1175,7 @@ where
     }
     let mut prev_final_memory_root = None;
     let mut prev_final_pc = None;
+    let mut prev_final_extra_regs: Option<[Val<E::SC>; EXTRA_EXEC_REGS]> = None;
     let mut start_pc = None;
     let mut initial_memory_root = None;
     let mut program_commit = None;
@@ -1210,10 +1221,24 @@ where
                             prev_final: prev_final_pc.unwrap().as_canonical_u32(),
                         });
                     }
+                    // Check initial extra registers match the previous final ones.
+                    if pvs.initial_extra_regs != prev_final_extra_regs.unwrap() {
+                        return Err(VmVerificationError::InitialExtraRegsMismatch {
+                            initial: pvs
+                                .initial_extra_regs
+                                .map(|x| x.as_canonical_u32())
+                                .to_vec(),
+                            prev_final: prev_final_extra_regs
+                                .unwrap()
+                                .map(|x| x.as_canonical_u32())
+                                .to_vec(),
+                        });
+                    }
                 } else {
                     start_pc = Some(pvs.initial_pc);
                 }
                 prev_final_pc = Some(pvs.final_pc);
+                prev_final_extra_regs = Some(pvs.final_extra_regs);
 
                 let expected_is_terminate = i == proofs.len() - 1;
                 if pvs.is_terminate != PrimeCharacteristicRing::from_bool(expected_is_terminate) {

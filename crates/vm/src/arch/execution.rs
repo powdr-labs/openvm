@@ -8,7 +8,6 @@ use openvm_stark_backend::{
     p3_field::PrimeCharacteristicRing,
 };
 use rand::rngs::StdRng;
-use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use super::{execution_mode::ExecutionCtxTrait, Streams, VmExecState};
@@ -25,6 +24,23 @@ use crate::{
         program::ProgramBus,
     },
 };
+
+/// Number of extra ISA-specific registers carried in the *runtime* VM execution state alongside
+/// `pc` (e.g. a frame pointer). This governs the array widths of the runtime state
+/// ([`VmState`](super::VmState)/[`VmStateMut`]) and of the system connector's execution-bus fields.
+///
+/// It is `0` by default, so upstream ISAs pay nothing — `[u32; 0]` is a zero-sized array, the
+/// connector gets no extra columns, and everything is byte-identical to plain `pc`/`timestamp`
+/// state. Enabling the `fp` feature makes it `1`; crush turns that feature on and uses the single
+/// slot (`extra_regs[0]`) as its frame pointer.
+///
+/// Note this is distinct from the per-AIR const-generic [`ExecutionState`] `EXTRA_LEN`: individual
+/// instruction chips choose their own AIR width (RISC-V chips stay at `0`), whereas this constant
+/// pins the runtime/connector width for the whole build.
+#[cfg(not(feature = "fp"))]
+pub const EXTRA_EXEC_REGS: usize = 0;
+#[cfg(feature = "fp")]
+pub const EXTRA_EXEC_REGS: usize = 1;
 
 #[derive(Error, Debug)]
 pub enum ExecutionError {
@@ -288,6 +304,9 @@ pub trait PreflightExecutor<F, RA = MatrixRecordArena<F>> {
 #[derive(derive_new::new)]
 pub struct VmStateMut<'a, F, MEM, RA> {
     pub pc: &'a mut u32,
+    /// Extra ISA-specific registers carried in the VM state alongside `pc` (no longer stored in
+    /// memory). Empty (`[u32; 0]`) unless the `fp` feature is on; see [`EXTRA_EXEC_REGS`].
+    pub extra_regs: &'a mut [u32; EXTRA_EXEC_REGS],
     pub memory: &'a mut MEM,
     pub streams: &'a mut Streams<F>,
     pub rng: &'a mut StdRng,
@@ -306,12 +325,28 @@ pub struct E2PreCompute<DATA> {
 }
 
 #[repr(C)]
-#[derive(
-    Clone, Copy, Debug, PartialEq, Default, AlignedBorrow, StructReflection, Serialize, Deserialize,
-)]
-pub struct ExecutionState<T> {
+#[derive(Clone, Copy, Debug, PartialEq, AlignedBorrow, StructReflection)]
+// Note: `Serialize`/`Deserialize`/`Default` are not derived because `serde` and `std` only provide
+// those impls for concrete-length arrays, not a generic `const EXTRA_LEN`. `Default` is provided
+// manually below; no code (de)serializes an `ExecutionState` directly.
+pub struct ExecutionState<T, const EXTRA_LEN: usize = 0> {
     pub pc: T,
     pub timestamp: T,
+    /// Extra ISA-specific state registers carried on the execution bus alongside `pc`/`timestamp`.
+    /// `EXTRA_LEN == 0` (the default) is a zero-sized array: ISAs that don't use it pay nothing —
+    /// no columns, no bus fields, no constraints, byte-identical to upstream. Crush sets
+    /// `EXTRA_LEN == 1` and uses `extra_regs[0]` as the frame pointer.
+    pub extra_regs: [T; EXTRA_LEN],
+}
+
+impl<T: Default, const EXTRA_LEN: usize> Default for ExecutionState<T, EXTRA_LEN> {
+    fn default() -> Self {
+        Self {
+            pc: T::default(),
+            timestamp: T::default(),
+            extra_regs: std::array::from_fn(|_| T::default()),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -338,13 +373,13 @@ pub struct ExecutionBridge {
     program_bus: ProgramBus,
 }
 
-pub struct ExecutionBridgeInteractor<AB: InteractionBuilder> {
+pub struct ExecutionBridgeInteractor<AB: InteractionBuilder, const EXTRA_LEN: usize = 0> {
     execution_bus: ExecutionBus,
     program_bus: ProgramBus,
     opcode: AB::Expr,
     operands: Vec<AB::Expr>,
-    from_state: ExecutionState<AB::Expr>,
-    to_state: ExecutionState<AB::Expr>,
+    from_state: ExecutionState<AB::Expr, EXTRA_LEN>,
+    to_state: ExecutionState<AB::Expr, EXTRA_LEN>,
 }
 
 pub enum PcIncOrSet<T> {
@@ -352,71 +387,96 @@ pub enum PcIncOrSet<T> {
     Set(T),
 }
 
-impl<T> ExecutionState<T> {
+impl<T> ExecutionState<T, 0> {
+    /// Construct the default (no extra registers) execution state. Kept 2-arg so existing
+    /// call sites (`ExecutionState::new(pc, timestamp)`) are unchanged.
     pub fn new(pc: impl Into<T>, timestamp: impl Into<T>) -> Self {
         Self {
             pc: pc.into(),
             timestamp: timestamp.into(),
+            extra_regs: [],
+        }
+    }
+}
+
+impl<T, const EXTRA_LEN: usize> ExecutionState<T, EXTRA_LEN> {
+    pub fn from_parts(
+        pc: impl Into<T>,
+        timestamp: impl Into<T>,
+        extra_regs: [T; EXTRA_LEN],
+    ) -> Self {
+        Self {
+            pc: pc.into(),
+            timestamp: timestamp.into(),
+            extra_regs,
         }
     }
 
     #[allow(clippy::should_implement_trait)]
     pub fn from_iter<I: Iterator<Item = T>>(iter: &mut I) -> Self {
         let mut next = || iter.next().unwrap();
+        let pc = next();
+        let timestamp = next();
+        let extra_regs = std::array::from_fn(|_| next());
         Self {
-            pc: next(),
-            timestamp: next(),
+            pc,
+            timestamp,
+            extra_regs,
         }
     }
 
-    pub fn flatten(self) -> [T; 2] {
-        [self.pc, self.timestamp]
+    /// Field order on the execution bus: `[pc, timestamp, extra_regs..]`.
+    pub fn flatten(self) -> impl Iterator<Item = T> {
+        [self.pc, self.timestamp].into_iter().chain(self.extra_regs)
     }
 
     pub fn get_width() -> usize {
-        2
+        2 + EXTRA_LEN
     }
 
-    pub fn map<U: Clone, F: Fn(T) -> U>(self, function: F) -> ExecutionState<U> {
-        ExecutionState::from_iter(&mut self.flatten().map(function).into_iter())
+    pub fn map<U, F: Fn(T) -> U>(self, function: F) -> ExecutionState<U, EXTRA_LEN> {
+        ExecutionState {
+            pc: function(self.pc),
+            timestamp: function(self.timestamp),
+            extra_regs: self.extra_regs.map(function),
+        }
     }
 }
 
 impl ExecutionBus {
     /// Caller must constrain that `enabled` is boolean.
-    pub fn execute_and_increment_pc<AB: InteractionBuilder>(
+    pub fn execute_and_increment_pc<AB: InteractionBuilder, const EXTRA_LEN: usize>(
         &self,
         builder: &mut AB,
         enabled: impl Into<AB::Expr>,
-        prev_state: ExecutionState<AB::Expr>,
+        prev_state: ExecutionState<AB::Expr, EXTRA_LEN>,
         timestamp_change: impl Into<AB::Expr>,
     ) {
         let next_state = ExecutionState {
             pc: prev_state.pc.clone() + AB::F::ONE,
             timestamp: prev_state.timestamp.clone() + timestamp_change.into(),
+            // extra registers are unchanged by the default pc increment.
+            extra_regs: prev_state.extra_regs.clone(),
         };
         self.execute(builder, enabled, prev_state, next_state);
     }
 
     /// Caller must constrain that `enabled` is boolean.
-    pub fn execute<AB: InteractionBuilder>(
+    pub fn execute<AB: InteractionBuilder, const EXTRA_LEN: usize>(
         &self,
         builder: &mut AB,
         enabled: impl Into<AB::Expr>,
-        prev_state: ExecutionState<impl Into<AB::Expr>>,
-        next_state: ExecutionState<impl Into<AB::Expr>>,
+        prev_state: ExecutionState<impl Into<AB::Expr>, EXTRA_LEN>,
+        next_state: ExecutionState<impl Into<AB::Expr>, EXTRA_LEN>,
     ) {
         let enabled = enabled.into();
         self.inner.receive(
             builder,
-            [prev_state.pc.into(), prev_state.timestamp.into()],
+            prev_state.flatten().map(Into::into),
             enabled.clone(),
         );
-        self.inner.send(
-            builder,
-            [next_state.pc.into(), next_state.timestamp.into()],
-            enabled,
-        );
+        self.inner
+            .send(builder, next_state.flatten().map(Into::into), enabled);
     }
 }
 
@@ -430,45 +490,51 @@ impl ExecutionBridge {
 
     /// If `to_pc` is `Some`, then `pc_inc` is ignored and the `to_state` uses `to_pc`. Otherwise
     /// `to_pc = from_pc + pc_inc`.
-    pub fn execute_and_increment_or_set_pc<AB: InteractionBuilder>(
+    pub fn execute_and_increment_or_set_pc<AB: InteractionBuilder, const EXTRA_LEN: usize>(
         &self,
         opcode: impl Into<AB::Expr>,
         operands: impl IntoIterator<Item = impl Into<AB::Expr>>,
-        from_state: ExecutionState<impl Into<AB::Expr> + Clone>,
+        from_state: ExecutionState<impl Into<AB::Expr> + Clone, EXTRA_LEN>,
         timestamp_change: impl Into<AB::Expr>,
         pc_kind: impl Into<PcIncOrSet<AB::Expr>>,
-    ) -> ExecutionBridgeInteractor<AB> {
+    ) -> ExecutionBridgeInteractor<AB, EXTRA_LEN> {
+        let from_state = from_state.map(Into::into);
         let to_state = ExecutionState {
             pc: match pc_kind.into() {
                 PcIncOrSet::Set(to_pc) => to_pc,
-                PcIncOrSet::Inc(pc_inc) => from_state.pc.clone().into() + pc_inc,
+                PcIncOrSet::Inc(pc_inc) => from_state.pc.clone() + pc_inc,
             },
-            timestamp: from_state.timestamp.clone().into() + timestamp_change.into(),
+            timestamp: from_state.timestamp.clone() + timestamp_change.into(),
+            // extra registers are kept by default; instructions that change them (e.g. CALL
+            // updating fp) use `execute` with an explicit `to_state`.
+            extra_regs: from_state.extra_regs.clone(),
         };
         self.execute(opcode, operands, from_state, to_state)
     }
 
-    pub fn execute_and_increment_pc<AB: InteractionBuilder>(
+    pub fn execute_and_increment_pc<AB: InteractionBuilder, const EXTRA_LEN: usize>(
         &self,
         opcode: impl Into<AB::Expr>,
         operands: impl IntoIterator<Item = impl Into<AB::Expr>>,
-        from_state: ExecutionState<impl Into<AB::Expr> + Clone>,
+        from_state: ExecutionState<impl Into<AB::Expr> + Clone, EXTRA_LEN>,
         timestamp_change: impl Into<AB::Expr>,
-    ) -> ExecutionBridgeInteractor<AB> {
+    ) -> ExecutionBridgeInteractor<AB, EXTRA_LEN> {
+        let from_state = from_state.map(Into::into);
         let to_state = ExecutionState {
-            pc: from_state.pc.clone().into() + AB::Expr::from_u32(DEFAULT_PC_STEP),
-            timestamp: from_state.timestamp.clone().into() + timestamp_change.into(),
+            pc: from_state.pc.clone() + AB::Expr::from_u32(DEFAULT_PC_STEP),
+            timestamp: from_state.timestamp.clone() + timestamp_change.into(),
+            extra_regs: from_state.extra_regs.clone(),
         };
         self.execute(opcode, operands, from_state, to_state)
     }
 
-    pub fn execute<AB: InteractionBuilder>(
+    pub fn execute<AB: InteractionBuilder, const EXTRA_LEN: usize>(
         &self,
         opcode: impl Into<AB::Expr>,
         operands: impl IntoIterator<Item = impl Into<AB::Expr>>,
-        from_state: ExecutionState<impl Into<AB::Expr> + Clone>,
-        to_state: ExecutionState<impl Into<AB::Expr>>,
-    ) -> ExecutionBridgeInteractor<AB> {
+        from_state: ExecutionState<impl Into<AB::Expr>, EXTRA_LEN>,
+        to_state: ExecutionState<impl Into<AB::Expr>, EXTRA_LEN>,
+    ) -> ExecutionBridgeInteractor<AB, EXTRA_LEN> {
         ExecutionBridgeInteractor {
             execution_bus: self.execution_bus,
             program_bus: self.program_bus,
@@ -480,7 +546,7 @@ impl ExecutionBridge {
     }
 }
 
-impl<AB: InteractionBuilder> ExecutionBridgeInteractor<AB> {
+impl<AB: InteractionBuilder, const EXTRA_LEN: usize> ExecutionBridgeInteractor<AB, EXTRA_LEN> {
     /// Caller must constrain that `enabled` is boolean.
     pub fn eval(self, builder: &mut AB, enabled: impl Into<AB::Expr>) {
         let enabled = enabled.into();
@@ -523,6 +589,7 @@ pub trait PhantomSubExecutor<F>: Send + Sync {
         memory: &GuestMemory,
         streams: &mut Streams<F>,
         rng: &mut StdRng,
+        extra_regs: [u32; EXTRA_EXEC_REGS],
         discriminant: PhantomDiscriminant,
         a: u32,
         b: u32,

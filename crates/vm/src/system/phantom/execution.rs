@@ -21,7 +21,7 @@ use crate::{
         create_handler,
         execution_mode::{ExecutionCtxTrait, MeteredExecutionCtxTrait},
         E2PreCompute, ExecutionError, InterpreterExecutor, InterpreterMeteredExecutor,
-        PhantomSubExecutor, StaticProgramError, Streams, VmExecState,
+        PhantomSubExecutor, StaticProgramError, Streams, VmExecState, EXTRA_EXEC_REGS,
     },
     system::{memory::online::GuestMemory, phantom::PhantomExecutor},
 };
@@ -86,6 +86,7 @@ impl<F> AotExecutor<F> for PhantomExecutor<F> where F: PrimeField32 {}
 
 pub(super) struct PhantomStateMut<'a, F> {
     pub(super) pc: u32,
+    pub(super) extra_regs: [u32; EXTRA_EXEC_REGS],
     pub(super) memory: &'a mut GuestMemory,
     pub(super) streams: &'a mut Streams<F>,
     pub(super) rng: &'a mut StdRng,
@@ -183,6 +184,7 @@ fn execute_impl<F>(
             state.memory,
             state.streams,
             state.rng,
+            state.extra_regs,
             discriminant,
             a,
             b,
@@ -204,9 +206,11 @@ unsafe fn execute_e12_impl<F: PrimeField32, CTX: ExecutionCtxTrait>(
 ) -> Result<(), ExecutionError> {
     let sub_executor = &*pre_compute.sub_executor;
     let pc = exec_state.pc();
+    let extra_regs = exec_state.extra_regs();
     execute_impl(
         PhantomStateMut {
             pc,
+            extra_regs,
             memory: &mut exec_state.vm_state.memory,
             streams: &mut exec_state.vm_state.streams,
             rng: &mut exec_state.vm_state.rng,

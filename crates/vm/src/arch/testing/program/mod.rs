@@ -11,7 +11,7 @@ use openvm_stark_backend::{
 };
 
 use crate::{
-    arch::ExecutionState,
+    arch::{ExecutionState, EXTRA_EXEC_REGS},
     system::program::{ProgramBus, ProgramExecutionCols},
 };
 
@@ -35,7 +35,11 @@ impl<F: PrimeField32> ProgramTester<F> {
         }
     }
 
-    pub fn execute(&mut self, instruction: &Instruction<F>, initial_state: &ExecutionState<u32>) {
+    pub fn execute(
+        &mut self,
+        instruction: &Instruction<F>,
+        initial_state: &ExecutionState<u32, EXTRA_EXEC_REGS>,
+    ) {
         self.records.push(ProgramExecutionCols {
             pc: F::from_u32(initial_state.pc),
             opcode: instruction.opcode.to_field(),
