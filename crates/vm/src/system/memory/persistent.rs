@@ -269,7 +269,7 @@ impl<const CHUNK: usize, F: PrimeField32> PersistentBoundaryChip<F, CHUNK> {
     /// each). This function rechunks into CHUNK-sized (8 bytes) groups with per-block
     /// timestamps. Untouched blocks within a touched chunk get values from initial_memory and
     /// timestamp 0.
-    #[instrument(name = "boundary_finalize", level = "debug", skip_all)]
+    #[instrument(name = "boundary_finalize", level = "info", skip_all)]
     pub(crate) fn finalize<H>(
         &mut self,
         initial_memory: &MemoryImage,
@@ -311,6 +311,8 @@ impl<const CHUNK: usize, F: PrimeField32> PersistentBoundaryChip<F, CHUNK> {
                 }
             })
             .collect();
+        #[cfg(feature = "metrics")]
+        metrics::gauge!("boundary_touched_chunks").set(final_touched_labels.len() as f64);
         for l in &final_touched_labels {
             hasher.receive(&l.init_values);
             hasher.receive(&l.final_values);

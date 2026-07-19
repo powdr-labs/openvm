@@ -1,5 +1,6 @@
 //! [MemoryController] can be considered as the Memory Chip Complex for the CPU Backend.
 use std::{collections::BTreeMap, fmt::Debug, marker::PhantomData, sync::Arc};
+use tracing::info_span;
 
 use getset::{Getters, MutGetters};
 use openvm_circuit_primitives::{
@@ -184,32 +185,39 @@ impl<F: VmField> MemoryController<F> {
         } = &mut self.interface_chip;
 
         let hasher = self.hasher_chip.as_ref().unwrap();
-        boundary_chip.finalize(initial_memory, &final_memory, hasher.as_ref());
+        info_span!("boundary_finalize").in_scope(|| {
+            boundary_chip.finalize(initial_memory, &final_memory, hasher.as_ref());
+        });
 
         // Rechunk DEFAULT_BLOCK_SIZE blocks into CHUNK-sized blocks for merkle_chip
         // Note: Equipartition key is (addr_space, ptr) where ptr is the starting pointer
-        let final_memory_values: Equipartition<F, CHUNK> =
-            group_touched_memory_by_chunk(&final_memory)
-                .into_iter()
-                .map(|((addr_space, chunk_label), blocks)| {
-                    let chunk_ptr = chunk_label * CHUNK as u32;
-                    let mut values = std::array::from_fn(|i| unsafe {
-                        initial_memory.get_f::<F>(addr_space, chunk_ptr + i as u32)
-                    });
-                    for (block_idx, _, block_values) in blocks {
-                        for (i, val) in block_values.into_iter().enumerate() {
-                            values[block_idx * DEFAULT_BLOCK_SIZE + i] = val;
+        let final_memory_values: Equipartition<F, CHUNK> = info_span!("rechunk_memory")
+            .in_scope(|| {
+                group_touched_memory_by_chunk(&final_memory)
+                    .into_iter()
+                    .map(|((addr_space, chunk_label), blocks)| {
+                        let chunk_ptr = chunk_label * CHUNK as u32;
+                        let mut values = std::array::from_fn(|i| unsafe {
+                            initial_memory.get_f::<F>(addr_space, chunk_ptr + i as u32)
+                        });
+                        for (block_idx, _, block_values) in blocks {
+                            for (i, val) in block_values.into_iter().enumerate() {
+                                values[block_idx * DEFAULT_BLOCK_SIZE + i] = val;
+                            }
                         }
-                    }
-                    ((addr_space, chunk_ptr), values)
-                })
-                .collect();
+                        ((addr_space, chunk_ptr), values)
+                    })
+                    .collect()
+            });
         merkle_chip.finalize(initial_memory, &final_memory_values, hasher.as_ref());
 
-        vec![
-            boundary_chip.generate_proving_ctx(()),
-            merkle_chip.generate_proving_ctx(),
-        ]
+        let boundary_ctx = info_span!("boundary_tracegen").in_scope(|| {
+            boundary_chip.generate_proving_ctx(())
+        });
+        let merkle_ctx = info_span!("merkle_tracegen").in_scope(|| {
+            merkle_chip.generate_proving_ctx()
+        });
+        vec![boundary_ctx, merkle_ctx]
     }
 
     /// Return the number of AIRs in the memory controller.

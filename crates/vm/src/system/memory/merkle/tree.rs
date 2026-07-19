@@ -42,6 +42,11 @@ impl<F: PrimeField32, const CHUNK: usize> MerkleTree<F, CHUNK> {
         self.get_node(1)
     }
 
+    /// Returns the number of non-default nodes stored in the tree.
+    pub fn num_nodes(&self) -> usize {
+        self.nodes.len()
+    }
+
     pub fn get_node(&self, index: u64) -> [F; CHUNK] {
         self.nodes
             .get(&index)
