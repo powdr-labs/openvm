@@ -490,6 +490,31 @@ impl TracingMemory {
         self.timestamp
     }
 
+    /// Returns the last-access timestamp of the `DEFAULT_BLOCK_SIZE`-cell slot
+    /// containing `(address_space, pointer)`. A value of `0` (`INITIAL_TIMESTAMP`)
+    /// means the slot has never been accessed.
+    ///
+    /// Together with [`Self::set_access_timestamp`], this allows an executor to
+    /// checkpoint and roll back the touched-memory state of specific slots,
+    /// eliding their accesses from the offline memory argument.
+    pub fn access_timestamp(&self, address_space: u32, pointer: u32) -> u32 {
+        self.meta[address_space as usize].get(pointer as usize / DEFAULT_BLOCK_SIZE)
+    }
+
+    /// Sets the last-access timestamp of the `DEFAULT_BLOCK_SIZE`-cell slot
+    /// containing `(address_space, pointer)`. Passing `0` marks the slot as never
+    /// accessed, removing it from the touched memory produced by
+    /// [`Self::finalize`].
+    ///
+    /// This is intended for rolling a slot back to a value previously returned by
+    /// [`Self::access_timestamp`] (the slot's data must be restored separately via
+    /// [`Self::data`]). It is only sound to elide a slot this way if no chip emits
+    /// memory-bus interactions for the elided accesses; the memory system does not
+    /// check this.
+    pub fn set_access_timestamp(&mut self, address_space: u32, pointer: u32, timestamp: u32) {
+        self.meta[address_space as usize].set(pointer as usize / DEFAULT_BLOCK_SIZE, timestamp);
+    }
+
     /// Finalize the boundary and merkle chips.
     #[instrument(name = "memory_finalize", skip_all)]
     pub fn finalize<F: Field>(&mut self) -> TouchedMemory<F> {
